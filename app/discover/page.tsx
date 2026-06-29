@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock3, Compass, MessageSquareText } from "lucide-react";
+import { Clock3, Compass, LogIn, MessageSquareText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -143,6 +143,17 @@ export default async function DiscoverPage() {
                             <Link href={`/p/${request.owner.handle}/${request.project.slug}`}>
                               <MessageSquareText className="size-4" aria-hidden="true" />
                               Open task
+                            </Link>
+                          </Button>
+                        ) : request.isOwnRequest ? (
+                          <Button type="button" size="sm" variant="outline" disabled>
+                            Own project
+                          </Button>
+                        ) : !data.viewer ? (
+                          <Button type="button" size="sm" asChild>
+                            <Link href="/login">
+                              <LogIn className="size-4" aria-hidden="true" />
+                              Log in
                             </Link>
                           </Button>
                         ) : (

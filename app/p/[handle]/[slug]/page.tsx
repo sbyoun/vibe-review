@@ -8,6 +8,7 @@ import {
   Clock3,
   ExternalLink,
   GitBranch,
+  LogIn,
   MessageSquareText,
   Send,
 } from "lucide-react";
@@ -54,13 +55,15 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
     notFound();
   }
 
-  const { profile, project, request, viewerClaim, feedback } = data;
+  const { profile, project, request, viewer, viewerClaim, feedback } = data;
   const shippedLabel = project.buildShippedAt
     ? formatShortDate(project.buildShippedAt)
     : "Not shipped";
   const startedLabel = formatShortDate(project.buildStartedAt ?? project.createdAt);
   const creditSpend = request?.creditCost ?? 0;
-  const needsClaimBeforeFeedback = request?.status === "open" && !viewerClaim;
+  const isOwner = viewer?.id === profile.id;
+  const needsLoginBeforeFeedback = !viewer;
+  const needsClaimBeforeFeedback = request?.status === "open" && !viewerClaim && !isOwner;
 
   return (
     <main className="min-h-screen px-6 py-8 lg:px-10">
@@ -217,7 +220,25 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                 <Send className="size-5 text-primary" aria-hidden="true" />
                 <h2 className="text-lg font-semibold">Leave feedback</h2>
               </div>
-              {needsClaimBeforeFeedback ? (
+              {isOwner ? (
+                <div className="mt-4 rounded-md border border-dashed border-border bg-background p-4">
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    You own this project, so feedback submission is disabled here.
+                  </p>
+                </div>
+              ) : needsLoginBeforeFeedback ? (
+                <div className="mt-4 rounded-md border border-dashed border-border bg-background p-4">
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Log in to claim this request or leave feedback under your workspace profile.
+                  </p>
+                  <Button type="button" className="mt-4" asChild>
+                    <Link href="/login">
+                      <LogIn className="size-4" aria-hidden="true" />
+                      Log in
+                    </Link>
+                  </Button>
+                </div>
+              ) : needsClaimBeforeFeedback ? (
                 <div className="mt-4 rounded-md border border-dashed border-border bg-background p-4">
                   <p className="text-sm leading-6 text-muted-foreground">
                     This request is reserved through the feedback queue. Claim it first, then it
@@ -245,7 +266,7 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                         className={inputClass}
                         name="authorName"
                         required
-                        defaultValue="Guest Reviewer"
+                        defaultValue={viewer?.name ?? viewer?.handle ?? ""}
                       />
                     </label>
                     <label className="grid gap-1.5">

@@ -25,15 +25,12 @@ import {
   parseCommaList,
   slugify,
 } from "@/lib/domain";
-import {
-  DEMO_OWNER_HANDLE,
-  DEMO_OWNER_ID,
-  DEMO_REVIEWER_ID,
-  ensureDemoData,
-} from "@/server/data";
+import { ensureDemoData } from "@/server/data";
+import { requireCurrentUser } from "@/server/current-user";
 
 export async function createProject(formData: FormData) {
   await ensureDemoData();
+  const owner = await requireCurrentUser();
 
   const title = readRequiredString(formData, "title").slice(0, 160);
   const summary = readRequiredString(formData, "summary").slice(0, 500);
@@ -43,12 +40,12 @@ export async function createProject(formData: FormData) {
   const demoUrl = readOptionalString(formData, "demoUrl");
   const repoUrl = readOptionalString(formData, "repoUrl");
   const tools = parseCommaList(formData.get("tools"));
-  const slug = await createUniqueProjectSlug(title);
+  const slug = await createUniqueProjectSlug(title, owner.id);
 
   const [project] = await db
     .insert(projects)
     .values({
-      ownerId: DEMO_OWNER_ID,
+      ownerId: owner.id,
       title,
       slug,
       summary,
@@ -65,16 +62,17 @@ export async function createProject(formData: FormData) {
 
   await db.insert(projectStatusEvents).values({
     projectId: project.id,
-    actorId: DEMO_OWNER_ID,
+    actorId: owner.id,
     toStatus: status,
     note: "Project created",
   });
 
-  revalidateWorkspace(project.slug);
+  revalidateWorkspace(owner.handle, project.slug);
 }
 
 export async function updateProjectStatus(formData: FormData) {
   await ensureDemoData();
+  const owner = await requireCurrentUser();
 
   const projectId = readRequiredString(formData, "projectId");
   const toStatus = coerceProjectStatus(formData.get("status"));
@@ -82,7 +80,7 @@ export async function updateProjectStatus(formData: FormData) {
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.ownerId, DEMO_OWNER_ID)))
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, owner.id)))
     .limit(1);
 
   if (!project) {
@@ -97,18 +95,19 @@ export async function updateProjectStatus(formData: FormData) {
 
     await tx.insert(projectStatusEvents).values({
       projectId: project.id,
-      actorId: DEMO_OWNER_ID,
+      actorId: owner.id,
       fromStatus: project.status,
       toStatus,
       note: "Status changed from dashboard",
     });
   });
 
-  revalidateWorkspace(project.slug);
+  revalidateWorkspace(owner.handle, project.slug);
 }
 
 export async function updateProjectDetails(formData: FormData) {
   await ensureDemoData();
+  const owner = await requireCurrentUser();
 
   const projectId = readRequiredString(formData, "projectId");
   const title = readRequiredString(formData, "title").slice(0, 160);
@@ -122,7 +121,7 @@ export async function updateProjectDetails(formData: FormData) {
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.ownerId, DEMO_OWNER_ID)))
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, owner.id)))
     .limit(1);
 
   if (!project) {
@@ -144,11 +143,12 @@ export async function updateProjectDetails(formData: FormData) {
     })
     .where(eq(projects.id, project.id));
 
-  revalidateWorkspace(project.slug);
+  revalidateWorkspace(owner.handle, project.slug);
 }
 
 export async function createFeedbackRequest(formData: FormData) {
   await ensureDemoData();
+  const owner = await requireCurrentUser();
 
   const projectId = readRequiredString(formData, "projectId");
   const feedbackTypes = coerceFeedbackTypes(formData.getAll("feedbackTypes"));
@@ -159,7 +159,7 @@ export async function createFeedbackRequest(formData: FormData) {
   const [project] = await db
     .select()
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.ownerId, DEMO_OWNER_ID)))
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, owner.id)))
     .limit(1);
 
   if (!project) {
@@ -167,13 +167,13 @@ export async function createFeedbackRequest(formData: FormData) {
   }
 
   await db.transaction(async (tx) => {
-    const [owner] = await tx.select().from(users).where(eq(users.id, DEMO_OWNER_ID)).limit(1);
+    const [ownerRow] = await tx.select().from(users).where(eq(users.id, owner.id)).limit(1);
 
-    if (!owner) {
+    if (!ownerRow) {
       throw new Error("Owner not found");
     }
 
-    if (owner.feedbackCredits < creditCost) {
+    if (ownerRow.feedbackCredits < creditCost) {
       throw new Error("Not enough feedback credits");
     }
 
@@ -181,7 +181,7 @@ export async function createFeedbackRequest(formData: FormData) {
       .insert(feedbackRequests)
       .values({
         projectId: project.id,
-        requestedById: DEMO_OWNER_ID,
+        requestedById: owner.id,
         feedbackTypes,
         creditCost,
         minFeedbackCount,
@@ -190,16 +190,16 @@ export async function createFeedbackRequest(formData: FormData) {
       })
       .returning();
 
-    const nextBalance = owner.feedbackCredits - creditCost;
+    const nextBalance = ownerRow.feedbackCredits - creditCost;
 
     await tx
       .update(users)
       .set({ feedbackCredits: nextBalance, updatedAt: new Date() })
-      .where(eq(users.id, DEMO_OWNER_ID));
+      .where(eq(users.id, owner.id));
 
     await tx.insert(creditLedger).values({
-      userId: DEMO_OWNER_ID,
-      actorId: DEMO_OWNER_ID,
+      userId: owner.id,
+      actorId: owner.id,
       amount: -creditCost,
       reason: "spent_feedback_request",
       relatedRequestId: request.id,
@@ -214,22 +214,23 @@ export async function createFeedbackRequest(formData: FormData) {
 
     await tx.insert(projectStatusEvents).values({
       projectId: project.id,
-      actorId: DEMO_OWNER_ID,
+      actorId: owner.id,
       fromStatus: project.status,
       toStatus: "needs_feedback",
       note: "Feedback request opened",
     });
   });
 
-  revalidateWorkspace(project.slug);
+  revalidateWorkspace(owner.handle, project.slug);
 }
 
 export async function claimFeedbackRequest(formData: FormData) {
   await ensureDemoData();
+  const reviewer = await requireCurrentUser();
 
   const requestId = readRequiredString(formData, "requestId");
 
-  const [claim] = await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [request] = await tx
       .select()
       .from(feedbackRequests)
@@ -250,6 +251,16 @@ export async function claimFeedbackRequest(formData: FormData) {
       throw new Error("Public project not found");
     }
 
+    if (project.ownerId === reviewer.id) {
+      throw new Error("You cannot claim feedback for your own project");
+    }
+
+    const [owner] = await tx
+      .select({ handle: users.handle })
+      .from(users)
+      .where(eq(users.id, project.ownerId))
+      .limit(1);
+
     const now = new Date();
 
     if (request.deadlineAt.getTime() <= now.getTime()) {
@@ -266,54 +277,81 @@ export async function claimFeedbackRequest(formData: FormData) {
       .where(
         and(
           eq(feedbackClaims.requestId, request.id),
-          eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID),
+          eq(feedbackClaims.reviewerId, reviewer.id),
           eq(feedbackClaims.status, "claimed"),
         ),
       )
       .limit(1);
 
     if (existingClaim) {
-      return [existingClaim];
+      return { claim: existingClaim, ownerHandle: owner?.handle ?? null, projectSlug: project.slug };
     }
 
-    const dueAt = new Date(Math.min(request.deadlineAt.getTime(), now.getTime() + 24 * 60 * 60 * 1000));
+    const dueAt = new Date(
+      Math.min(request.deadlineAt.getTime(), now.getTime() + 24 * 60 * 60 * 1000),
+    );
 
-    return tx
+    const [claim] = await tx
       .insert(feedbackClaims)
       .values({
         requestId: request.id,
         projectId: project.id,
-        reviewerId: DEMO_REVIEWER_ID,
+        reviewerId: reviewer.id,
         dueAt,
         status: "claimed",
       })
       .returning();
+
+    return {
+      claim,
+      ownerHandle: owner?.handle ?? null,
+      projectSlug: project.slug,
+    };
   });
 
-  revalidatePath("/discover");
-  revalidatePath("/feedback");
-  revalidatePath("/dashboard");
+  revalidateWorkspace(result.ownerHandle, result.projectSlug);
 
-  if (claim) {
+  if (result.claim) {
     redirect("/feedback");
   }
 }
 
 export async function cancelFeedbackClaim(formData: FormData) {
   await ensureDemoData();
+  const reviewer = await requireCurrentUser();
 
   const claimId = readRequiredString(formData, "claimId");
-
-  await db
-    .update(feedbackClaims)
-    .set({ status: "cancelled", updatedAt: new Date() })
+  const [claim] = await db
+    .select()
+    .from(feedbackClaims)
     .where(
       and(
         eq(feedbackClaims.id, claimId),
-        eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID),
+        eq(feedbackClaims.reviewerId, reviewer.id),
         eq(feedbackClaims.status, "claimed"),
       ),
-    );
+    )
+    .limit(1);
+
+  if (claim) {
+    await db
+      .update(feedbackClaims)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(feedbackClaims.id, claim.id));
+
+    const [project] = await db
+      .select({
+        slug: projects.slug,
+        ownerHandle: users.handle,
+      })
+      .from(projects)
+      .innerJoin(users, eq(projects.ownerId, users.id))
+      .where(eq(projects.id, claim.projectId))
+      .limit(1);
+
+    revalidateWorkspace(project?.ownerHandle, project?.slug);
+    return;
+  }
 
   revalidatePath("/discover");
   revalidatePath("/feedback");
@@ -321,11 +359,12 @@ export async function cancelFeedbackClaim(formData: FormData) {
 
 export async function createFeedback(formData: FormData) {
   await ensureDemoData();
+  const reviewer = await requireCurrentUser();
 
   const projectId = readRequiredString(formData, "projectId");
   const requestId = readOptionalString(formData, "requestId");
   const claimId = readOptionalString(formData, "claimId");
-  const authorName = readRequiredString(formData, "authorName").slice(0, 120);
+  const authorName = readOptionalString(formData, "authorName")?.slice(0, 120);
   const body = readRequiredString(formData, "body").slice(0, 2000);
   const feedbackType = coerceFeedbackType(formData.get("feedbackType"));
   const rating = coerceInt(formData.get("rating"), 4, 1, 5);
@@ -336,6 +375,16 @@ export async function createFeedback(formData: FormData) {
     throw new Error("Project not found");
   }
 
+  if (project.ownerId === reviewer.id) {
+    throw new Error("You cannot leave feedback on your own project");
+  }
+
+  const [owner] = await db
+    .select({ handle: users.handle })
+    .from(users)
+    .where(eq(users.id, project.ownerId))
+    .limit(1);
+
   await db.transaction(async (tx) => {
     const now = new Date();
     const [claim] = claimId
@@ -345,13 +394,17 @@ export async function createFeedback(formData: FormData) {
           .where(
             and(
               eq(feedbackClaims.id, claimId),
-              eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID),
+              eq(feedbackClaims.reviewerId, reviewer.id),
               eq(feedbackClaims.projectId, project.id),
               eq(feedbackClaims.status, "claimed"),
             ),
           )
           .limit(1)
       : [];
+
+    if (claimId && !claim) {
+      throw new Error("Feedback claim not found");
+    }
 
     if (claim && claim.dueAt.getTime() <= now.getTime()) {
       await tx
@@ -361,32 +414,50 @@ export async function createFeedback(formData: FormData) {
       throw new Error("Feedback claim has expired");
     }
 
-    const reviewerId = claim ? DEMO_REVIEWER_ID : `guest-${crypto.randomUUID()}`;
     const [request] = requestId
       ? await tx
           .select()
           .from(feedbackRequests)
+          .where(and(eq(feedbackRequests.id, requestId), eq(feedbackRequests.projectId, project.id)))
+          .limit(1)
+      : [];
+
+    if (requestId && !request) {
+      throw new Error("Feedback request not found");
+    }
+
+    if (claim && request && claim.requestId !== request.id) {
+      throw new Error("Feedback claim does not match this request");
+    }
+
+    const [activeRequest] = !claim
+      ? await tx
+          .select({ id: feedbackRequests.id })
+          .from(feedbackRequests)
           .where(
-            and(
-              eq(feedbackRequests.id, requestId),
-              eq(feedbackRequests.projectId, project.id),
-              eq(feedbackRequests.status, "open"),
-            ),
+            and(eq(feedbackRequests.projectId, project.id), eq(feedbackRequests.status, "open")),
           )
           .limit(1)
       : [];
+
+    if (!claim && activeRequest) {
+      throw new Error("Claim this feedback request before submitting feedback");
+    }
+
     const effectiveRequestId = claim?.requestId ?? request?.id;
 
-    if (!claim) {
-      await tx.insert(users).values({
-        id: reviewerId,
-        name: authorName,
-        bio: "Public feedback reviewer.",
-        primaryRoles: ["Reviewer"],
-        toolsUsed: ["Browser"],
-        reputationScore: 1,
-        feedbackCredits: 1,
-      });
+    const [reviewerRow] = await tx
+      .select({
+        name: users.name,
+        feedbackCredits: users.feedbackCredits,
+        reputationScore: users.reputationScore,
+      })
+      .from(users)
+      .where(eq(users.id, reviewer.id))
+      .limit(1);
+
+    if (!reviewerRow) {
+      throw new Error("Reviewer not found");
     }
 
     const [entry] = await tx
@@ -394,7 +465,7 @@ export async function createFeedback(formData: FormData) {
       .values({
         projectId: project.id,
         requestId: effectiveRequestId,
-        authorId: reviewerId,
+        authorId: reviewer.id,
         feedbackType,
         body,
         rating,
@@ -410,52 +481,56 @@ export async function createFeedback(formData: FormData) {
         .where(eq(feedbackClaims.id, claim.id));
     }
 
+    const nextBalance = reviewerRow.feedbackCredits + 1;
+
+    await tx
+      .update(users)
+      .set({
+        name: reviewerRow.name ?? authorName ?? reviewer.handle,
+        feedbackCredits: nextBalance,
+        reputationScore: reviewerRow.reputationScore + 1,
+        updatedAt: now,
+      })
+      .where(eq(users.id, reviewer.id));
+
     await tx.insert(creditLedger).values({
-      userId: reviewerId,
-      actorId: reviewerId,
+      userId: reviewer.id,
+      actorId: reviewer.id,
       amount: 1,
       reason: "earned_feedback",
       relatedRequestId: effectiveRequestId,
       relatedFeedbackId: entry.id,
       idempotencyKey: `feedback:${entry.id}:earn`,
-      balanceAfter: 1,
+      balanceAfter: nextBalance,
     });
 
-    if (claim || request) {
-      const requestToCountId = effectiveRequestId;
-      const minFeedbackCount = request?.minFeedbackCount;
-
-      if (!requestToCountId) {
-        return;
-      }
-
-      const [requestToCount] = minFeedbackCount
-        ? [{ minFeedbackCount }]
-        : await tx
-            .select({ minFeedbackCount: feedbackRequests.minFeedbackCount })
-            .from(feedbackRequests)
-            .where(eq(feedbackRequests.id, requestToCountId))
-            .limit(1);
+    if (effectiveRequestId) {
+      const [requestToCount] = await tx
+        .select({ minFeedbackCount: feedbackRequests.minFeedbackCount })
+        .from(feedbackRequests)
+        .where(eq(feedbackRequests.id, effectiveRequestId))
+        .limit(1);
 
       const [{ value: receivedCount }] = await tx
         .select({ value: count() })
         .from(feedback)
-        .where(eq(feedback.requestId, requestToCountId));
+        .where(eq(feedback.requestId, effectiveRequestId));
 
       if (requestToCount && receivedCount >= requestToCount.minFeedbackCount) {
         await tx
           .update(feedbackRequests)
           .set({ status: "fulfilled", fulfilledAt: new Date(), updatedAt: new Date() })
-          .where(eq(feedbackRequests.id, requestToCountId));
+          .where(eq(feedbackRequests.id, effectiveRequestId));
       }
     }
   });
 
-  revalidateWorkspace(project.slug);
+  revalidateWorkspace(owner?.handle, project.slug);
 }
 
 export async function updateFeedbackImplementation(formData: FormData) {
   await ensureDemoData();
+  const owner = await requireCurrentUser();
 
   const feedbackId = readRequiredString(formData, "feedbackId");
   const status = coerceImplementationStatus(formData.get("implementedStatus"));
@@ -463,6 +538,16 @@ export async function updateFeedbackImplementation(formData: FormData) {
   const [entry] = await db.select().from(feedback).where(eq(feedback.id, feedbackId)).limit(1);
 
   if (!entry) {
+    throw new Error("Feedback not found");
+  }
+
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, entry.projectId), eq(projects.ownerId, owner.id)))
+    .limit(1);
+
+  if (!project) {
     throw new Error("Feedback not found");
   }
 
@@ -474,22 +559,16 @@ export async function updateFeedbackImplementation(formData: FormData) {
 
     await tx.insert(feedbackImplementationEvents).values({
       feedbackId,
-      actorId: DEMO_OWNER_ID,
+      actorId: owner.id,
       status,
       note: "Implementation status updated",
     });
   });
 
-  const [project] = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.id, entry.projectId))
-    .limit(1);
-
-  revalidateWorkspace(project?.slug);
+  revalidateWorkspace(owner.handle, project.slug);
 }
 
-async function createUniqueProjectSlug(title: string) {
+async function createUniqueProjectSlug(title: string, ownerId: string) {
   const base = slugify(title);
   let candidate = base;
   let suffix = 2;
@@ -498,7 +577,7 @@ async function createUniqueProjectSlug(title: string) {
     const [existing] = await db
       .select({ id: projects.id })
       .from(projects)
-      .where(and(eq(projects.ownerId, DEMO_OWNER_ID), eq(projects.slug, candidate)))
+      .where(and(eq(projects.ownerId, ownerId), eq(projects.slug, candidate)))
       .limit(1);
 
     if (!existing) {
@@ -530,14 +609,17 @@ function readOptionalString(formData: FormData, key: string) {
   return value.trim();
 }
 
-function revalidateWorkspace(projectSlug?: string) {
+function revalidateWorkspace(ownerHandle?: string | null, projectSlug?: string) {
   revalidatePath("/");
   revalidatePath("/dashboard");
   revalidatePath("/discover");
   revalidatePath("/feedback");
-  revalidatePath(`/p/${DEMO_OWNER_HANDLE}`);
 
-  if (projectSlug) {
-    revalidatePath(`/p/${DEMO_OWNER_HANDLE}/${projectSlug}`);
+  if (ownerHandle) {
+    revalidatePath(`/p/${ownerHandle}`);
+
+    if (projectSlug) {
+      revalidatePath(`/p/${ownerHandle}/${projectSlug}`);
+    }
   }
 }

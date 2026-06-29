@@ -11,6 +11,7 @@ import {
   users,
 } from "@/db/schema";
 import type { FeedbackType } from "@/lib/domain";
+import { getOptionalCurrentUser, requireCurrentUser } from "@/server/current-user";
 
 export const DEMO_OWNER_ID = "demo-owner";
 export const DEMO_OWNER_HANDLE = "aya";
@@ -177,20 +178,10 @@ async function expireStaleFeedbackWork() {
     .where(and(eq(feedbackRequests.status, "open"), lt(feedbackRequests.deadlineAt, now)));
 }
 
-export async function getDemoOwner() {
+export async function getWorkspaceData() {
   await ensureDemoData();
 
-  const [owner] = await db.select().from(users).where(eq(users.id, DEMO_OWNER_ID)).limit(1);
-
-  if (!owner) {
-    throw new Error("Demo owner was not created");
-  }
-
-  return owner;
-}
-
-export async function getWorkspaceData() {
-  const owner = await getDemoOwner();
+  const owner = await requireCurrentUser();
   const projectRows = await db
     .select()
     .from(projects)
@@ -258,7 +249,7 @@ export async function getWorkspaceData() {
 
 export async function getFeedbackQueueData() {
   const workspace = await getWorkspaceData();
-  const assignedClaims = await getAssignedFeedbackClaims();
+  const assignedClaims = await getAssignedFeedbackClaims(workspace.owner.id);
 
   return {
     ...workspace,
@@ -273,7 +264,7 @@ export async function getFeedbackQueueData() {
   };
 }
 
-async function getAssignedFeedbackClaims() {
+async function getAssignedFeedbackClaims(reviewerId: string) {
   await ensureDemoData();
 
   const rows = await db
@@ -287,9 +278,7 @@ async function getAssignedFeedbackClaims() {
     .innerJoin(feedbackRequests, eq(feedbackClaims.requestId, feedbackRequests.id))
     .innerJoin(projects, eq(feedbackClaims.projectId, projects.id))
     .innerJoin(users, eq(projects.ownerId, users.id))
-    .where(
-      and(eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID), eq(feedbackClaims.status, "claimed")),
-    )
+    .where(and(eq(feedbackClaims.reviewerId, reviewerId), eq(feedbackClaims.status, "claimed")))
     .orderBy(asc(feedbackClaims.dueAt), desc(feedbackClaims.createdAt));
 
   const requestIds = rows.map((row) => row.request.id);
@@ -309,6 +298,7 @@ async function getAssignedFeedbackClaims() {
 export async function getDiscoverData() {
   await ensureDemoData();
 
+  const viewer = await getOptionalCurrentUser();
   const rows = await db
     .select({
       request: feedbackRequests,
@@ -342,13 +332,14 @@ export async function getDiscoverData() {
       (claim) => claim.requestId === row.request.id && claim.status === "claimed",
     );
     const viewerClaim =
-      activeClaims.find((claim) => claim.reviewerId === DEMO_REVIEWER_ID) ?? null;
+      viewer ? activeClaims.find((claim) => claim.reviewerId === viewer.id) ?? null : null;
 
     return {
       ...row.request,
       project: decorateProject(row.project, [row.request], feedbackRows),
       owner: row.owner,
       viewerClaim,
+      isOwnRequest: viewer?.id === row.project.ownerId,
       activeClaimCount: activeClaims.length,
       receivedCount,
       missingCount: Math.max(0, row.request.minFeedbackCount - receivedCount),
@@ -360,6 +351,7 @@ export async function getDiscoverData() {
   });
 
   return {
+    viewer,
     requests: cards,
     stats: {
       openRequests: cards.length,
@@ -403,6 +395,7 @@ export async function getPublicProfileData(handle: string) {
 
 export async function getPublicProjectData(handle: string, slug: string) {
   const profileData = await getPublicProfileData(handle);
+  const viewer = await getOptionalCurrentUser();
 
   if (!profileData) {
     return null;
@@ -448,13 +441,14 @@ export async function getPublicProjectData(handle: string, slug: string) {
     decoratedRequests[0] ??
     null;
   const [viewerClaim] = activeRequest
+    && viewer
     ? await db
         .select()
         .from(feedbackClaims)
         .where(
           and(
             eq(feedbackClaims.requestId, activeRequest.id),
-            eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID),
+            eq(feedbackClaims.reviewerId, viewer.id),
             eq(feedbackClaims.status, "claimed"),
           ),
         )
@@ -463,6 +457,7 @@ export async function getPublicProjectData(handle: string, slug: string) {
 
   return {
     profile: profileData.profile,
+    viewer,
     project: decorateProject(project, requestRows, feedbackRows),
     request: activeRequest,
     viewerClaim: viewerClaim ?? null,
