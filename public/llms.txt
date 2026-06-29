@@ -8,22 +8,29 @@ Base URL:
 
 Authentication:
 - Send `Authorization: Bearer <MCP_API_TOKEN>` on every `/api/mcp/*` request.
+- If the user has no MCP token, create one first.
+- New account: `POST /api/mcp/auth/register`
+- Existing account: `POST /api/mcp/auth/token`
 - First call `GET /api/mcp/auth/check`.
 - Continue only when the response has `authenticated: true`.
 - If the API returns `401 unauthorized`, ask the user for a valid MCP token or for the server operator to set `MCP_API_TOKEN`.
 - If the API returns `503 mcp_api_not_configured`, the server is missing `MCP_API_TOKEN` or the mapped user env vars.
 
 Agent workflow:
-1. `GET /api/mcp/auth/check`
-2. `GET /api/mcp/schema`
-3. `GET /api/mcp/projects`
-4. If no matching project exists, `POST /api/mcp/projects`
-5. If feedback is requested, `POST /api/mcp/projects/{projectId}/feedback-requests`
-6. To read responses, `GET /api/mcp/feedback?projectId={projectId}&limit=50`
+1. If needed, create an account with `POST /api/mcp/auth/register`.
+2. If the account already exists, issue a token with `POST /api/mcp/auth/token`.
+3. `GET /api/mcp/auth/check`
+4. `GET /api/mcp/schema`
+5. `GET /api/mcp/projects`
+6. If no matching project exists, `POST /api/mcp/projects`
+7. If feedback is requested, `POST /api/mcp/projects/{projectId}/feedback-requests`
+8. To read responses, `GET /api/mcp/feedback?projectId={projectId}&limit=50`
 
 Do not create duplicate projects. Always list projects first and compare by title, repoUrl, demoUrl, or slug.
 
 Useful endpoints:
+- `POST /api/mcp/auth/register`: create account and return a one-time-visible API token
+- `POST /api/mcp/auth/token`: issue an API token for an existing account
 - `GET /api/mcp/auth/check`: validate token and capabilities
 - `GET /api/mcp/schema`: machine-readable API contract
 - `GET /api/mcp/projects`: list owned projects

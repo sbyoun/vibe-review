@@ -1,0 +1,119 @@
+import { randomUUID } from "node:crypto";
+
+import { eq, or } from "drizzle-orm";
+import { z } from "zod";
+
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { assertValidPassword, hashPassword, verifyPassword } from "@/lib/auth/password";
+import { slugify } from "@/lib/domain";
+import { ApiError, createMcpApiToken, serializeMcpUser, type McpUser } from "@/server/mcp-api";
+
+export const registerMcpAccountSchema = z.object({
+  email: z.string().trim().email().transform((value) => value.toLowerCase()),
+  handle: z
+    .string()
+    .trim()
+    .min(2)
+    .max(48)
+    .transform((value) => slugify(value).slice(0, 48))
+    .refine((value) => value.length >= 2, "Handle must be at least 2 characters."),
+  name: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .nullable()
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  password: z.string().min(8).max(128),
+});
+
+export const createMcpTokenSchema = z.object({
+  login: z.string().trim().min(1),
+  password: z.string().min(1),
+});
+
+export async function registerMcpAccount(input: z.output<typeof registerMcpAccountSchema>) {
+  try {
+    assertValidPassword(input.password);
+  } catch (error) {
+    throw new ApiError(
+      422,
+      "invalid_password",
+      error instanceof Error ? error.message : "Password is invalid.",
+    );
+  }
+
+  const [existing] = await db
+    .select({ id: users.id, email: users.email, handle: users.handle })
+    .from(users)
+    .where(or(eq(users.email, input.email), eq(users.handle, input.handle)))
+    .limit(1);
+
+  if (existing?.email === input.email) {
+    throw new ApiError(409, "email_taken", "Email is already in use.");
+  }
+
+  if (existing?.handle === input.handle) {
+    throw new ApiError(409, "handle_taken", "Handle is already taken.");
+  }
+
+  const [user] = await db
+    .insert(users)
+    .values({
+      id: `local-${randomUUID()}`,
+      name: input.name ?? input.handle,
+      email: input.email,
+      handle: input.handle,
+      passwordHash: await hashPassword(input.password),
+      bio: "Building and reviewing vibe-coded projects.",
+      primaryRoles: ["Builder"],
+      toolsUsed: ["Codex"],
+      feedbackCredits: 10,
+      reputationScore: 0,
+    })
+    .returning();
+
+  if (!user.handle) {
+    throw new ApiError(500, "registration_failed", "Account was created without a handle.");
+  }
+
+  const apiToken = await createMcpApiToken(user.id);
+
+  return {
+    user: serializeMcpUser(user as McpUser),
+    apiToken,
+  };
+}
+
+export async function createMcpToken(input: z.output<typeof createMcpTokenSchema>) {
+  const normalizedLogin = input.login.trim().toLowerCase();
+  const handle = slugify(normalizedLogin).slice(0, 48);
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(
+      normalizedLogin.includes("@")
+        ? eq(users.email, normalizedLogin)
+        : eq(users.handle, handle),
+    )
+    .limit(1);
+
+  if (!user || !user.handle) {
+    throw new ApiError(401, "invalid_credentials", "Invalid login or password.");
+  }
+
+  const passwordMatches = await verifyPassword(input.password, user.passwordHash);
+
+  if (!passwordMatches) {
+    throw new ApiError(401, "invalid_credentials", "Invalid login or password.");
+  }
+
+  const apiToken = await createMcpApiToken(user.id);
+
+  return {
+    user: serializeMcpUser(user as McpUser),
+    apiToken,
+  };
+}

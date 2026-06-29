@@ -20,6 +20,7 @@ export async function GET(request: Request) {
       },
       agentProcedure: [
         "Read /llms.txt for the short agent contract.",
+        "If the user has no MCP token, create an account with POST /api/mcp/auth/register or issue a token with POST /api/mcp/auth/token.",
         "Call GET /api/mcp/auth/check with the bearer token before any write.",
         "If authenticated is true, call GET /api/mcp/projects to avoid duplicate project creation.",
         "Create a project with POST /api/mcp/projects only when no existing project matches.",
@@ -27,6 +28,26 @@ export async function GET(request: Request) {
         "Read feedback with GET /api/mcp/feedback?projectId={id}&limit=50.",
       ],
       endpoints: [
+        {
+          method: "POST",
+          path: "/api/mcp/auth/register",
+          description: "Create a local account and return a new MCP API token. No bearer token required.",
+          body: {
+            email: "string, required",
+            handle: "string, required",
+            name: "string, optional",
+            password: "string, required, 8-128 chars",
+          },
+        },
+        {
+          method: "POST",
+          path: "/api/mcp/auth/token",
+          description: "Issue a new MCP API token for an existing account using login and password. No bearer token required.",
+          body: {
+            login: "handle or email",
+            password: "string, required",
+          },
+        },
         {
           method: "GET",
           path: "/api/mcp/auth/check",

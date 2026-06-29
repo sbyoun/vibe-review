@@ -45,15 +45,19 @@ Bearer 토큰 기반 API를 제공한다.
 필수 환경변수:
 
 ```bash
-MCP_API_TOKEN=replace-with-a-long-random-token
+MCP_API_TOKEN=replace-with-an-optional-server-token
 MCP_API_USER_HANDLE=aya
 ```
 
+`MCP_API_TOKEN`은 서버 운영자용 공용 토큰이다. MCP가 직접 계정을 만들 때는
+`POST /api/mcp/auth/register`에서 사용자별 API 토큰을 발급받을 수 있다.
 `MCP_API_USER_HANDLE` 대신 `MCP_API_USER_ID`를 지정할 수도 있다.
 
 기본 엔드포인트:
 
 - `GET /llms.txt`: 코딩 에이전트용 짧은 안내 문서
+- `POST /api/mcp/auth/register`: 계정 생성과 API 토큰 발급
+- `POST /api/mcp/auth/token`: 기존 계정용 API 토큰 발급
 - `GET /api/mcp/auth/check`: Bearer 토큰 검증과 capability 확인
 - `GET /api/mcp/schema`: API 사용 계약
 - `GET /api/mcp/me`: 토큰이 매핑된 사용자
