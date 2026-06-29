@@ -51,6 +51,8 @@ MCP_API_USER_HANDLE=aya
 
 `MCP_API_TOKEN`은 서버 운영자용 공용 토큰이다. MCP가 직접 계정을 만들 때는
 `POST /api/mcp/auth/register`에서 사용자별 API 토큰을 발급받을 수 있다.
+웹에 로그인한 사용자는 `/settings`의 `MCP tokens` 패널에서 자기 계정용 토큰을
+발급하거나 회수할 수 있다. 원문 토큰은 발급 직후 한 번만 표시된다.
 `MCP_API_USER_HANDLE` 대신 `MCP_API_USER_ID`를 지정할 수도 있다.
 
 기본 엔드포인트:

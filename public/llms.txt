@@ -26,6 +26,7 @@ API discovery:
 Authentication:
 - Send `Authorization: Bearer <MCP_API_TOKEN>` on every authenticated `/api/mcp/*` request.
 - If the user has no MCP token, create one first.
+- Human users can issue or revoke their own token from `/settings` after web login; agents must not automate that UI.
 - New account: `POST /api/mcp/auth/register`
 - Existing account: `POST /api/mcp/auth/token`
 - First call `GET /api/mcp/auth/check`.

@@ -14,6 +14,9 @@ import { Button } from "@/components/ui/button";
 import { formatShortDate } from "@/lib/domain";
 import { updateCurrentUserProfile } from "@/server/actions";
 import { getWorkspaceData } from "@/server/data";
+import { listCurrentUserMcpTokens } from "@/server/mcp-token-actions";
+
+import { McpTokenPanel } from "./mcp-token-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +32,9 @@ type SettingsPageProps = {
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const params = await searchParams;
   const data = await getWorkspaceData();
+  const mcpTokens = await listCurrentUserMcpTokens();
   const saved = params?.profile === "updated";
+  const mcpEndpoint = `${getPublicOrigin()}/mcp`;
   const publicProjectCount = data.projects.filter(
     (project) => project.visibility === "public",
   ).length;
@@ -159,6 +164,8 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               </div>
             </div>
 
+            <McpTokenPanel tokens={mcpTokens} endpoint={mcpEndpoint} />
+
             <div className="rounded-md border border-border bg-card p-5">
               <h2 className="text-lg font-semibold">Account</h2>
               <dl className="mt-4 grid gap-3 text-sm">
@@ -201,4 +208,13 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
       </section>
     </main>
   );
+}
+
+function getPublicOrigin() {
+  const configuredOrigin =
+    process.env.AUTH_URL ??
+    process.env.NEXTAUTH_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+
+  return (configuredOrigin ?? "http://localhost:3000").replace(/\/$/, "");
 }

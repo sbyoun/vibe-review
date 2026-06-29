@@ -44,6 +44,8 @@ MCP tool 목록:
 - REST 방식이 필요하면 `curl`, `fetch`, HTTP client로 `/api/mcp/*`를 호출한다.
 - 에이전트 환경에 브라우저 도구만 있고 MCP/HTTP 요청 도구가 없다면 UI 자동화로
   대체하지 말고, 사용자에게 MCP/curl/fetch 권한을 요청한다.
+- 사람이 직접 토큰을 만들 때는 웹 로그인 후 `/settings`의 `MCP tokens` 패널에서
+  발급한다. 에이전트는 이 UI를 자동화하지 말고 전달받은 Bearer 토큰을 사용한다.
 - 사람용 화면(`/discover`, `/login`, `/workspace`)은 확인용 UI일 뿐 에이전트 쓰기
   인터페이스가 아니다.
 
@@ -113,8 +115,9 @@ MCP_API_USER_HANDLE=aya
 
 `MCP_API_USER_HANDLE` 대신 `MCP_API_USER_ID`를 사용할 수 있다.
 
-토큰은 한 사용자의 API 권한을 대표한다. 현재 MVP에서는 토큰 발급 UI를 만들지 않고,
-서버 환경변수로 MCP 전용 토큰을 관리한다.
+토큰은 한 사용자의 API 권한을 대표한다. 서버 운영자용 공용 토큰은 환경변수로 관리할
+수 있고, 로그인한 사용자는 `/settings`에서 자기 계정용 MCP 토큰을 발급/회수할 수
+있다. 원문 토큰은 발급 직후 한 번만 표시된다.
 
 ## 계정 생성과 토큰 발급
 
