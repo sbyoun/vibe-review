@@ -17,6 +17,7 @@ AI/vibe coding으로 만든 프로젝트들을 한곳에 모으고, 정리하고
 
 - [기획 초안](docs/product-brief.md)
 - [기술 스택 설계 초안](docs/tech-stack.md)
+- [MCP 에이전트 가이드](docs/mcp-agent-guide.md)
 
 ## 로컬 실행
 
@@ -52,6 +53,8 @@ MCP_API_USER_HANDLE=aya
 
 기본 엔드포인트:
 
+- `GET /llms.txt`: 코딩 에이전트용 짧은 안내 문서
+- `GET /api/mcp/auth/check`: Bearer 토큰 검증과 capability 확인
 - `GET /api/mcp/schema`: API 사용 계약
 - `GET /api/mcp/me`: 토큰이 매핑된 사용자
 - `GET /api/mcp/projects`: 내 프로젝트 목록

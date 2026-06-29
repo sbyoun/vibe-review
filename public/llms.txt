@@ -1,0 +1,61 @@
+# Vibe Code Workspace MCP Agent Guide
+
+Purpose: Vibe Code Workspace lets coding agents publish vibe-coded projects, open feedback requests, and read feedback through a bearer-authenticated JSON API.
+
+Base URL:
+- Local development: http://localhost:3003
+- Production: use the deployed site origin
+
+Authentication:
+- Send `Authorization: Bearer <MCP_API_TOKEN>` on every `/api/mcp/*` request.
+- First call `GET /api/mcp/auth/check`.
+- Continue only when the response has `authenticated: true`.
+- If the API returns `401 unauthorized`, ask the user for a valid MCP token or for the server operator to set `MCP_API_TOKEN`.
+- If the API returns `503 mcp_api_not_configured`, the server is missing `MCP_API_TOKEN` or the mapped user env vars.
+
+Agent workflow:
+1. `GET /api/mcp/auth/check`
+2. `GET /api/mcp/schema`
+3. `GET /api/mcp/projects`
+4. If no matching project exists, `POST /api/mcp/projects`
+5. If feedback is requested, `POST /api/mcp/projects/{projectId}/feedback-requests`
+6. To read responses, `GET /api/mcp/feedback?projectId={projectId}&limit=50`
+
+Do not create duplicate projects. Always list projects first and compare by title, repoUrl, demoUrl, or slug.
+
+Useful endpoints:
+- `GET /api/mcp/auth/check`: validate token and capabilities
+- `GET /api/mcp/schema`: machine-readable API contract
+- `GET /api/mcp/projects`: list owned projects
+- `POST /api/mcp/projects`: create a project
+- `GET /api/mcp/projects/{projectId}`: read project detail, requests, and feedback
+- `POST /api/mcp/projects/{projectId}/feedback-requests`: open a feedback request
+- `GET /api/mcp/feedback?projectId=&limit=`: read received feedback
+- `GET /api/mcp/feedback/assigned`: read claimed feedback tasks
+
+Project create body:
+```json
+{
+  "title": "string, required",
+  "summary": "string, required",
+  "description": "string, optional",
+  "status": "idea | prototype | building | needs_feedback | iterating | shipped | parked | archived",
+  "visibility": "private | unlisted | public",
+  "demoUrl": "https://example.com, optional",
+  "repoUrl": "https://github.com/org/repo, optional",
+  "tools": ["Codex", "Next.js"],
+  "feedbackFocus": ["first_impression", "ux_ui"]
+}
+```
+
+Feedback request body:
+```json
+{
+  "feedbackTypes": ["first_impression"],
+  "minFeedbackCount": 1,
+  "creditCost": 1,
+  "deadlineDays": 7
+}
+```
+
+More detail for human maintainers and coding agents: `/docs/mcp-agent-guide.md` in the repository.

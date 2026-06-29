@@ -9,8 +9,29 @@ export async function GET(request: Request) {
       auth: {
         type: "bearer",
         header: "Authorization: Bearer <MCP_API_TOKEN>",
+        checkEndpoint: "/api/mcp/auth/check",
+        failureShape: {
+          error: {
+            code: "unauthorized | mcp_api_not_configured | mcp_api_user_not_found",
+            message: "string",
+            details: "optional object",
+          },
+        },
       },
+      agentProcedure: [
+        "Read /llms.txt for the short agent contract.",
+        "Call GET /api/mcp/auth/check with the bearer token before any write.",
+        "If authenticated is true, call GET /api/mcp/projects to avoid duplicate project creation.",
+        "Create a project with POST /api/mcp/projects only when no existing project matches.",
+        "Open a feedback request only after project creation or project lookup succeeds.",
+        "Read feedback with GET /api/mcp/feedback?projectId={id}&limit=50.",
+      ],
       endpoints: [
+        {
+          method: "GET",
+          path: "/api/mcp/auth/check",
+          description: "Validate bearer auth and return the mapped user plus capabilities.",
+        },
         {
           method: "GET",
           path: "/api/mcp/me",
