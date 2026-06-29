@@ -1,18 +1,5 @@
 import Link from "next/link";
-import {
-  Activity,
-  ArrowUpRight,
-  BookOpenCheck,
-  CheckCircle2,
-  CircleDollarSign,
-  ClipboardList,
-  Clock3,
-  Columns3,
-  Plus,
-  Save,
-  Send,
-  Settings,
-} from "lucide-react";
+import { ArrowUpRight, Clock3, MessageSquareText, Plus, Send, Settings } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,11 +12,7 @@ import {
   statusLabel,
   statusTone,
 } from "@/lib/domain";
-import {
-  createFeedbackRequest,
-  createProject,
-  updateProjectStatus,
-} from "@/server/actions";
+import { createFeedbackRequest, createProject } from "@/server/actions";
 import { getWorkspaceData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
@@ -46,235 +29,138 @@ const creditReasonLabel: Record<string, string> = {
   admin_adjustment: "Admin adjustment",
 };
 
-const workspaceGuideSteps = [
-  {
-    title: "프로젝트 등록",
-    body: "아이디어나 작업 중인 앱도 제목, 요약, 현재 상태, 데모/저장소 링크를 남깁니다.",
-  },
-  {
-    title: "피드백 요청",
-    body: "공개 프로젝트에서 필요한 피드백 유형, 최소 개수, 마감일, 크레딧 비용을 정합니다.",
-  },
-  {
-    title: "피드백 처리",
-    body: "받은 피드백을 planned, implemented, later 등으로 정리해 다음 작업으로 연결합니다.",
-  },
-];
-
 export default async function DashboardPage() {
   const data = await getWorkspaceData();
   const openRequests = data.requests.filter((request) => request.status === "open");
-  const dashboardStats = [
-    { label: "Active projects", value: data.projects.length.toString(), icon: Columns3 },
-    { label: "Open requests", value: openRequests.length.toString(), icon: ClipboardList },
-    { label: "Credits", value: data.owner.feedbackCredits.toString(), icon: CircleDollarSign },
-    { label: "Reputation", value: data.owner.reputationScore.toString(), icon: Activity },
-  ];
 
   return (
-    <main className="min-h-screen px-6 py-8 lg:px-10">
-      <section className="mx-auto flex w-full max-w-7xl flex-col gap-8">
-        <header className="flex flex-col gap-5 border-b border-border pb-6 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-normal text-muted-foreground">
-              Workspace
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-normal text-foreground">
-              Dashboard
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {data.owner.name} is managing real projects, feedback requests, credit spend, and
-              public archive pages from this workspace.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button type="button" asChild>
+    <main className="min-h-screen px-5 py-6 lg:px-8">
+      <section className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+        <header className="border-b border-border pb-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-normal text-foreground">
+                내 프로젝트
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                만든 것들을 게시판처럼 모아두고, 필요할 때만 피드백 요청을 엽니다.
+              </p>
+            </div>
+            <Button type="button" size="sm" asChild>
               <a href="#new-project">
                 <Plus className="size-4" aria-hidden="true" />
-                New project
+                올리기
               </a>
             </Button>
           </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            프로젝트 {data.projects.length}개 · 열린 요청 {openRequests.length}개 · 크레딧{" "}
+            {data.owner.feedbackCredits}
+          </p>
         </header>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {dashboardStats.map((stat) => (
-            <div key={stat.label} className="rounded-md border border-border bg-card p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="mt-2 text-3xl font-semibold">{stat.value}</p>
-                </div>
-                <stat.icon className="size-5 text-primary" aria-hidden="true" />
-              </div>
-            </div>
-          ))}
-        </section>
+        <section className="overflow-hidden rounded-md border border-border bg-card">
+          {data.projects.length > 0 ? (
+            <div className="divide-y divide-border">
+              {data.projects.map((project) => {
+                const request = data.requests.find((item) => item.projectId === project.id);
 
-        {data.projects.length === 0 ? (
-          <section className="rounded-md border border-border bg-card p-4">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <BookOpenCheck className="size-5 text-primary" aria-hidden="true" />
-                  <h2 className="text-lg font-semibold">처음 시작하는 순서</h2>
-                </div>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-                  이 워크스페이스는 바이브 코딩으로 만든 결과물을 모아두고, 필요한
-                  피드백을 요청한 뒤 처리 상태까지 남기는 곳입니다. 먼저 프로젝트 하나를
-                  등록하면 보드, 피드백 요청, 공개 프로필 흐름이 이어집니다.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button type="button" asChild>
-                  <a href="#new-project">
-                    <Plus className="size-4" aria-hidden="true" />
-                    프로젝트 등록
-                  </a>
-                </Button>
-                <Button type="button" variant="outline" asChild>
-                  <Link href="/guide">
-                    <BookOpenCheck className="size-4" aria-hidden="true" />
-                    Guide
-                  </Link>
-                </Button>
-              </div>
-            </div>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
-              {workspaceGuideSteps.map((step) => (
-                <article key={step.title} className="rounded-md border border-border bg-background p-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="size-4 text-primary" aria-hidden="true" />
-                    <h3 className="text-sm font-semibold">{step.title}</h3>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{step.body}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
-          <div className="rounded-md border border-border bg-card p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Columns3 className="size-5 text-primary" aria-hidden="true" />
-                <h2 className="text-lg font-semibold">Project board</h2>
-              </div>
-              <Badge variant="outline">{data.projects.length} projects</Badge>
-            </div>
-
-            {data.projects.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border bg-background p-5">
-                <div className="flex items-center gap-2">
-                  <Columns3 className="size-5 text-primary" aria-hidden="true" />
-                  <h3 className="text-base font-semibold">아직 프로젝트가 없습니다</h3>
-                </div>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  오른쪽의 Create project 폼에서 첫 프로젝트를 만들면 상태별 보드가
-                  생성됩니다. 작업 중인 앱, 실험, 아이디어 모두 등록할 수 있습니다.
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {projectStatuses.map((status) => {
-                  const projects = data.projects.filter((project) => project.status === status);
-
-                  return (
-                    <div
-                      key={status}
-                      className="min-h-56 rounded-md border border-border bg-background p-3"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="text-sm font-medium">{statusLabel[status]}</h3>
-                        <span className="text-xs text-muted-foreground">{projects.length}</span>
+                return (
+                  <article
+                    key={project.id}
+                    className="grid gap-3 px-4 py-4 hover:bg-muted/35 sm:grid-cols-[1fr_auto] sm:items-center"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/p/${data.owner.handle}/${project.slug}`}
+                          className="truncate text-base font-semibold text-foreground hover:text-primary"
+                        >
+                          {project.title}
+                        </Link>
+                        <span
+                          className={`rounded-md border px-2 py-0.5 text-xs ${
+                            statusTone[project.status]
+                          }`}
+                        >
+                          {statusLabel[project.status]}
+                        </span>
+                        <Badge variant="outline">{project.visibility}</Badge>
                       </div>
-                      <div className="mt-3 grid gap-3">
-                        {projects.map((project) => (
-                          <article
-                            key={project.id}
-                            className="rounded-md border border-border bg-card p-3"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <h3 className="text-sm font-semibold leading-5">{project.title}</h3>
-                              <Link href={`/p/${data.owner.handle}/${project.slug}`}>
-                                <ArrowUpRight
-                                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                                  aria-hidden="true"
-                                />
-                              </Link>
-                            </div>
-                            <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">
-                              {project.summary}
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                              {project.tools.slice(0, 3).map((tool) => (
-                                <Badge key={tool} variant="outline">
-                                  {tool}
-                                </Badge>
-                              ))}
-                            </div>
-                            <form action={updateProjectStatus} className="mt-3 flex gap-2">
-                              <input type="hidden" name="projectId" value={project.id} />
-                              <select
-                                name="status"
-                                defaultValue={project.status}
-                                className={inputClass}
-                                aria-label={`${project.title} status`}
-                              >
-                                {projectStatuses.map((option) => (
-                                  <option key={option} value={option}>
-                                    {statusLabel[option]}
-                                  </option>
-                                ))}
-                              </select>
-                              <Button type="submit" size="sm" variant="outline">
-                                <Save className="size-4" aria-hidden="true" />
-                                Save
-                              </Button>
-                            </form>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="mt-3 w-full"
-                              asChild
-                            >
-                              <Link href={`/dashboard/projects/${project.id}`}>
-                                <Settings className="size-4" aria-hidden="true" />
-                                Manage
-                              </Link>
-                            </Button>
-                          </article>
-                        ))}
-                        {projects.length === 0 ? (
-                          <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                            No projects
-                          </div>
+                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                        {project.summary}
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+                        <span>{project.feedbackCount} feedback</span>
+                        <span>{project.requestCount} requests</span>
+                        {request ? (
+                          <span className="flex items-center gap-1">
+                            <Clock3 className="size-3.5" aria-hidden="true" />
+                            {request.receivedCount}/{request.minFeedbackCount} by{" "}
+                            {formatShortDate(request.deadlineAt)}
+                          </span>
                         ) : null}
+                        {project.tools.slice(0, 3).map((tool) => (
+                          <Badge key={tool} variant="outline">
+                            {tool}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <Button type="button" size="sm" variant="outline" asChild>
+                        <Link href={`/p/${data.owner.handle}/${project.slug}`}>
+                          <ArrowUpRight className="size-4" aria-hidden="true" />
+                          보기
+                        </Link>
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" asChild>
+                        <Link href={`/dashboard/projects/${project.id}`}>
+                          <Settings className="size-4" aria-hidden="true" />
+                          관리
+                        </Link>
+                      </Button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-6">
+              <h2 className="text-base font-semibold">아직 올린 프로젝트가 없습니다</h2>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                완성된 서비스가 아니어도 괜찮습니다. 아이디어나 작업 중인 앱부터 하나씩
+                올려두면 내 아카이브가 됩니다.
+              </p>
+              <Button type="button" size="sm" className="mt-4" asChild>
+                <a href="#new-project">
+                  <Plus className="size-4" aria-hidden="true" />
+                  첫 프로젝트 올리기
+                </a>
+              </Button>
+            </div>
+          )}
+        </section>
 
-          <aside className="grid gap-6">
-            <section id="new-project" className="rounded-md border border-border bg-card p-4">
-              <div className="flex items-center gap-2">
-                <Plus className="size-5 text-primary" aria-hidden="true" />
-                <h2 className="text-lg font-semibold">Create project</h2>
-              </div>
-              <form action={createProject} className="mt-4 grid gap-3">
-                <label className="grid gap-1.5">
-                  <span className={labelClass}>Title</span>
-                  <input className={inputClass} name="title" required maxLength={160} />
-                </label>
-                <label className="grid gap-1.5">
-                  <span className={labelClass}>Summary</span>
-                  <textarea className={inputClass} name="summary" required rows={3} />
-                </label>
+        <details
+          id="new-project"
+          open={data.projects.length === 0}
+          className="rounded-md border border-border bg-card p-4"
+        >
+          <summary className="cursor-pointer text-base font-semibold">프로젝트 올리기</summary>
+          <form action={createProject} className="mt-4 grid gap-3">
+            <label className="grid gap-1.5">
+              <span className={labelClass}>Title</span>
+              <input className={inputClass} name="title" required maxLength={160} />
+            </label>
+            <label className="grid gap-1.5">
+              <span className={labelClass}>Summary</span>
+              <textarea className={inputClass} name="summary" required rows={3} />
+            </label>
+
+            <details className="rounded-md border border-border bg-background p-3">
+              <summary className="cursor-pointer text-sm font-medium">추가 정보</summary>
+              <div className="mt-3 grid gap-3">
                 <label className="grid gap-1.5">
                   <span className={labelClass}>Description</span>
                   <textarea className={inputClass} name="description" rows={4} />
@@ -311,215 +197,157 @@ export default async function DashboardPage() {
                 </label>
                 <label className="grid gap-1.5">
                   <span className={labelClass}>Tools</span>
+                  <input className={inputClass} name="tools" placeholder="Next.js, Codex" />
+                </label>
+              </div>
+            </details>
+
+            <Button type="submit">
+              <Plus className="size-4" aria-hidden="true" />
+              올리기
+            </Button>
+          </form>
+        </details>
+
+        <details className="rounded-md border border-border bg-card p-4">
+          <summary className="cursor-pointer text-base font-semibold">피드백 요청 열기</summary>
+          {data.projects.length === 0 ? (
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              프로젝트를 먼저 올리면 피드백 요청을 열 수 있습니다.
+            </p>
+          ) : (
+            <form action={createFeedbackRequest} className="mt-4 grid gap-3">
+              <label className="grid gap-1.5">
+                <span className={labelClass}>Project</span>
+                <select className={inputClass} name="projectId" required>
+                  {data.projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="grid gap-1.5">
+                  <span className={labelClass}>Minimum</span>
                   <input
                     className={inputClass}
-                    name="tools"
-                    placeholder="Next.js, Codex, Drizzle"
+                    name="minFeedbackCount"
+                    type="number"
+                    min={1}
+                    max={20}
+                    defaultValue={3}
                   />
                 </label>
-                <Button type="submit">
-                  <Plus className="size-4" aria-hidden="true" />
-                  Create project
-                </Button>
-              </form>
-            </section>
-
-            <section className="rounded-md border border-border bg-card p-4">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="size-5 text-primary" aria-hidden="true" />
-                <h2 className="text-lg font-semibold">Open feedback request</h2>
+                <label className="grid gap-1.5">
+                  <span className={labelClass}>Credits</span>
+                  <input
+                    className={inputClass}
+                    name="creditCost"
+                    type="number"
+                    min={1}
+                    max={20}
+                    defaultValue={3}
+                  />
+                </label>
+                <label className="grid gap-1.5">
+                  <span className={labelClass}>Days</span>
+                  <input
+                    className={inputClass}
+                    name="deadlineDays"
+                    type="number"
+                    min={1}
+                    max={30}
+                    defaultValue={2}
+                  />
+                </label>
               </div>
-              {data.projects.length === 0 ? (
-                <div className="mt-4 rounded-md border border-dashed border-border bg-background p-4">
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    피드백 요청은 프로젝트를 만든 뒤 열 수 있습니다. 첫 프로젝트를 등록하면
-                    여기서 피드백 유형, 최소 개수, 마감일, 크레딧 비용을 설정합니다.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <Button type="button" size="sm" asChild>
-                      <a href="#new-project">
-                        <Plus className="size-4" aria-hidden="true" />
-                        프로젝트 등록
-                      </a>
-                    </Button>
-                    <Button type="button" size="sm" variant="outline" asChild>
-                      <Link href="/guide">
-                        <BookOpenCheck className="size-4" aria-hidden="true" />
-                        Guide
-                      </Link>
-                    </Button>
-                  </div>
+              <div className="grid gap-2">
+                <p className={labelClass}>Feedback types</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {feedbackTypes.map((type) => (
+                    <label key={type} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        name="feedbackTypes"
+                        value={type}
+                        defaultChecked={type === "first_impression" || type === "ux_ui"}
+                      />
+                      {feedbackTypeLabel[type]}
+                    </label>
+                  ))}
                 </div>
-              ) : (
-                <form action={createFeedbackRequest} className="mt-4 grid gap-3">
-                  <label className="grid gap-1.5">
-                    <span className={labelClass}>Project</span>
-                    <select className={inputClass} name="projectId" required>
-                      {data.projects.map((project) => (
-                        <option key={project.id} value={project.id}>
-                          {project.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <label className="grid gap-1.5">
-                      <span className={labelClass}>Minimum</span>
-                      <input
-                        className={inputClass}
-                        name="minFeedbackCount"
-                        type="number"
-                        min={1}
-                        max={20}
-                        defaultValue={3}
-                      />
-                    </label>
-                    <label className="grid gap-1.5">
-                      <span className={labelClass}>Credits</span>
-                      <input
-                        className={inputClass}
-                        name="creditCost"
-                        type="number"
-                        min={1}
-                        max={20}
-                        defaultValue={3}
-                      />
-                    </label>
-                    <label className="grid gap-1.5">
-                      <span className={labelClass}>Days</span>
-                      <input
-                        className={inputClass}
-                        name="deadlineDays"
-                        type="number"
-                        min={1}
-                        max={30}
-                        defaultValue={2}
-                      />
-                    </label>
-                  </div>
-                  <div className="grid gap-2">
-                    <p className={labelClass}>Feedback types</p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {feedbackTypes.map((type) => (
-                        <label key={type} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            name="feedbackTypes"
-                            value={type}
-                            defaultChecked={type === "first_impression" || type === "ux_ui"}
-                          />
-                          {feedbackTypeLabel[type]}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <Button type="submit">
-                    <Send className="size-4" aria-hidden="true" />
-                    Spend credits and open
-                  </Button>
-                </form>
-              )}
-            </section>
-          </aside>
-        </section>
+              </div>
+              <Button type="submit">
+                <Send className="size-4" aria-hidden="true" />
+                요청 열기
+              </Button>
+            </form>
+          )}
+        </details>
 
-        <section className="grid gap-6 xl:grid-cols-[0.8fr_0.8fr_1fr]">
-          <section className="rounded-md border border-border bg-card p-4">
-            <div className="flex items-center gap-2">
-              <ClipboardList className="size-5 text-primary" aria-hidden="true" />
-              <h2 className="text-lg font-semibold">Feedback due</h2>
-            </div>
-            <div className="mt-4 grid gap-3">
-              {openRequests.map((request) => (
-                <div key={request.id} className="rounded-md border border-border bg-background p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">{request.projectTitle}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {request.feedbackTypes.map((type) => feedbackTypeLabel[type]).join(", ")}
-                      </p>
-                    </div>
-                    <Badge variant="secondary">{request.creditCost} credits</Badge>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      {request.receivedCount}/{request.minFeedbackCount} received
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock3 className="size-3.5" aria-hidden="true" />
-                      {formatShortDate(request.deadlineAt)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {openRequests.length === 0 ? (
-                <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  No active request.
-                </p>
-              ) : null}
-            </div>
-          </section>
-
-          <section className="rounded-md border border-border bg-card p-4">
-            <div className="flex items-center gap-2">
-              <CircleDollarSign className="size-5 text-primary" aria-hidden="true" />
-              <h2 className="text-lg font-semibold">Credits</h2>
-            </div>
-            <div className="mt-4 grid gap-3">
-              {data.creditLedger.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between gap-3 text-sm">
-                  <div>
-                    <p className="font-medium">
-                      {creditReasonLabel[entry.reason] ?? entry.reason}
-                    </p>
+        <details className="rounded-md border border-border bg-card p-4">
+          <summary className="cursor-pointer text-base font-semibold">피드백과 기록</summary>
+          <div className="mt-4 grid gap-4 lg:grid-cols-3">
+            <section>
+              <h2 className="text-sm font-semibold">열린 요청</h2>
+              <div className="mt-3 grid gap-2">
+                {openRequests.map((request) => (
+                  <div key={request.id} className="rounded-md border border-border p-3 text-sm">
+                    <p className="font-medium">{request.projectTitle}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {formatShortDate(entry.createdAt)}
+                      {request.receivedCount}/{request.minFeedbackCount} ·{" "}
+                      {formatShortDate(request.deadlineAt)}
                     </p>
                   </div>
-                  <span className={entry.amount > 0 ? "text-emerald-700" : "text-rose-700"}>
-                    {entry.amount > 0 ? "+" : ""}
-                    {entry.amount}
-                  </span>
-                </div>
-              ))}
-              {data.creditLedger.length === 0 ? (
-                <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  No credit history yet.
-                </p>
-              ) : null}
-            </div>
-          </section>
+                ))}
+                {openRequests.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">열린 요청이 없습니다.</p>
+                ) : null}
+              </div>
+            </section>
 
-          <section className="rounded-md border border-border bg-card p-4">
-            <div className="flex items-center gap-2">
-              <Activity className="size-5 text-primary" aria-hidden="true" />
-              <h2 className="text-lg font-semibold">Status events</h2>
-            </div>
-            <div className="mt-4 grid gap-3">
-              {data.statusEvents.map((event) => {
-                const project = data.projects.find((item) => item.id === event.projectId);
-
-                return (
-                  <div key={event.id} className="rounded-md border border-border bg-background p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium">{project?.title ?? "Project"}</p>
-                      <span
-                        className={`rounded-md border px-2 py-0.5 text-xs ${
-                          statusTone[event.toStatus]
-                        }`}
-                      >
-                        {statusLabel[event.toStatus]}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {event.note ?? "Status changed"} · {formatShortDate(event.createdAt)}
+            <section>
+              <h2 className="text-sm font-semibold">받은 피드백</h2>
+              <div className="mt-3 grid gap-2">
+                {data.feedback.slice(0, 4).map((entry) => (
+                  <div key={entry.id} className="rounded-md border border-border p-3 text-sm">
+                    <p className="line-clamp-2 text-muted-foreground">{entry.body}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {entry.authorName} · {formatShortDate(entry.createdAt)}
                     </p>
                   </div>
-                );
-              })}
-            </div>
-          </section>
-        </section>
+                ))}
+                {data.feedback.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">아직 받은 피드백이 없습니다.</p>
+                ) : null}
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-sm font-semibold">크레딧</h2>
+              <div className="mt-3 grid gap-2">
+                {data.creditLedger.slice(0, 4).map((entry) => (
+                  <div key={entry.id} className="flex justify-between gap-3 text-sm">
+                    <span className="text-muted-foreground">
+                      {creditReasonLabel[entry.reason] ?? entry.reason}
+                    </span>
+                    <span>{entry.amount > 0 ? `+${entry.amount}` : entry.amount}</span>
+                  </div>
+                ))}
+                {data.creditLedger.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">크레딧 기록이 없습니다.</p>
+                ) : null}
+              </div>
+            </section>
+          </div>
+          <Button type="button" size="sm" variant="outline" className="mt-4" asChild>
+            <Link href="/feedback">
+              <MessageSquareText className="size-4" aria-hidden="true" />
+              자세히 보기
+            </Link>
+          </Button>
+        </details>
       </section>
     </main>
   );

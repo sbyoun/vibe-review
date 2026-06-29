@@ -3,12 +3,9 @@ import type { Route } from "next";
 import {
   Archive,
   BookOpenCheck,
-  Columns3,
   Compass,
   LogIn,
   LogOut,
-  MessageSquareText,
-  Settings,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -21,21 +18,19 @@ export async function SiteNav() {
   const user = await getOptionalCurrentUser();
   const profileHref = user?.handle ? (`/p/${user.handle}` as Route) : "/login";
   const navItems: Array<{ href: Route; label: string; icon: LucideIcon }> = [
+    { href: "/discover", label: "Board", icon: Compass },
+    { href: "/dashboard", label: "My", icon: Archive },
     { href: "/guide", label: "Guide", icon: BookOpenCheck },
-    { href: "/dashboard", label: "Dashboard", icon: Columns3 },
-    { href: "/discover", label: "Discover", icon: Compass },
-    { href: "/feedback", label: "Feedback", icon: MessageSquareText },
-    { href: profileHref, label: "Profile", icon: UserRound },
   ];
 
   if (user) {
-    navItems.push({ href: "/settings", label: "Settings", icon: Settings });
+    navItems.push({ href: profileHref, label: "Profile", icon: UserRound });
   }
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-6 py-3 lg:flex-row lg:items-center lg:justify-between lg:px-10">
-        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-semibold">
+        <Link href="/discover" className="flex items-center gap-2 text-sm font-semibold">
           <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <Archive className="size-4" aria-hidden="true" />
           </span>
