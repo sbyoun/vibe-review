@@ -9,6 +9,7 @@ import {
   Plus,
   Save,
   Send,
+  Settings,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,6 @@ import {
 import {
   createFeedbackRequest,
   createProject,
-  updateProjectDetails,
   updateProjectStatus,
 } from "@/server/actions";
 import { getWorkspaceData } from "@/server/data";
@@ -124,16 +124,13 @@ export default async function DashboardPage() {
                           className="rounded-md border border-border bg-card p-3"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <Link
-                              href={`/p/${data.owner.handle}/${project.slug}`}
-                              className="text-sm font-semibold leading-5 hover:text-primary"
-                            >
-                              {project.title}
+                            <h3 className="text-sm font-semibold leading-5">{project.title}</h3>
+                            <Link href={`/p/${data.owner.handle}/${project.slug}`}>
+                              <ArrowUpRight
+                                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                                aria-hidden="true"
+                              />
                             </Link>
-                            <ArrowUpRight
-                              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                              aria-hidden="true"
-                            />
                           </div>
                           <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">
                             {project.summary}
@@ -164,86 +161,18 @@ export default async function DashboardPage() {
                               Save
                             </Button>
                           </form>
-                          <details className="mt-3 rounded-md border border-border bg-background p-3">
-                            <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-                              Edit details
-                            </summary>
-                            <form action={updateProjectDetails} className="mt-3 grid gap-2">
-                              <input type="hidden" name="projectId" value={project.id} />
-                              <label className="grid gap-1">
-                                <span className="text-xs text-muted-foreground">Title</span>
-                                <input
-                                  className={inputClass}
-                                  name="title"
-                                  defaultValue={project.title}
-                                  required
-                                />
-                              </label>
-                              <label className="grid gap-1">
-                                <span className="text-xs text-muted-foreground">Summary</span>
-                                <textarea
-                                  className={inputClass}
-                                  name="summary"
-                                  defaultValue={project.summary}
-                                  required
-                                  rows={3}
-                                />
-                              </label>
-                              <label className="grid gap-1">
-                                <span className="text-xs text-muted-foreground">Description</span>
-                                <textarea
-                                  className={inputClass}
-                                  name="description"
-                                  defaultValue={project.description ?? ""}
-                                  rows={4}
-                                />
-                              </label>
-                              <label className="grid gap-1">
-                                <span className="text-xs text-muted-foreground">Visibility</span>
-                                <select
-                                  className={inputClass}
-                                  name="visibility"
-                                  defaultValue={project.visibility}
-                                >
-                                  {projectVisibilities.map((visibility) => (
-                                    <option key={visibility} value={visibility}>
-                                      {visibility}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <label className="grid gap-1">
-                                <span className="text-xs text-muted-foreground">Demo URL</span>
-                                <input
-                                  className={inputClass}
-                                  name="demoUrl"
-                                  type="url"
-                                  defaultValue={project.demoUrl ?? ""}
-                                />
-                              </label>
-                              <label className="grid gap-1">
-                                <span className="text-xs text-muted-foreground">Repo URL</span>
-                                <input
-                                  className={inputClass}
-                                  name="repoUrl"
-                                  type="url"
-                                  defaultValue={project.repoUrl ?? ""}
-                                />
-                              </label>
-                              <label className="grid gap-1">
-                                <span className="text-xs text-muted-foreground">Tools</span>
-                                <input
-                                  className={inputClass}
-                                  name="tools"
-                                  defaultValue={project.tools.join(", ")}
-                                />
-                              </label>
-                              <Button type="submit" size="sm" variant="outline">
-                                <Save className="size-4" aria-hidden="true" />
-                                Save details
-                              </Button>
-                            </form>
-                          </details>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="mt-3 w-full"
+                            asChild
+                          >
+                            <Link href={`/dashboard/projects/${project.id}`}>
+                              <Settings className="size-4" aria-hidden="true" />
+                              Manage
+                            </Link>
+                          </Button>
                         </article>
                       ))}
                       {projects.length === 0 ? (

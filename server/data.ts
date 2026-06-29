@@ -271,6 +271,61 @@ export async function getWorkspaceData() {
   };
 }
 
+export async function getWorkspaceProjectData(projectId: string) {
+  await ensureDemoData();
+
+  const owner = await requireCurrentUser();
+  const [projectRow] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, owner.id)))
+    .limit(1);
+
+  if (!projectRow) {
+    return null;
+  }
+
+  const requestRows = await db
+    .select()
+    .from(feedbackRequests)
+    .where(eq(feedbackRequests.projectId, projectRow.id))
+    .orderBy(desc(feedbackRequests.createdAt));
+
+  const feedbackRows = await db
+    .select({
+      id: feedback.id,
+      projectId: feedback.projectId,
+      requestId: feedback.requestId,
+      authorId: feedback.authorId,
+      feedbackType: feedback.feedbackType,
+      body: feedback.body,
+      rating: feedback.rating,
+      helpfulStatus: feedback.helpfulStatus,
+      implementedStatus: feedback.implementedStatus,
+      createdAt: feedback.createdAt,
+      authorName: users.name,
+    })
+    .from(feedback)
+    .innerJoin(users, eq(feedback.authorId, users.id))
+    .where(eq(feedback.projectId, projectRow.id))
+    .orderBy(desc(feedback.createdAt));
+
+  const statusRows = await db
+    .select()
+    .from(projectStatusEvents)
+    .where(eq(projectStatusEvents.projectId, projectRow.id))
+    .orderBy(desc(projectStatusEvents.createdAt))
+    .limit(20);
+
+  return {
+    owner,
+    project: decorateProject(projectRow, requestRows, feedbackRows),
+    requests: requestRows.map((request) => decorateRequest(request, [projectRow], feedbackRows)),
+    feedback: feedbackRows,
+    statusEvents: statusRows,
+  };
+}
+
 export async function getFeedbackQueueData() {
   const workspace = await getWorkspaceData();
   const assignedClaims = await getAssignedFeedbackClaims(workspace.owner.id);

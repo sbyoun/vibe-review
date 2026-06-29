@@ -119,7 +119,8 @@ export async function createProject(formData: FormData) {
     note: "Project created",
   });
 
-  revalidateWorkspace(owner.handle, project.slug);
+  revalidateWorkspace(owner.handle, project.slug, project.id);
+  redirect(`/dashboard/projects/${project.id}`);
 }
 
 export async function updateProjectStatus(formData: FormData) {
@@ -154,7 +155,7 @@ export async function updateProjectStatus(formData: FormData) {
     });
   });
 
-  revalidateWorkspace(owner.handle, project.slug);
+  revalidateWorkspace(owner.handle, project.slug, project.id);
 }
 
 export async function updateProjectDetails(formData: FormData) {
@@ -195,7 +196,7 @@ export async function updateProjectDetails(formData: FormData) {
     })
     .where(eq(projects.id, project.id));
 
-  revalidateWorkspace(owner.handle, project.slug);
+  revalidateWorkspace(owner.handle, project.slug, project.id);
 }
 
 export async function createFeedbackRequest(formData: FormData) {
@@ -273,7 +274,7 @@ export async function createFeedbackRequest(formData: FormData) {
     });
   });
 
-  revalidateWorkspace(owner.handle, project.slug);
+  revalidateWorkspace(owner.handle, project.slug, project.id);
 }
 
 export async function claimFeedbackRequest(formData: FormData) {
@@ -577,7 +578,7 @@ export async function createFeedback(formData: FormData) {
     }
   });
 
-  revalidateWorkspace(owner?.handle, project.slug);
+  revalidateWorkspace(owner?.handle, project.slug, project.id);
 }
 
 export async function updateFeedbackImplementation(formData: FormData) {
@@ -617,7 +618,7 @@ export async function updateFeedbackImplementation(formData: FormData) {
     });
   });
 
-  revalidateWorkspace(owner.handle, project.slug);
+  revalidateWorkspace(owner.handle, project.slug, project.id);
 }
 
 async function createUniqueProjectSlug(title: string, ownerId: string) {
@@ -676,11 +677,19 @@ function createProfileHandle(input: string) {
   return handle;
 }
 
-function revalidateWorkspace(ownerHandle?: string | null, projectSlug?: string) {
+function revalidateWorkspace(
+  ownerHandle?: string | null,
+  projectSlug?: string,
+  projectId?: string,
+) {
   revalidatePath("/");
   revalidatePath("/dashboard");
   revalidatePath("/discover");
   revalidatePath("/feedback");
+
+  if (projectId) {
+    revalidatePath(`/dashboard/projects/${projectId}`);
+  }
 
   if (ownerHandle) {
     revalidatePath(`/p/${ownerHandle}`);
