@@ -1,36 +1,31 @@
 import { redirect } from "next/navigation";
 
+import { ForgotPasswordForm } from "@/app/login/login-forms";
 import { auth } from "@/auth";
-import { LoginForm } from "@/app/login/login-forms";
 
-type LoginPageProps = {
-  searchParams?: Promise<{ error?: string }>;
-};
+export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default async function ForgotPasswordPage() {
   const session = await auth();
 
   if (session?.user) {
-    redirect("/dashboard");
+    redirect("/settings/password");
   }
-
-  const params = await searchParams;
-  const hasCredentialsError = params?.error === "CredentialsSignin";
 
   return (
     <main className="min-h-screen px-6 py-10 lg:px-10">
       <section className="mx-auto grid w-full max-w-5xl gap-6">
         <header className="border-b border-border pb-6">
           <p className="text-sm font-medium uppercase tracking-normal text-muted-foreground">
-            Sign in
+            Account
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-normal text-foreground">
-            Log in
+            Forgot password
           </h1>
         </header>
 
         <div className="max-w-md">
-          <LoginForm credentialsError={hasCredentialsError} />
+          <ForgotPasswordForm />
         </div>
       </section>
     </main>

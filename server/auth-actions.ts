@@ -1,22 +1,30 @@
 "use server";
 
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+
 import { signIn, signOut } from "@/auth";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { assertValidPassword, hashPassword } from "@/lib/auth/password";
+import { users, verificationTokens } from "@/db/schema";
+import { assertValidPassword, hashPassword, verifyPassword } from "@/lib/auth/password";
 import { slugify } from "@/lib/domain";
-import { eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
+import { requireCurrentUser } from "@/server/current-user";
 
 export type AuthFormState = {
-  status: "idle" | "error";
+  status: "idle" | "error" | "success";
   message: string | null;
+  resetUrl?: string;
   fields?: {
+    email?: string;
     handle?: string;
     name?: string;
   };
 };
+
+const resetTokenPrefix = "password-reset";
+const resetTokenTtlMs = 1000 * 60 * 30;
 
 export async function loginWithPassword(
   _previousState: AuthFormState,
@@ -59,15 +67,24 @@ export async function registerWithPassword(
   formData: FormData,
 ): Promise<AuthFormState> {
   const handleResult = createAuthHandle(readRequiredString(formData, "handle"));
+  const emailResult = createAuthEmail(readRequiredString(formData, "email"));
   const name = readOptionalString(formData, "name")?.slice(0, 120);
   const password = readRequiredString(formData, "password");
   const confirmPassword = readRequiredString(formData, "confirmPassword");
+
+  if (!emailResult.ok) {
+    return {
+      status: "error",
+      message: emailResult.message,
+      fields: { name },
+    };
+  }
 
   if (!handleResult.ok) {
     return {
       status: "error",
       message: handleResult.message,
-      fields: { name },
+      fields: { email: emailResult.email, name },
     };
   }
 
@@ -75,7 +92,7 @@ export async function registerWithPassword(
     return {
       status: "error",
       message: "Passwords do not match.",
-      fields: { handle: handleResult.handle, name },
+      fields: { email: emailResult.email, handle: handleResult.handle, name },
     };
   }
 
@@ -85,21 +102,35 @@ export async function registerWithPassword(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Password is invalid.",
-      fields: { handle: handleResult.handle, name },
+      fields: { email: emailResult.email, handle: handleResult.handle, name },
     };
   }
 
-  const [existingUser] = await db
+  const [existingHandle] = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.handle, handleResult.handle))
     .limit(1);
 
-  if (existingUser) {
+  if (existingHandle) {
     return {
       status: "error",
       message: "Handle is already taken.",
-      fields: { handle: handleResult.handle, name },
+      fields: { email: emailResult.email, handle: handleResult.handle, name },
+    };
+  }
+
+  const [existingEmail] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, emailResult.email))
+    .limit(1);
+
+  if (existingEmail) {
+    return {
+      status: "error",
+      message: "Email is already in use.",
+      fields: { email: emailResult.email, handle: handleResult.handle, name },
     };
   }
 
@@ -109,6 +140,7 @@ export async function registerWithPassword(
     await db.insert(users).values({
       id: `local-${crypto.randomUUID()}`,
       name: name ?? handleResult.handle,
+      email: emailResult.email,
       handle: handleResult.handle,
       passwordHash,
       bio: "Building and reviewing vibe-coded projects.",
@@ -121,8 +153,8 @@ export async function registerWithPassword(
     if (isUniqueViolation(error)) {
       return {
         status: "error",
-        message: "Handle is already taken.",
-        fields: { handle: handleResult.handle, name },
+        message: "Handle or email is already in use.",
+        fields: { email: emailResult.email, handle: handleResult.handle, name },
       };
     }
 
@@ -135,11 +167,164 @@ export async function registerWithPassword(
     return {
       status: "error",
       message: "Account was created, but sign-in failed. Try logging in.",
-      fields: { handle: handleResult.handle, name },
+      fields: { email: emailResult.email, handle: handleResult.handle, name },
     };
   }
 
   redirect("/dashboard");
+}
+
+export async function requestPasswordReset(
+  _previousState: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const emailResult = createAuthEmail(readRequiredString(formData, "email"));
+
+  if (!emailResult.ok) {
+    return {
+      status: "error",
+      message: emailResult.message,
+    };
+  }
+
+  await deleteExpiredResetTokens();
+
+  const [user] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, emailResult.email))
+    .limit(1);
+
+  if (!user) {
+    return {
+      status: "success",
+      message: "If the email exists, a reset link is available.",
+      fields: { email: emailResult.email },
+    };
+  }
+
+  const resetId = randomBytes(16).toString("base64url");
+  const token = randomBytes(32).toString("base64url");
+
+  await db.insert(verificationTokens).values({
+    identifier: resetId,
+    token: packResetToken(user.id, token),
+    expires: new Date(Date.now() + resetTokenTtlMs),
+  });
+
+  return {
+    status: "success",
+    message: "If the email exists, a reset link is available.",
+    resetUrl:
+      process.env.NODE_ENV === "production" ? undefined : createResetUrl(resetId, token),
+    fields: { email: emailResult.email },
+  };
+}
+
+export async function resetPasswordWithToken(
+  _previousState: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const resetId = readRequiredString(formData, "resetId");
+  const token = readRequiredString(formData, "token");
+  const password = readRequiredString(formData, "password");
+  const confirmPassword = readRequiredString(formData, "confirmPassword");
+
+  if (!resetId || !token) {
+    return { status: "error", message: "Reset link is invalid." };
+  }
+
+  if (password !== confirmPassword) {
+    return { status: "error", message: "Passwords do not match." };
+  }
+
+  try {
+    assertValidPassword(password);
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Password is invalid.",
+    };
+  }
+
+  const [row] = await db
+    .select()
+    .from(verificationTokens)
+    .where(eq(verificationTokens.identifier, resetId))
+    .limit(1);
+
+  const parsedToken = row ? unpackResetToken(row.token) : null;
+
+  if (!row || !parsedToken || row.expires.getTime() <= Date.now()) {
+    return { status: "error", message: "Reset link is invalid or expired." };
+  }
+
+  if (!safeEqual(hashResetToken(token), parsedToken.tokenHash)) {
+    return { status: "error", message: "Reset link is invalid or expired." };
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
+      .where(eq(users.id, parsedToken.userId));
+
+    await tx
+      .delete(verificationTokens)
+      .where(
+        and(eq(verificationTokens.identifier, resetId), eq(verificationTokens.token, row.token)),
+      );
+  });
+
+  return {
+    status: "success",
+    message: "Password changed. Log in with the new password.",
+  };
+}
+
+export async function changeCurrentUserPassword(
+  _previousState: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const currentUser = await requireCurrentUser();
+  const currentPassword = readRequiredString(formData, "currentPassword");
+  const password = readRequiredString(formData, "password");
+  const confirmPassword = readRequiredString(formData, "confirmPassword");
+
+  if (password !== confirmPassword) {
+    return { status: "error", message: "Passwords do not match." };
+  }
+
+  try {
+    assertValidPassword(password);
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Password is invalid.",
+    };
+  }
+
+  const [user] = await db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, currentUser.id))
+    .limit(1);
+
+  const currentPasswordMatches = await verifyPassword(currentPassword, user?.passwordHash);
+
+  if (!currentPasswordMatches) {
+    return { status: "error", message: "Current password is incorrect." };
+  }
+
+  await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
+    .where(eq(users.id, currentUser.id));
+
+  return {
+    status: "success",
+    message: "Password changed.",
+  };
 }
 
 export async function logout() {
@@ -178,6 +363,18 @@ function createAuthHandle(
   return { ok: true, handle };
 }
 
+function createAuthEmail(input: string):
+  | { ok: true; email: string }
+  | { ok: false; message: string } {
+  const email = input.trim().toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, message: "Valid email is required." };
+  }
+
+  return { ok: true, email };
+}
+
 function isCredentialsErrorUrl(value: unknown) {
   if (typeof value !== "string") {
     return false;
@@ -214,4 +411,39 @@ function isUniqueViolation(error: unknown) {
     "code" in error &&
     (error as { code?: string }).code === "23505"
   );
+}
+
+function packResetToken(userId: string, token: string) {
+  return `${resetTokenPrefix}:${userId}:${hashResetToken(token)}`;
+}
+
+function unpackResetToken(value: string) {
+  const [prefix, userId, tokenHash] = value.split(":");
+
+  if (prefix !== resetTokenPrefix || !userId || !tokenHash) {
+    return null;
+  }
+
+  return { userId, tokenHash };
+}
+
+function hashResetToken(token: string) {
+  return createHash("sha256").update(token).digest("base64url");
+}
+
+function safeEqual(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function createResetUrl(resetId: string, token: string) {
+  const params = new URLSearchParams({ id: resetId, token });
+
+  return `/reset-password?${params.toString()}`;
+}
+
+async function deleteExpiredResetTokens() {
+  await db.delete(verificationTokens).where(lt(verificationTokens.expires, new Date()));
 }

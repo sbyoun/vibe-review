@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   CircleDollarSign,
   Columns3,
+  KeyRound,
   Save,
   Settings,
   UserRound,
@@ -179,6 +180,12 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                   <Link href="/dashboard">
                     <Columns3 className="size-4" aria-hidden="true" />
                     Open dashboard
+                  </Link>
+                </Button>
+                <Button type="button" variant="outline" asChild>
+                  <Link href="/settings/password">
+                    <KeyRound className="size-4" aria-hidden="true" />
+                    Change password
                   </Link>
                 </Button>
                 <Button type="button" variant="outline" asChild>
