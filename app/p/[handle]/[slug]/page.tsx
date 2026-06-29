@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowUpRight,
   CheckCircle2,
   CircleDollarSign,
   Clock3,
