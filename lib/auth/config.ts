@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 
 export const authConfig = {
   secret: process.env.AUTH_SECRET ?? "local-dev-vibe-code-workspace-secret",
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {
