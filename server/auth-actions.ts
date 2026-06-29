@@ -30,12 +30,12 @@ export async function loginWithPassword(
   _previousState: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
-  const handleResult = createAuthHandle(readRequiredString(formData, "handle"));
+  const loginResult = createAuthLogin(readRequiredString(formData, "handle"));
 
-  if (!handleResult.ok) {
+  if (!loginResult.ok) {
     return {
       status: "error",
-      message: handleResult.message,
+      message: loginResult.message,
     };
   }
 
@@ -45,17 +45,17 @@ export async function loginWithPassword(
     return {
       status: "error",
       message: "Password is required.",
-      fields: { handle: handleResult.handle },
+      fields: { handle: loginResult.login },
     };
   }
 
-  const signInResult = await signInWithLocalPassword(handleResult.handle, password);
+  const signInResult = await signInWithLocalPassword(loginResult.login, password);
 
   if (signInResult === "invalid") {
     return {
       status: "error",
-      message: "Invalid handle or password.",
-      fields: { handle: handleResult.handle },
+      message: "Invalid handle/email or password.",
+      fields: { handle: loginResult.login },
     };
   }
 
@@ -363,6 +363,30 @@ function createAuthHandle(
   return { ok: true, handle };
 }
 
+function createAuthLogin(
+  input: string,
+): { ok: true; login: string } | { ok: false; message: string } {
+  const login = input.trim();
+
+  if (login.includes("@")) {
+    const emailResult = createAuthEmail(login);
+
+    if (!emailResult.ok) {
+      return { ok: false, message: "Valid email or handle is required." };
+    }
+
+    return { ok: true, login: emailResult.email };
+  }
+
+  const handleResult = createAuthHandle(login);
+
+  if (!handleResult.ok) {
+    return { ok: false, message: "Valid email or handle is required." };
+  }
+
+  return { ok: true, login: handleResult.handle };
+}
+
 function createAuthEmail(input: string):
   | { ok: true; email: string }
   | { ok: false; message: string } {
@@ -385,10 +409,10 @@ function isCredentialsErrorUrl(value: unknown) {
   return url.searchParams.get("error") === "CredentialsSignin";
 }
 
-async function signInWithLocalPassword(handle: string, password: string) {
+async function signInWithLocalPassword(login: string, password: string) {
   try {
     const signInUrl = await signIn("credentials", {
-      handle,
+      handle: login,
       password,
       redirect: false,
       redirectTo: "/dashboard",

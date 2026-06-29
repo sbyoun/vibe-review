@@ -16,7 +16,7 @@ import {
   feedbackTypes,
   projectStatuses,
   projectVisibilities,
-  slugify,
+  slugifyProjectTitle,
   type FeedbackType,
 } from "@/lib/domain";
 import { ApiError, type McpUser } from "@/server/mcp-api";
@@ -439,7 +439,7 @@ function serializeFeedback<
 }
 
 async function createUniqueProjectSlug(title: string, ownerId: string) {
-  const base = slugify(title);
+  const base = slugifyProjectTitle(title);
   let candidate = base;
   let suffix = 2;
 

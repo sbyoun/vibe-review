@@ -18,15 +18,20 @@ export const authConfig = {
         password: {},
       },
       async authorize(credentials) {
-        const handleValue = typeof credentials.handle === "string" ? credentials.handle : "";
+        const loginValue = typeof credentials.handle === "string" ? credentials.handle.trim() : "";
         const password = typeof credentials.password === "string" ? credentials.password : "";
-        const handle = slugify(handleValue).slice(0, 48);
+        const normalizedEmail = loginValue.toLowerCase();
+        const handle = slugify(loginValue).slice(0, 48);
 
-        if (!handle || !password) {
+        if (!loginValue || !password) {
           return null;
         }
 
-        const [existingUser] = await db.select().from(users).where(eq(users.handle, handle)).limit(1);
+        const [existingUser] = await db
+          .select()
+          .from(users)
+          .where(loginValue.includes("@") ? eq(users.email, normalizedEmail) : eq(users.handle, handle))
+          .limit(1);
 
         if (!existingUser) {
           return null;

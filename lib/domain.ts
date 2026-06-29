@@ -101,6 +101,19 @@ export function slugify(input: string) {
   return slug || "untitled-project";
 }
 
+export function slugifyProjectTitle(input: string) {
+  const slug = input
+    .normalize("NFKC")
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80)
+    .replace(/^-+|-+$/g, "");
+
+  return slug || "project";
+}
+
 export function parseCommaList(value: FormDataEntryValue | null) {
   if (typeof value !== "string") {
     return [];

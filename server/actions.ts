@@ -23,7 +23,7 @@ import {
   coerceProjectStatus,
   coerceProjectVisibility,
   parseCommaList,
-  slugify,
+  slugifyProjectTitle,
 } from "@/lib/domain";
 import { ensureDemoData } from "@/server/data";
 import { requireCurrentUser } from "@/server/current-user";
@@ -622,7 +622,7 @@ export async function updateFeedbackImplementation(formData: FormData) {
 }
 
 async function createUniqueProjectSlug(title: string, ownerId: string) {
-  const base = slugify(title);
+  const base = slugifyProjectTitle(title);
   let candidate = base;
   let suffix = 2;
 

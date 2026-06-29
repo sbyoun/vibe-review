@@ -31,7 +31,7 @@ export function LoginForm({ credentialsError }: LoginFormsProps) {
   const loginInitialState: AuthFormState = credentialsError
     ? {
         status: "error",
-        message: "Invalid handle or password.",
+        message: "Invalid handle/email or password.",
       }
     : emptyState;
   const [loginState, loginAction] = useActionState(loginWithPassword, loginInitialState);
@@ -46,11 +46,11 @@ export function LoginForm({ credentialsError }: LoginFormsProps) {
       <FormMessage state={loginState} />
 
       <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Handle</span>
+        <span className="text-sm font-medium">Handle or email</span>
         <input
           className={inputClass}
           name="handle"
-          placeholder="aya"
+          placeholder="aya or you@example.com"
           required
           autoComplete="username"
           defaultValue={loginState.fields?.handle ?? ""}
