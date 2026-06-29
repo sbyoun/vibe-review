@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
 
 import { SignupForm } from "@/app/login/login-forms";
-import { auth } from "@/auth";
+import { getOptionalCurrentUser } from "@/server/current-user";
 
 export const dynamic = "force-dynamic";
 
 export default async function SignupPage() {
-  const session = await auth();
+  const user = await getOptionalCurrentUser();
 
-  if (session?.user) {
+  if (user) {
     redirect("/dashboard");
   }
 

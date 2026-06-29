@@ -1,16 +1,16 @@
 import { redirect } from "next/navigation";
 
-import { auth } from "@/auth";
 import { LoginForm } from "@/app/login/login-forms";
+import { getOptionalCurrentUser } from "@/server/current-user";
 
 type LoginPageProps = {
   searchParams?: Promise<{ error?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const session = await auth();
+  const user = await getOptionalCurrentUser();
 
-  if (session?.user) {
+  if (user) {
     redirect("/dashboard");
   }
 

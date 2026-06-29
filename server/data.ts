@@ -286,22 +286,29 @@ export async function getDiscoverData() {
   await ensureDemoData();
 
   const viewer = await getOptionalCurrentUser();
-  const rows = await db
+  const projectRows = await db
     .select({
-      request: feedbackRequests,
       project: projects,
       owner: users,
     })
-    .from(feedbackRequests)
-    .innerJoin(projects, eq(feedbackRequests.projectId, projects.id))
+    .from(projects)
     .innerJoin(users, eq(projects.ownerId, users.id))
-    .where(and(eq(feedbackRequests.status, "open"), eq(projects.visibility, "public")))
-    .orderBy(asc(feedbackRequests.deadlineAt), desc(feedbackRequests.createdAt));
+    .where(eq(projects.visibility, "public"))
+    .orderBy(desc(projects.lastActivityAt), desc(projects.createdAt));
 
-  const requestIds = rows.map((row) => row.request.id);
+  const projectIds = projectRows.map((row) => row.project.id);
+  const requestRows =
+    projectIds.length > 0
+      ? await db
+          .select()
+          .from(feedbackRequests)
+          .where(inArray(feedbackRequests.projectId, projectIds))
+          .orderBy(asc(feedbackRequests.deadlineAt), desc(feedbackRequests.createdAt))
+      : [];
+  const requestIds = requestRows.map((request) => request.id);
   const feedbackRows =
-    requestIds.length > 0
-      ? await db.select().from(feedback).where(inArray(feedback.requestId, requestIds))
+    projectIds.length > 0
+      ? await db.select().from(feedback).where(inArray(feedback.projectId, projectIds))
       : [];
   const claimRows =
     requestIds.length > 0
@@ -311,39 +318,51 @@ export async function getDiscoverData() {
           .where(inArray(feedbackClaims.requestId, requestIds))
       : [];
 
-  const cards = rows.map((row) => {
+  const decorateDiscoverRequest = (request: (typeof requestRows)[number], projectOwnerId: string) => {
     const receivedCount = feedbackRows.filter(
-      (entry) => entry.requestId === row.request.id,
+      (entry) => entry.requestId === request.id,
     ).length;
     const activeClaims = claimRows.filter(
-      (claim) => claim.requestId === row.request.id && claim.status === "claimed",
+      (claim) => claim.requestId === request.id && claim.status === "claimed",
     );
     const viewerClaim =
       viewer ? activeClaims.find((claim) => claim.reviewerId === viewer.id) ?? null : null;
 
     return {
-      ...row.request,
-      project: decorateProject(row.project, [row.request], feedbackRows),
-      owner: row.owner,
+      ...request,
       viewerClaim,
-      isOwnRequest: viewer?.id === row.project.ownerId,
+      isOwnRequest: viewer?.id === projectOwnerId,
       activeClaimCount: activeClaims.length,
       receivedCount,
-      missingCount: Math.max(0, row.request.minFeedbackCount - receivedCount),
+      missingCount: Math.max(0, request.minFeedbackCount - receivedCount),
       progressPercent: Math.min(
         100,
-        Math.round((receivedCount / row.request.minFeedbackCount) * 100),
+        Math.round((receivedCount / request.minFeedbackCount) * 100),
       ),
     };
+  };
+
+  const cards = projectRows.map((row) => {
+    const projectRequests = requestRows.filter((request) => request.projectId === row.project.id);
+    const openRequest = projectRequests.find((request) => request.status === "open") ?? null;
+
+    return {
+      project: decorateProject(row.project, projectRequests, feedbackRows),
+      owner: row.owner,
+      request: openRequest ? decorateDiscoverRequest(openRequest, row.project.ownerId) : null,
+      isOwnProject: viewer?.id === row.project.ownerId,
+    };
   });
+  const openRequestCards = cards.flatMap((card) => (card.request ? [card.request] : []));
 
   return {
     viewer,
-    requests: cards,
+    projects: cards,
+    requests: openRequestCards,
     stats: {
-      openRequests: cards.length,
-      neededFeedback: cards.reduce((total, card) => total + card.missingCount, 0),
-      publicProjects: new Set(cards.map((card) => card.projectId)).size,
+      openRequests: openRequestCards.length,
+      neededFeedback: openRequestCards.reduce((total, request) => total + request.missingCount, 0),
+      publicProjects: cards.length,
     },
   };
 }
