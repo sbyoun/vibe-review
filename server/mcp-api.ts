@@ -139,6 +139,17 @@ export function apiJson(data: unknown, init?: ResponseInit) {
   return NextResponse.json(data, init);
 }
 
+export function getRequestOrigin(request: Request) {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const protocol = request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", "");
+
+  if (host) {
+    return `${protocol}://${host}`;
+  }
+
+  return new URL(request.url).origin;
+}
+
 export function apiErrorResponse(error: unknown) {
   if (error instanceof ApiError) {
     return NextResponse.json(
