@@ -36,6 +36,48 @@ npm run typecheck
 
 현재 MVP는 실제 Postgres, OAuth 앱, S3 호환 스토리지 인스턴스가 없어도 lint와 typecheck가 통과하도록 설계한다. 실제 연결 정보는 다음 단계에서 `.env.local`에 추가한다.
 
+## MCP/API 연동
+
+MCP 서버나 자동화 도구가 세션 쿠키 없이 프로젝트를 올리고 피드백을 읽을 수 있도록
+Bearer 토큰 기반 API를 제공한다.
+
+필수 환경변수:
+
+```bash
+MCP_API_TOKEN=replace-with-a-long-random-token
+MCP_API_USER_HANDLE=aya
+```
+
+`MCP_API_USER_HANDLE` 대신 `MCP_API_USER_ID`를 지정할 수도 있다.
+
+기본 엔드포인트:
+
+- `GET /api/mcp/schema`: API 사용 계약
+- `GET /api/mcp/me`: 토큰이 매핑된 사용자
+- `GET /api/mcp/projects`: 내 프로젝트 목록
+- `POST /api/mcp/projects`: 프로젝트 생성
+- `GET /api/mcp/projects/{projectId}`: 프로젝트, 요청, 피드백 상세
+- `POST /api/mcp/projects/{projectId}/feedback-requests`: 피드백 요청 열기
+- `GET /api/mcp/feedback?projectId=&limit=`: 받은 피드백 읽기
+- `GET /api/mcp/feedback/assigned`: 내가 맡은 피드백 작업
+
+예시:
+
+```bash
+curl -H "Authorization: Bearer $MCP_API_TOKEN" \
+  http://localhost:3000/api/mcp/projects
+
+curl -X POST http://localhost:3000/api/mcp/projects \
+  -H "Authorization: Bearer $MCP_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "CLI Launch Notes",
+    "summary": "A tiny app for turning vibe-coded launch notes into a public checklist.",
+    "visibility": "public",
+    "tools": ["Codex", "Next.js"]
+  }'
+```
+
 ## MVP 범위
 
 이번 MVP는 Vibe Code Workspace의 운영형 워크스페이스 골격을 만드는 단계다.
