@@ -11,7 +11,7 @@ export const pool =
   globalForDb.pgPool ??
   new Pool({
     connectionString:
-      process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/vibe_code_workspace",
+      process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5433/vibe_code_workspace",
     max: 5,
   });
 

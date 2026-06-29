@@ -5,14 +5,10 @@ import { ArrowUpRight, BadgeCheck, Clock3, FolderKanban, MessageSquareText } fro
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  feedbackRequests,
-  formatShortDate,
-  getPublicProfile,
-  getPublicProjects,
-  statusLabel,
-  statusTone,
-} from "@/lib/mock-workspace";
+import { feedbackTypeLabel, formatShortDate, statusLabel, statusTone } from "@/lib/domain";
+import { getPublicProfileData } from "@/server/data";
+
+export const dynamic = "force-dynamic";
 
 type PublicProfilePageProps = {
   params: Promise<{ handle: string }>;
@@ -22,25 +18,30 @@ export async function generateMetadata({
   params,
 }: PublicProfilePageProps): Promise<Metadata> {
   const { handle } = await params;
-  const profile = getPublicProfile(handle);
+  const data = await getPublicProfileData(handle);
 
   return {
-    title: profile ? `${profile.name} · Vibe Code Workspace` : "Public profile",
+    title: data ? `${data.profile.name} · Vibe Code Workspace` : "Public profile",
   };
 }
 
 export default async function PublicProfilePage({ params }: PublicProfilePageProps) {
   const { handle } = await params;
-  const profile = getPublicProfile(handle);
+  const data = await getPublicProfileData(handle);
 
-  if (!profile) {
+  if (!data) {
     notFound();
   }
 
-  const projects = getPublicProjects(handle);
-  const openRequests = feedbackRequests.filter((request) =>
-    projects.some((project) => project.slug === request.projectSlug && request.status === "open"),
-  );
+  const { profile, projects, requests } = data;
+  const openRequests = requests.filter((request) => request.status === "open");
+  const responseRate =
+    requests.length > 0
+      ? `${Math.round(
+          (requests.filter((request) => request.status === "fulfilled").length / requests.length) *
+            100,
+        )}%`
+      : "0%";
 
   return (
     <main className="min-h-screen px-6 py-8 lg:px-10">
@@ -59,7 +60,9 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
             <h1 className="mt-3 text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
               {profile.name}
             </h1>
-            <p className="mt-2 text-base font-medium text-muted-foreground">{profile.title}</p>
+            <p className="mt-2 text-base font-medium text-muted-foreground">
+              {profile.primaryRoles.join(" / ") || "Builder"}
+            </p>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
               {profile.bio}
             </p>
@@ -71,12 +74,12 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
               <p className="mt-1 text-2xl font-semibold">{profile.feedbackCredits}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Response rate</p>
-              <p className="mt-1 text-2xl font-semibold">{profile.responseRate}</p>
+              <p className="text-sm text-muted-foreground">Fulfilled</p>
+              <p className="mt-1 text-2xl font-semibold">{responseRate}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Joined</p>
-              <p className="mt-1 text-2xl font-semibold">{formatShortDate(profile.joinedAt)}</p>
+              <p className="mt-1 text-2xl font-semibold">{formatShortDate(profile.createdAt)}</p>
             </div>
           </div>
         </header>
@@ -117,7 +120,10 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
                     href={`/p/${profile.handle}/${request.projectSlug}`}
                     className="block rounded-md border border-border bg-background p-3 transition-colors hover:border-primary/50"
                   >
-                    <p className="text-sm font-medium">{request.title}</p>
+                    <p className="text-sm font-medium">{request.projectTitle}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {request.feedbackTypes.map((type) => feedbackTypeLabel[type]).join(", ")}
+                    </p>
                     <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                       <span>
                         {request.receivedCount}/{request.minFeedbackCount} received
@@ -126,6 +132,11 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
                     </div>
                   </Link>
                 ))}
+                {openRequests.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                    No active request.
+                  </p>
+                ) : null}
               </div>
             </div>
           </aside>
@@ -150,7 +161,9 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-lg font-semibold">{project.title}</h3>
                         <span
-                          className={`rounded-md border px-2 py-0.5 text-xs ${statusTone[project.status]}`}
+                          className={`rounded-md border px-2 py-0.5 text-xs ${
+                            statusTone[project.status]
+                          }`}
                         >
                           {statusLabel[project.status]}
                         </span>

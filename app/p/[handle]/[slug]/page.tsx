@@ -9,45 +9,57 @@ import {
   ExternalLink,
   GitBranch,
   MessageSquareText,
+  Send,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  feedbackTypeLabel,
+  feedbackTypes,
   formatShortDate,
-  getProjectFeedbackEntries,
-  getProjectFeedbackRequest,
-  getPublicProject,
   statusLabel,
   statusTone,
-} from "@/lib/mock-workspace";
+} from "@/lib/domain";
+import { createFeedback } from "@/server/actions";
+import { getPublicProjectData } from "@/server/data";
+
+export const dynamic = "force-dynamic";
 
 type PublicProjectPageProps = {
   params: Promise<{ handle: string; slug: string }>;
 };
 
+const inputClass =
+  "min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+const labelClass = "text-sm font-medium text-foreground";
+
 export async function generateMetadata({
   params,
 }: PublicProjectPageProps): Promise<Metadata> {
   const { handle, slug } = await params;
-  const project = getPublicProject(handle, slug);
+  const data = await getPublicProjectData(handle, slug);
 
   return {
-    title: project ? `${project.title} · Vibe Code Workspace` : "Public project",
+    title: data ? `${data.project.title} · Vibe Code Workspace` : "Public project",
   };
 }
 
 export default async function PublicProjectPage({ params }: PublicProjectPageProps) {
   const { handle, slug } = await params;
-  const project = getPublicProject(handle, slug);
+  const data = await getPublicProjectData(handle, slug);
 
-  if (!project) {
+  if (!data) {
     notFound();
   }
 
-  const request = getProjectFeedbackRequest(project.slug);
-  const feedback = getProjectFeedbackEntries(project.slug);
-  const shippedLabel = project.shippedAt ? formatShortDate(project.shippedAt) : "Not shipped";
+  const { profile, project, request, feedback } = data;
+  const shippedLabel = project.buildShippedAt
+    ? formatShortDate(project.buildShippedAt)
+    : "Not shipped";
+  const startedLabel = formatShortDate(project.buildStartedAt ?? project.createdAt);
+  const creditSpend = request?.creditCost ?? 0;
 
   return (
     <main className="min-h-screen px-6 py-8 lg:px-10">
@@ -75,21 +87,25 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
               {project.title}
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground">
-              {project.description}
+              {project.description ?? project.summary}
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Button type="button" asChild>
-                <a href={project.demoUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="size-4" aria-hidden="true" />
-                  Demo
-                </a>
-              </Button>
-              <Button type="button" variant="outline" asChild>
-                <a href={project.repoUrl} target="_blank" rel="noreferrer">
-                  <GitBranch className="size-4" aria-hidden="true" />
-                  Repo
-                </a>
-              </Button>
+              {project.demoUrl ? (
+                <Button type="button" asChild>
+                  <a href={project.demoUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink className="size-4" aria-hidden="true" />
+                    Demo
+                  </a>
+                </Button>
+              ) : null}
+              {project.repoUrl ? (
+                <Button type="button" variant="outline" asChild>
+                  <a href={project.repoUrl} target="_blank" rel="noreferrer">
+                    <GitBranch className="size-4" aria-hidden="true" />
+                    Repo
+                  </a>
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -116,15 +132,15 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
               <div className="mt-4 grid gap-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">Started</span>
-                  <span className="font-medium">{formatShortDate(project.startedAt)}</span>
+                  <span className="font-medium">{startedLabel}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">Updated</span>
                   <span className="font-medium">{formatShortDate(project.updatedAt)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">Credits spent</span>
-                  <span className="font-medium">{project.creditSpend}</span>
+                  <span className="text-muted-foreground">Request spend</span>
+                  <span className="font-medium">{creditSpend}</span>
                 </div>
               </div>
             </div>
@@ -145,7 +161,7 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
               <div className="mt-4 flex flex-wrap gap-2">
                 {project.feedbackFocus.map((focus) => (
                   <Badge key={focus} variant="secondary">
-                    {focus}
+                    {feedbackTypeLabel[focus]}
                   </Badge>
                 ))}
               </div>
@@ -164,8 +180,9 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                     {request.status}
                   </Badge>
                 </div>
-                <h3 className="mt-4 text-base font-semibold">{request.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{request.focus}</p>
+                <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                  {request.feedbackTypes.map((type) => feedbackTypeLabel[type]).join(", ")}
+                </p>
                 <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
                   <div className="rounded-md border border-border bg-background p-3">
                     <p className="flex items-center gap-2 text-muted-foreground">
@@ -195,6 +212,56 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
             ) : null}
 
             <section className="rounded-md border border-border bg-card p-4">
+              <div className="flex items-center gap-2">
+                <Send className="size-5 text-primary" aria-hidden="true" />
+                <h2 className="text-lg font-semibold">Leave feedback</h2>
+              </div>
+              <form action={createFeedback} className="mt-4 grid gap-3">
+                <input type="hidden" name="projectId" value={project.id} />
+                {request ? <input type="hidden" name="requestId" value={request.id} /> : null}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1.5">
+                    <span className={labelClass}>Name</span>
+                    <input
+                      className={inputClass}
+                      name="authorName"
+                      required
+                      defaultValue="Guest Reviewer"
+                    />
+                  </label>
+                  <label className="grid gap-1.5">
+                    <span className={labelClass}>Rating</span>
+                    <select className={inputClass} name="rating" defaultValue="4">
+                      {[5, 4, 3, 2, 1].map((rating) => (
+                        <option key={rating} value={rating}>
+                          {rating}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label className="grid gap-1.5">
+                  <span className={labelClass}>Type</span>
+                  <select className={inputClass} name="feedbackType" defaultValue="first_impression">
+                    {feedbackTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {feedbackTypeLabel[type]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className={labelClass}>Feedback</span>
+                  <textarea className={inputClass} name="body" required rows={5} />
+                </label>
+                <Button type="submit">
+                  <Send className="size-4" aria-hidden="true" />
+                  Submit feedback
+                </Button>
+              </form>
+            </section>
+
+            <section className="rounded-md border border-border bg-card p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <MessageSquareText className="size-5 text-primary" aria-hidden="true" />
@@ -210,28 +277,33 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-sm font-semibold">{entry.author}</h3>
-                        <p className="mt-1 text-xs text-muted-foreground">{entry.role}</p>
+                        <h3 className="text-sm font-semibold">{entry.authorName}</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {entry.authorBio ?? profile.name}
+                        </p>
                       </div>
-                      <Badge variant="outline">{entry.type}</Badge>
+                      <Badge variant="outline">{feedbackTypeLabel[entry.feedbackType]}</Badge>
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">{entry.excerpt}</p>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">{entry.body}</p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Badge variant={entry.helpfulStatus === "helpful" ? "default" : "outline"}>
                         {entry.helpfulStatus}
                       </Badge>
                       <Badge
-                        variant={
-                          entry.implementedStatus === "implemented" ? "secondary" : "outline"
-                        }
+                        variant={entry.implementedStatus === "implemented" ? "secondary" : "outline"}
                       >
                         {entry.implementedStatus}
                       </Badge>
-                      <Badge variant="outline">{entry.rating}/5</Badge>
+                      <Badge variant="outline">{entry.rating ?? "-"} / 5</Badge>
                       <Badge variant="outline">{formatShortDate(entry.createdAt)}</Badge>
                     </div>
                   </article>
                 ))}
+                {feedback.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                    No feedback yet.
+                  </p>
+                ) : null}
               </div>
             </section>
           </div>

@@ -5,7 +5,7 @@ export default defineConfig({
   out: "./db/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/vibe_code_workspace",
+    url: process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5433/vibe_code_workspace",
   },
   strict: true,
   verbose: true,
