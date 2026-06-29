@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowUpRight, BadgeCheck, Clock3, FolderKanban, MessageSquareText } from "lucide-react";
+import {
+  ArrowUpRight,
+  BadgeCheck,
+  Clock3,
+  FolderKanban,
+  MessageSquareText,
+  Settings as SettingsIcon,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { feedbackTypeLabel, formatShortDate, statusLabel, statusTone } from "@/lib/domain";
+import { getOptionalCurrentUser } from "@/server/current-user";
 import { getPublicProfileData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +42,8 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
   }
 
   const { profile, projects, requests } = data;
+  const viewer = await getOptionalCurrentUser();
+  const isOwner = viewer?.id === profile.id;
   const openRequests = requests.filter((request) => request.status === "open");
   const responseRate =
     requests.length > 0
@@ -66,6 +76,16 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
             <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
               {profile.bio}
             </p>
+            {isOwner ? (
+              <div className="mt-5">
+                <Button type="button" variant="outline" asChild>
+                  <Link href="/settings">
+                    <SettingsIcon className="size-4" aria-hidden="true" />
+                    Edit profile
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-3 rounded-md border border-border bg-card p-4 sm:grid-cols-3 lg:grid-cols-1">

@@ -7,6 +7,7 @@ import {
   LogIn,
   LogOut,
   MessageSquareText,
+  Settings,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -24,6 +25,10 @@ export async function SiteNav() {
     { href: "/feedback", label: "Feedback", icon: MessageSquareText },
     { href: profileHref, label: "Profile", icon: UserRound },
   ];
+
+  if (user) {
+    navItems.push({ href: "/settings", label: "Settings", icon: Settings });
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">

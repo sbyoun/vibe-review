@@ -28,6 +28,58 @@ import {
 import { ensureDemoData } from "@/server/data";
 import { requireCurrentUser } from "@/server/current-user";
 
+export async function updateCurrentUserProfile(formData: FormData) {
+  await ensureDemoData();
+  const currentUser = await requireCurrentUser();
+
+  const name = readRequiredString(formData, "name").slice(0, 120);
+  const handle = createProfileHandle(readRequiredString(formData, "handle"));
+  const bio = readOptionalString(formData, "bio")?.slice(0, 600);
+  const primaryRoles = parseCommaList(formData.get("primaryRoles"));
+  const toolsUsed = parseCommaList(formData.get("toolsUsed"));
+
+  const [handleOwner] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.handle, handle))
+    .limit(1);
+
+  if (handleOwner && handleOwner.id !== currentUser.id) {
+    throw new Error("Handle is already taken");
+  }
+
+  const projectRows = await db
+    .select({ slug: projects.slug })
+    .from(projects)
+    .where(eq(projects.ownerId, currentUser.id));
+
+  await db
+    .update(users)
+    .set({
+      name,
+      handle,
+      bio,
+      primaryRoles,
+      toolsUsed,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, currentUser.id));
+
+  revalidatePath("/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/feedback");
+  revalidatePath("/discover");
+  revalidatePath(`/p/${currentUser.handle}`);
+  revalidatePath(`/p/${handle}`);
+
+  for (const project of projectRows) {
+    revalidatePath(`/p/${currentUser.handle}/${project.slug}`);
+    revalidatePath(`/p/${handle}/${project.slug}`);
+  }
+
+  redirect("/settings?profile=updated");
+}
+
 export async function createProject(formData: FormData) {
   await ensureDemoData();
   const owner = await requireCurrentUser();
@@ -607,6 +659,21 @@ function readOptionalString(formData: FormData, key: string) {
   }
 
   return value.trim();
+}
+
+function createProfileHandle(input: string) {
+  const handle = input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+
+  if (handle.length < 2) {
+    throw new Error("Handle must be at least 2 characters");
+  }
+
+  return handle;
 }
 
 function revalidateWorkspace(ownerHandle?: string | null, projectSlug?: string) {
