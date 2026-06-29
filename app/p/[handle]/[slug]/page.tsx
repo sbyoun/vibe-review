@@ -79,16 +79,16 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <Button type="button" asChild>
-                <Link href={project.demoUrl} target="_blank" rel="noreferrer">
+                <a href={project.demoUrl} target="_blank" rel="noreferrer">
                   <ExternalLink className="size-4" aria-hidden="true" />
                   Demo
-                </Link>
+                </a>
               </Button>
               <Button type="button" variant="outline" asChild>
-                <Link href={project.repoUrl} target="_blank" rel="noreferrer">
+                <a href={project.repoUrl} target="_blank" rel="noreferrer">
                   <GitBranch className="size-4" aria-hidden="true" />
                   Repo
-                </Link>
+                </a>
               </Button>
             </div>
           </div>
