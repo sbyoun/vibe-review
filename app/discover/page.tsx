@@ -4,6 +4,7 @@ import { Clock3, Compass, MessageSquareText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { feedbackTypeLabel, formatShortDate, statusLabel, statusTone } from "@/lib/domain";
+import { claimFeedbackRequest } from "@/server/actions";
 import { getDiscoverData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
@@ -106,7 +107,7 @@ export default async function DiscoverPage() {
                           ) : null}
                         </div>
                         <p className="mt-2 text-xs text-muted-foreground">
-                          {request.creditCost} credits
+                          {request.creditCost} credits · {request.activeClaimCount} claimed
                         </p>
                       </td>
                       <td className="px-4 py-4">
@@ -137,12 +138,22 @@ export default async function DiscoverPage() {
                         </p>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <Button type="button" size="sm" asChild>
-                          <Link href={`/p/${request.owner.handle}/${request.project.slug}`}>
-                            <MessageSquareText className="size-4" aria-hidden="true" />
-                            Feedback
-                          </Link>
-                        </Button>
+                        {request.viewerClaim ? (
+                          <Button type="button" size="sm" variant="outline" asChild>
+                            <Link href={`/p/${request.owner.handle}/${request.project.slug}`}>
+                              <MessageSquareText className="size-4" aria-hidden="true" />
+                              Open task
+                            </Link>
+                          </Button>
+                        ) : (
+                          <form action={claimFeedbackRequest}>
+                            <input type="hidden" name="requestId" value={request.id} />
+                            <Button type="submit" size="sm">
+                              <MessageSquareText className="size-4" aria-hidden="true" />
+                              Claim
+                            </Button>
+                          </form>
+                        )}
                       </td>
                     </tr>
                   ))}

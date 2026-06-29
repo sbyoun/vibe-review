@@ -41,6 +41,12 @@ export const feedbackRequestStatus = pgEnum("feedback_request_status", [
   "expired",
   "cancelled",
 ]);
+export const feedbackClaimStatus = pgEnum("feedback_claim_status", [
+  "claimed",
+  "submitted",
+  "cancelled",
+  "expired",
+]);
 export const feedbackType = pgEnum("feedback_type", [
   "first_impression",
   "ux_ui",
@@ -311,6 +317,34 @@ export const feedback = pgTable(
   ],
 );
 
+export const feedbackClaims = pgTable(
+  "feedback_claims",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => feedbackRequests.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    reviewerId: text("reviewer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: feedbackClaimStatus("status").notNull().default("claimed"),
+    dueAt: timestamp("due_at", { mode: "date" }).notNull(),
+    submittedFeedbackId: uuid("submitted_feedback_id").references(() => feedback.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("feedback_claims_request_status_idx").on(table.requestId, table.status),
+    index("feedback_claims_reviewer_status_idx").on(table.reviewerId, table.status),
+    index("feedback_claims_due_at_idx").on(table.dueAt),
+  ],
+);
+
 export const feedbackReactions = pgTable(
   "feedback_reactions",
   {
@@ -426,6 +460,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   projects: many(projects),
   authoredFeedback: many(feedback),
+  feedbackClaims: many(feedbackClaims),
   creditLedgerEntries: many(creditLedger),
   notifications: many(notifications),
 }));
@@ -440,6 +475,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   statusEvents: many(projectStatusEvents),
   feedbackRequests: many(feedbackRequests),
   feedback: many(feedback),
+  feedbackClaims: many(feedbackClaims),
   projectToolTags: many(projectToolTags),
 }));
 
@@ -453,6 +489,7 @@ export const feedbackRequestsRelations = relations(feedbackRequests, ({ one, man
     references: [users.id],
   }),
   feedback: many(feedback),
+  claims: many(feedbackClaims),
 }));
 
 export const feedbackRelations = relations(feedback, ({ one, many }) => ({
@@ -472,6 +509,25 @@ export const feedbackRelations = relations(feedback, ({ one, many }) => ({
   implementationEvents: many(feedbackImplementationEvents),
 }));
 
+export const feedbackClaimsRelations = relations(feedbackClaims, ({ one }) => ({
+  request: one(feedbackRequests, {
+    fields: [feedbackClaims.requestId],
+    references: [feedbackRequests.id],
+  }),
+  project: one(projects, {
+    fields: [feedbackClaims.projectId],
+    references: [projects.id],
+  }),
+  reviewer: one(users, {
+    fields: [feedbackClaims.reviewerId],
+    references: [users.id],
+  }),
+  submittedFeedback: one(feedback, {
+    fields: [feedbackClaims.submittedFeedbackId],
+    references: [feedback.id],
+  }),
+}));
+
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
 export type Project = InferSelectModel<typeof projects>;
@@ -480,5 +536,7 @@ export type FeedbackRequest = InferSelectModel<typeof feedbackRequests>;
 export type NewFeedbackRequest = InferInsertModel<typeof feedbackRequests>;
 export type Feedback = InferSelectModel<typeof feedback>;
 export type NewFeedback = InferInsertModel<typeof feedback>;
+export type FeedbackClaim = InferSelectModel<typeof feedbackClaims>;
+export type NewFeedbackClaim = InferInsertModel<typeof feedbackClaims>;
 export type CreditLedgerEntry = InferSelectModel<typeof creditLedger>;
 export type NewCreditLedgerEntry = InferInsertModel<typeof creditLedger>;

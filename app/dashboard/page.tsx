@@ -22,7 +22,12 @@ import {
   statusLabel,
   statusTone,
 } from "@/lib/domain";
-import { createFeedbackRequest, createProject, updateProjectStatus } from "@/server/actions";
+import {
+  createFeedbackRequest,
+  createProject,
+  updateProjectDetails,
+  updateProjectStatus,
+} from "@/server/actions";
 import { getWorkspaceData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
@@ -159,6 +164,86 @@ export default async function DashboardPage() {
                               Save
                             </Button>
                           </form>
+                          <details className="mt-3 rounded-md border border-border bg-background p-3">
+                            <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                              Edit details
+                            </summary>
+                            <form action={updateProjectDetails} className="mt-3 grid gap-2">
+                              <input type="hidden" name="projectId" value={project.id} />
+                              <label className="grid gap-1">
+                                <span className="text-xs text-muted-foreground">Title</span>
+                                <input
+                                  className={inputClass}
+                                  name="title"
+                                  defaultValue={project.title}
+                                  required
+                                />
+                              </label>
+                              <label className="grid gap-1">
+                                <span className="text-xs text-muted-foreground">Summary</span>
+                                <textarea
+                                  className={inputClass}
+                                  name="summary"
+                                  defaultValue={project.summary}
+                                  required
+                                  rows={3}
+                                />
+                              </label>
+                              <label className="grid gap-1">
+                                <span className="text-xs text-muted-foreground">Description</span>
+                                <textarea
+                                  className={inputClass}
+                                  name="description"
+                                  defaultValue={project.description ?? ""}
+                                  rows={4}
+                                />
+                              </label>
+                              <label className="grid gap-1">
+                                <span className="text-xs text-muted-foreground">Visibility</span>
+                                <select
+                                  className={inputClass}
+                                  name="visibility"
+                                  defaultValue={project.visibility}
+                                >
+                                  {projectVisibilities.map((visibility) => (
+                                    <option key={visibility} value={visibility}>
+                                      {visibility}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="grid gap-1">
+                                <span className="text-xs text-muted-foreground">Demo URL</span>
+                                <input
+                                  className={inputClass}
+                                  name="demoUrl"
+                                  type="url"
+                                  defaultValue={project.demoUrl ?? ""}
+                                />
+                              </label>
+                              <label className="grid gap-1">
+                                <span className="text-xs text-muted-foreground">Repo URL</span>
+                                <input
+                                  className={inputClass}
+                                  name="repoUrl"
+                                  type="url"
+                                  defaultValue={project.repoUrl ?? ""}
+                                />
+                              </label>
+                              <label className="grid gap-1">
+                                <span className="text-xs text-muted-foreground">Tools</span>
+                                <input
+                                  className={inputClass}
+                                  name="tools"
+                                  defaultValue={project.tools.join(", ")}
+                                />
+                              </label>
+                              <Button type="submit" size="sm" variant="outline">
+                                <Save className="size-4" aria-hidden="true" />
+                                Save details
+                              </Button>
+                            </form>
+                          </details>
                         </article>
                       ))}
                       {projects.length === 0 ? (

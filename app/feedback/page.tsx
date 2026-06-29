@@ -13,10 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   feedbackImplementationStatuses,
+  feedbackClaimStatusLabel,
   feedbackTypeLabel,
   formatShortDate,
 } from "@/lib/domain";
-import { updateFeedbackImplementation } from "@/server/actions";
+import { cancelFeedbackClaim, updateFeedbackImplementation } from "@/server/actions";
 import { getFeedbackQueueData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,10 @@ export default async function FeedbackPage() {
       value: data.requests.filter((request) => request.status === "fulfilled").length,
     },
     {
+      label: "Assigned",
+      value: data.assignedClaims.length,
+    },
+    {
       label: "Received",
       value: data.feedback.length,
     },
@@ -67,13 +72,93 @@ export default async function FeedbackPage() {
           </div>
         </header>
 
-        <section className="grid gap-3 md:grid-cols-3">
+        <section className="grid gap-3 md:grid-cols-4">
           {queueStats.map((stat) => (
             <div key={stat.label} className="rounded-md border border-border bg-card p-4">
               <p className="text-sm text-muted-foreground">{stat.label}</p>
               <p className="mt-2 text-3xl font-semibold">{stat.value}</p>
             </div>
           ))}
+        </section>
+
+        <section className="rounded-md border border-border bg-card p-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="size-5 text-primary" aria-hidden="true" />
+            <h2 className="text-lg font-semibold">Assigned to me</h2>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            {data.assignedClaims.map((claim) => (
+              <article
+                key={claim.id}
+                className="rounded-md border border-border bg-background p-4"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-semibold">{claim.project.title}</h3>
+                      <Badge variant="secondary">{feedbackClaimStatusLabel[claim.status]}</Badge>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {claim.project.summary}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {claim.request.feedbackTypes.map((type) => (
+                        <Badge key={type} variant="outline">
+                          {feedbackTypeLabel[type]}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" size="sm" asChild>
+                      <Link href={`/p/${claim.owner.handle}/${claim.project.slug}`}>
+                        <MessageSquareText className="size-4" aria-hidden="true" />
+                        Open
+                      </Link>
+                    </Button>
+                    <form action={cancelFeedbackClaim}>
+                      <input type="hidden" name="claimId" value={claim.id} />
+                      <Button type="submit" size="sm" variant="outline">
+                        Cancel
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <CheckCircle2 className="size-4" aria-hidden="true" />
+                      Request progress
+                    </div>
+                    <p className="mt-2 font-semibold">
+                      {claim.request.receivedCount}/{claim.request.minFeedbackCount}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock3 className="size-4" aria-hidden="true" />
+                      Claim due
+                    </div>
+                    <p className="mt-2 font-semibold">{formatShortDate(claim.dueAt)}</p>
+                  </div>
+                  <div className="rounded-md border border-border bg-card p-3">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <CircleDollarSign className="size-4" aria-hidden="true" />
+                      Reward
+                    </div>
+                    <p className="mt-2 font-semibold">1 credit</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+            {data.assignedClaims.length === 0 ? (
+              <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                No assigned feedback tasks. Claim one from Discover.
+              </p>
+            ) : null}
+          </div>
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">

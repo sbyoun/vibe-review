@@ -1,9 +1,10 @@
-import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   creditLedger,
   feedback,
+  feedbackClaims,
   feedbackRequests,
   projectStatusEvents,
   projects,
@@ -158,6 +159,22 @@ export async function ensureDemoData() {
       balanceAfter: 1,
     });
   }
+
+  await expireStaleFeedbackWork();
+}
+
+async function expireStaleFeedbackWork() {
+  const now = new Date();
+
+  await db
+    .update(feedbackClaims)
+    .set({ status: "expired", updatedAt: now })
+    .where(and(eq(feedbackClaims.status, "claimed"), lt(feedbackClaims.dueAt, now)));
+
+  await db
+    .update(feedbackRequests)
+    .set({ status: "expired", updatedAt: now })
+    .where(and(eq(feedbackRequests.status, "open"), lt(feedbackRequests.deadlineAt, now)));
 }
 
 export async function getDemoOwner() {
@@ -241,9 +258,11 @@ export async function getWorkspaceData() {
 
 export async function getFeedbackQueueData() {
   const workspace = await getWorkspaceData();
+  const assignedClaims = await getAssignedFeedbackClaims();
 
   return {
     ...workspace,
+    assignedClaims,
     requests: workspace.requests.sort((a, b) => {
       if (a.status === b.status) {
         return a.deadlineAt.getTime() - b.deadlineAt.getTime();
@@ -252,6 +271,39 @@ export async function getFeedbackQueueData() {
       return a.status === "open" ? -1 : 1;
     }),
   };
+}
+
+async function getAssignedFeedbackClaims() {
+  await ensureDemoData();
+
+  const rows = await db
+    .select({
+      claim: feedbackClaims,
+      request: feedbackRequests,
+      project: projects,
+      owner: users,
+    })
+    .from(feedbackClaims)
+    .innerJoin(feedbackRequests, eq(feedbackClaims.requestId, feedbackRequests.id))
+    .innerJoin(projects, eq(feedbackClaims.projectId, projects.id))
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(
+      and(eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID), eq(feedbackClaims.status, "claimed")),
+    )
+    .orderBy(asc(feedbackClaims.dueAt), desc(feedbackClaims.createdAt));
+
+  const requestIds = rows.map((row) => row.request.id);
+  const requestFeedbackRows =
+    requestIds.length > 0
+      ? await db.select().from(feedback).where(inArray(feedback.requestId, requestIds))
+      : [];
+
+  return rows.map((row) => ({
+    ...row.claim,
+    request: decorateRequest(row.request, [row.project], requestFeedbackRows),
+    project: decorateProject(row.project, [row.request], requestFeedbackRows),
+    owner: row.owner,
+  }));
 }
 
 export async function getDiscoverData() {
@@ -274,16 +326,30 @@ export async function getDiscoverData() {
     requestIds.length > 0
       ? await db.select().from(feedback).where(inArray(feedback.requestId, requestIds))
       : [];
+  const claimRows =
+    requestIds.length > 0
+      ? await db
+          .select()
+          .from(feedbackClaims)
+          .where(inArray(feedbackClaims.requestId, requestIds))
+      : [];
 
   const cards = rows.map((row) => {
     const receivedCount = feedbackRows.filter(
       (entry) => entry.requestId === row.request.id,
     ).length;
+    const activeClaims = claimRows.filter(
+      (claim) => claim.requestId === row.request.id && claim.status === "claimed",
+    );
+    const viewerClaim =
+      activeClaims.find((claim) => claim.reviewerId === DEMO_REVIEWER_ID) ?? null;
 
     return {
       ...row.request,
       project: decorateProject(row.project, [row.request], feedbackRows),
       owner: row.owner,
+      viewerClaim,
+      activeClaimCount: activeClaims.length,
       receivedCount,
       missingCount: Math.max(0, row.request.minFeedbackCount - receivedCount),
       progressPercent: Math.min(
@@ -377,14 +443,29 @@ export async function getPublicProjectData(handle: string, slug: string) {
   const decoratedRequests = requestRows.map((request) =>
     decorateRequest(request, [project], feedbackRows),
   );
+  const activeRequest =
+    decoratedRequests.find((request) => request.status === "open") ??
+    decoratedRequests[0] ??
+    null;
+  const [viewerClaim] = activeRequest
+    ? await db
+        .select()
+        .from(feedbackClaims)
+        .where(
+          and(
+            eq(feedbackClaims.requestId, activeRequest.id),
+            eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID),
+            eq(feedbackClaims.status, "claimed"),
+          ),
+        )
+        .limit(1)
+    : [];
 
   return {
     profile: profileData.profile,
     project: decorateProject(project, requestRows, feedbackRows),
-    request:
-      decoratedRequests.find((request) => request.status === "open") ??
-      decoratedRequests[0] ??
-      null,
+    request: activeRequest,
+    viewerClaim: viewerClaim ?? null,
     feedback: feedbackRows,
   };
 }

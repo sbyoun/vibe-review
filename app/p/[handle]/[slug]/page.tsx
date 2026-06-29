@@ -21,7 +21,7 @@ import {
   statusLabel,
   statusTone,
 } from "@/lib/domain";
-import { createFeedback } from "@/server/actions";
+import { claimFeedbackRequest, createFeedback } from "@/server/actions";
 import { getPublicProjectData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
@@ -54,12 +54,13 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
     notFound();
   }
 
-  const { profile, project, request, feedback } = data;
+  const { profile, project, request, viewerClaim, feedback } = data;
   const shippedLabel = project.buildShippedAt
     ? formatShortDate(project.buildShippedAt)
     : "Not shipped";
   const startedLabel = formatShortDate(project.buildStartedAt ?? project.createdAt);
   const creditSpend = request?.creditCost ?? 0;
+  const needsClaimBeforeFeedback = request?.status === "open" && !viewerClaim;
 
   return (
     <main className="min-h-screen px-6 py-8 lg:px-10">
@@ -216,49 +217,72 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                 <Send className="size-5 text-primary" aria-hidden="true" />
                 <h2 className="text-lg font-semibold">Leave feedback</h2>
               </div>
-              <form action={createFeedback} className="mt-4 grid gap-3">
-                <input type="hidden" name="projectId" value={project.id} />
-                {request ? <input type="hidden" name="requestId" value={request.id} /> : null}
-                <div className="grid gap-3 sm:grid-cols-2">
+              {needsClaimBeforeFeedback ? (
+                <div className="mt-4 rounded-md border border-dashed border-border bg-background p-4">
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    This request is reserved through the feedback queue. Claim it first, then it
+                    appears in your assigned work.
+                  </p>
+                  <form action={claimFeedbackRequest} className="mt-4">
+                    <input type="hidden" name="requestId" value={request.id} />
+                    <Button type="submit">
+                      <MessageSquareText className="size-4" aria-hidden="true" />
+                      Claim feedback task
+                    </Button>
+                  </form>
+                </div>
+              ) : (
+                <form action={createFeedback} className="mt-4 grid gap-3">
+                  <input type="hidden" name="projectId" value={project.id} />
+                  {request ? <input type="hidden" name="requestId" value={request.id} /> : null}
+                  {viewerClaim ? (
+                    <input type="hidden" name="claimId" value={viewerClaim.id} />
+                  ) : null}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1.5">
+                      <span className={labelClass}>Name</span>
+                      <input
+                        className={inputClass}
+                        name="authorName"
+                        required
+                        defaultValue="Guest Reviewer"
+                      />
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className={labelClass}>Rating</span>
+                      <select className={inputClass} name="rating" defaultValue="4">
+                        {[5, 4, 3, 2, 1].map((rating) => (
+                          <option key={rating} value={rating}>
+                            {rating}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                   <label className="grid gap-1.5">
-                    <span className={labelClass}>Name</span>
-                    <input
+                    <span className={labelClass}>Type</span>
+                    <select
                       className={inputClass}
-                      name="authorName"
-                      required
-                      defaultValue="Guest Reviewer"
-                    />
-                  </label>
-                  <label className="grid gap-1.5">
-                    <span className={labelClass}>Rating</span>
-                    <select className={inputClass} name="rating" defaultValue="4">
-                      {[5, 4, 3, 2, 1].map((rating) => (
-                        <option key={rating} value={rating}>
-                          {rating}
+                      name="feedbackType"
+                      defaultValue="first_impression"
+                    >
+                      {feedbackTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {feedbackTypeLabel[type]}
                         </option>
                       ))}
                     </select>
                   </label>
-                </div>
-                <label className="grid gap-1.5">
-                  <span className={labelClass}>Type</span>
-                  <select className={inputClass} name="feedbackType" defaultValue="first_impression">
-                    {feedbackTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {feedbackTypeLabel[type]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1.5">
-                  <span className={labelClass}>Feedback</span>
-                  <textarea className={inputClass} name="body" required rows={5} />
-                </label>
-                <Button type="submit">
-                  <Send className="size-4" aria-hidden="true" />
-                  Submit feedback
-                </Button>
-              </form>
+                  <label className="grid gap-1.5">
+                    <span className={labelClass}>Feedback</span>
+                    <textarea className={inputClass} name="body" required rows={5} />
+                  </label>
+                  <Button type="submit">
+                    <Send className="size-4" aria-hidden="true" />
+                    Submit feedback
+                  </Button>
+                </form>
+              )}
             </section>
 
             <section className="rounded-md border border-border bg-card p-4">

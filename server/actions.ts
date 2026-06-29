@@ -2,10 +2,12 @@
 
 import { and, count, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { db } from "@/db";
 import {
   creditLedger,
+  feedbackClaims,
   feedback,
   feedbackImplementationEvents,
   feedbackRequests,
@@ -23,7 +25,12 @@ import {
   parseCommaList,
   slugify,
 } from "@/lib/domain";
-import { DEMO_OWNER_HANDLE, DEMO_OWNER_ID, ensureDemoData } from "@/server/data";
+import {
+  DEMO_OWNER_HANDLE,
+  DEMO_OWNER_ID,
+  DEMO_REVIEWER_ID,
+  ensureDemoData,
+} from "@/server/data";
 
 export async function createProject(formData: FormData) {
   await ensureDemoData();
@@ -96,6 +103,46 @@ export async function updateProjectStatus(formData: FormData) {
       note: "Status changed from dashboard",
     });
   });
+
+  revalidateWorkspace(project.slug);
+}
+
+export async function updateProjectDetails(formData: FormData) {
+  await ensureDemoData();
+
+  const projectId = readRequiredString(formData, "projectId");
+  const title = readRequiredString(formData, "title").slice(0, 160);
+  const summary = readRequiredString(formData, "summary").slice(0, 500);
+  const description = readOptionalString(formData, "description");
+  const visibility = coerceProjectVisibility(formData.get("visibility"));
+  const demoUrl = readOptionalString(formData, "demoUrl");
+  const repoUrl = readOptionalString(formData, "repoUrl");
+  const tools = parseCommaList(formData.get("tools"));
+
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, DEMO_OWNER_ID)))
+    .limit(1);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  await db
+    .update(projects)
+    .set({
+      title,
+      summary,
+      description,
+      visibility,
+      demoUrl,
+      repoUrl,
+      tools,
+      updatedAt: new Date(),
+      lastActivityAt: new Date(),
+    })
+    .where(eq(projects.id, project.id));
 
   revalidateWorkspace(project.slug);
 }
@@ -177,11 +224,107 @@ export async function createFeedbackRequest(formData: FormData) {
   revalidateWorkspace(project.slug);
 }
 
+export async function claimFeedbackRequest(formData: FormData) {
+  await ensureDemoData();
+
+  const requestId = readRequiredString(formData, "requestId");
+
+  const [claim] = await db.transaction(async (tx) => {
+    const [request] = await tx
+      .select()
+      .from(feedbackRequests)
+      .where(and(eq(feedbackRequests.id, requestId), eq(feedbackRequests.status, "open")))
+      .limit(1);
+
+    if (!request) {
+      throw new Error("Open feedback request not found");
+    }
+
+    const [project] = await tx
+      .select()
+      .from(projects)
+      .where(and(eq(projects.id, request.projectId), eq(projects.visibility, "public")))
+      .limit(1);
+
+    if (!project) {
+      throw new Error("Public project not found");
+    }
+
+    const now = new Date();
+
+    if (request.deadlineAt.getTime() <= now.getTime()) {
+      await tx
+        .update(feedbackRequests)
+        .set({ status: "expired", updatedAt: now })
+        .where(eq(feedbackRequests.id, request.id));
+      throw new Error("Feedback request has expired");
+    }
+
+    const [existingClaim] = await tx
+      .select()
+      .from(feedbackClaims)
+      .where(
+        and(
+          eq(feedbackClaims.requestId, request.id),
+          eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID),
+          eq(feedbackClaims.status, "claimed"),
+        ),
+      )
+      .limit(1);
+
+    if (existingClaim) {
+      return [existingClaim];
+    }
+
+    const dueAt = new Date(Math.min(request.deadlineAt.getTime(), now.getTime() + 24 * 60 * 60 * 1000));
+
+    return tx
+      .insert(feedbackClaims)
+      .values({
+        requestId: request.id,
+        projectId: project.id,
+        reviewerId: DEMO_REVIEWER_ID,
+        dueAt,
+        status: "claimed",
+      })
+      .returning();
+  });
+
+  revalidatePath("/discover");
+  revalidatePath("/feedback");
+  revalidatePath("/dashboard");
+
+  if (claim) {
+    redirect("/feedback");
+  }
+}
+
+export async function cancelFeedbackClaim(formData: FormData) {
+  await ensureDemoData();
+
+  const claimId = readRequiredString(formData, "claimId");
+
+  await db
+    .update(feedbackClaims)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(
+      and(
+        eq(feedbackClaims.id, claimId),
+        eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID),
+        eq(feedbackClaims.status, "claimed"),
+      ),
+    );
+
+  revalidatePath("/discover");
+  revalidatePath("/feedback");
+}
+
 export async function createFeedback(formData: FormData) {
   await ensureDemoData();
 
   const projectId = readRequiredString(formData, "projectId");
   const requestId = readOptionalString(formData, "requestId");
+  const claimId = readOptionalString(formData, "claimId");
   const authorName = readRequiredString(formData, "authorName").slice(0, 120);
   const body = readRequiredString(formData, "body").slice(0, 2000);
   const feedbackType = coerceFeedbackType(formData.get("feedbackType"));
@@ -194,7 +337,31 @@ export async function createFeedback(formData: FormData) {
   }
 
   await db.transaction(async (tx) => {
-    const reviewerId = `guest-${crypto.randomUUID()}`;
+    const now = new Date();
+    const [claim] = claimId
+      ? await tx
+          .select()
+          .from(feedbackClaims)
+          .where(
+            and(
+              eq(feedbackClaims.id, claimId),
+              eq(feedbackClaims.reviewerId, DEMO_REVIEWER_ID),
+              eq(feedbackClaims.projectId, project.id),
+              eq(feedbackClaims.status, "claimed"),
+            ),
+          )
+          .limit(1)
+      : [];
+
+    if (claim && claim.dueAt.getTime() <= now.getTime()) {
+      await tx
+        .update(feedbackClaims)
+        .set({ status: "expired", updatedAt: now })
+        .where(eq(feedbackClaims.id, claim.id));
+      throw new Error("Feedback claim has expired");
+    }
+
+    const reviewerId = claim ? DEMO_REVIEWER_ID : `guest-${crypto.randomUUID()}`;
     const [request] = requestId
       ? await tx
           .select()
@@ -208,17 +375,19 @@ export async function createFeedback(formData: FormData) {
           )
           .limit(1)
       : [];
-    const effectiveRequestId = request?.id;
+    const effectiveRequestId = claim?.requestId ?? request?.id;
 
-    await tx.insert(users).values({
-      id: reviewerId,
-      name: authorName,
-      bio: "Public feedback reviewer.",
-      primaryRoles: ["Reviewer"],
-      toolsUsed: ["Browser"],
-      reputationScore: 1,
-      feedbackCredits: 1,
-    });
+    if (!claim) {
+      await tx.insert(users).values({
+        id: reviewerId,
+        name: authorName,
+        bio: "Public feedback reviewer.",
+        primaryRoles: ["Reviewer"],
+        toolsUsed: ["Browser"],
+        reputationScore: 1,
+        feedbackCredits: 1,
+      });
+    }
 
     const [entry] = await tx
       .insert(feedback)
@@ -234,6 +403,13 @@ export async function createFeedback(formData: FormData) {
       })
       .returning();
 
+    if (claim) {
+      await tx
+        .update(feedbackClaims)
+        .set({ status: "submitted", submittedFeedbackId: entry.id, updatedAt: now })
+        .where(eq(feedbackClaims.id, claim.id));
+    }
+
     await tx.insert(creditLedger).values({
       userId: reviewerId,
       actorId: reviewerId,
@@ -245,17 +421,32 @@ export async function createFeedback(formData: FormData) {
       balanceAfter: 1,
     });
 
-    if (request) {
+    if (claim || request) {
+      const requestToCountId = effectiveRequestId;
+      const minFeedbackCount = request?.minFeedbackCount;
+
+      if (!requestToCountId) {
+        return;
+      }
+
+      const [requestToCount] = minFeedbackCount
+        ? [{ minFeedbackCount }]
+        : await tx
+            .select({ minFeedbackCount: feedbackRequests.minFeedbackCount })
+            .from(feedbackRequests)
+            .where(eq(feedbackRequests.id, requestToCountId))
+            .limit(1);
+
       const [{ value: receivedCount }] = await tx
         .select({ value: count() })
         .from(feedback)
-        .where(eq(feedback.requestId, request.id));
+        .where(eq(feedback.requestId, requestToCountId));
 
-      if (receivedCount >= request.minFeedbackCount) {
+      if (requestToCount && receivedCount >= requestToCount.minFeedbackCount) {
         await tx
           .update(feedbackRequests)
           .set({ status: "fulfilled", fulfilledAt: new Date(), updatedAt: new Date() })
-          .where(eq(feedbackRequests.id, request.id));
+          .where(eq(feedbackRequests.id, requestToCountId));
       }
     }
   });
@@ -342,6 +533,7 @@ function readOptionalString(formData: FormData, key: string) {
 function revalidateWorkspace(projectSlug?: string) {
   revalidatePath("/");
   revalidatePath("/dashboard");
+  revalidatePath("/discover");
   revalidatePath("/feedback");
   revalidatePath(`/p/${DEMO_OWNER_HANDLE}`);
 

@@ -37,6 +37,9 @@ export const feedbackImplementationStatuses = [
 
 export type FeedbackImplementationStatus = (typeof feedbackImplementationStatuses)[number];
 
+export const feedbackClaimStatuses = ["claimed", "submitted", "cancelled", "expired"] as const;
+export type FeedbackClaimStatus = (typeof feedbackClaimStatuses)[number];
+
 export const statusLabel: Record<ProjectStatus, string> = {
   idea: "Idea",
   prototype: "Prototype",
@@ -68,6 +71,13 @@ export const feedbackTypeLabel: Record<FeedbackType, string> = {
   business: "Business",
   code_structure: "Code/structure",
   security_data_risk: "Security/data risk",
+};
+
+export const feedbackClaimStatusLabel: Record<FeedbackClaimStatus, string> = {
+  claimed: "Claimed",
+  submitted: "Submitted",
+  cancelled: "Cancelled",
+  expired: "Expired",
 };
 
 export function formatShortDate(date: Date | string | null | undefined) {
@@ -142,4 +152,3 @@ export function coerceInt(value: FormDataEntryValue | null, fallback: number, mi
 
   return Math.max(min, Math.min(max, parsed));
 }
-
