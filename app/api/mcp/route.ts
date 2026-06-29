@@ -8,6 +8,17 @@ export async function GET(request: Request) {
     kind: "http_json_agent_api",
     baseUrl,
     manifestVersion: 1,
+    mcpServer: {
+      endpoint: `${baseUrl}/mcp`,
+      transport: "streamable_http",
+      protocol: "model_context_protocol",
+      methods: ["initialize", "ping", "tools/list", "tools/call"],
+      useWhen: "Use this endpoint when your client supports remote MCP servers.",
+    },
+    restApi: {
+      basePath: "/api/mcp",
+      useWhen: "Use these endpoints with curl, fetch, or an HTTP client.",
+    },
     transport: {
       type: "https_json",
       contentType: "application/json",
@@ -20,7 +31,7 @@ export async function GET(request: Request) {
       instruction:
         "Do not use Playwright or any browser automation to register accounts, create projects, request feedback, or read feedback. Use the JSON API endpoints directly.",
       noHttpClientFallback:
-        "If the agent environment only has browser tools and no HTTP request tool, stop and ask for HTTP/curl/fetch capability instead of using the UI.",
+        "If the agent environment only has browser tools and no HTTP/MCP client capability, stop and ask for MCP/curl/fetch access instead of using the UI.",
     },
     docs: {
       llms: `${baseUrl}/llms.txt`,
@@ -39,15 +50,17 @@ export async function GET(request: Request) {
       firstCheck: "GET /api/mcp/auth/check",
     },
     workflow: [
-      "Read GET /api/mcp or GET /llms.txt.",
-      "Create an account with POST /api/mcp/auth/register, or issue a token with POST /api/mcp/auth/token.",
-      "Send Authorization: Bearer <apiToken.token> on every authenticated request.",
-      "Call GET /api/mcp/auth/check.",
-      "Call GET /api/mcp/projects to avoid duplicates.",
-      "Create with POST /api/mcp/projects only when no existing project matches.",
-      "Open feedback with POST /api/mcp/projects/{projectId}/feedback-requests only when requested.",
+      "For MCP clients, configure the server URL as /mcp and call initialize, tools/list, and tools/call.",
+      "For HTTP clients, read GET /api/mcp or GET /llms.txt.",
+      "Create an account with vibe.auth_register or POST /api/mcp/auth/register.",
+      "Send Authorization: Bearer <apiToken.token> on authenticated HTTP requests, or pass apiToken to MCP tools if your MCP client cannot set headers.",
+      "Call vibe.auth_check or GET /api/mcp/auth/check.",
+      "Call vibe.projects_list or GET /api/mcp/projects to avoid duplicates.",
+      "Create with vibe.projects_create or POST /api/mcp/projects only when no existing project matches.",
+      "Open feedback only when requested.",
     ],
     endpoints: {
+      mcp: `${baseUrl}/mcp`,
       register: `${baseUrl}/api/mcp/auth/register`,
       token: `${baseUrl}/api/mcp/auth/token`,
       check: `${baseUrl}/api/mcp/auth/check`,
@@ -62,11 +75,12 @@ export async function POST() {
   return apiJson(
     {
       error: {
-        code: "not_json_rpc_mcp_server",
+        code: "wrong_endpoint",
         message:
-          "This endpoint is an HTTP JSON API manifest. Use the REST endpoints listed by GET /api/mcp and do not automate the browser UI.",
+          "POST JSON-RPC MCP requests must go to /mcp. This /api/mcp endpoint is the REST API manifest.",
       },
-      manifest: "/api/mcp",
+      mcpEndpoint: "/mcp",
+      restManifest: "/api/mcp",
       schema: "/api/mcp/schema",
     },
     { status: 400 },

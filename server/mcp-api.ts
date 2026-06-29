@@ -25,27 +25,24 @@ export const mcpTokenPrefix = "mcp-api";
 const mcpApiTokenTtlDays = Number.parseInt(process.env.MCP_API_TOKEN_TTL_DAYS ?? "365", 10);
 
 export async function requireMcpUser(request: Request): Promise<McpUser> {
-  await ensureDemoData();
-
   const token = readBearerToken(request);
+  const user = await getMcpUserForToken(token);
 
-  if (!token) {
-    throw new ApiError(401, "unauthorized", "Invalid or missing bearer token.");
-  }
-
-  const envUser = await findEnvTokenUser(token);
-
-  if (envUser) {
-    return envUser;
-  }
-
-  const issuedUser = await findIssuedTokenUser(token);
-
-  if (issuedUser) {
-    return issuedUser;
+  if (user) {
+    return user;
   }
 
   throw new ApiError(401, "unauthorized", "Invalid or missing bearer token.");
+}
+
+export async function getMcpUserForToken(token?: string | null): Promise<McpUser | null> {
+  await ensureDemoData();
+
+  if (!token) {
+    return null;
+  }
+
+  return (await findEnvTokenUser(token)) ?? (await findIssuedTokenUser(token));
 }
 
 export async function createMcpApiToken(userId: string) {

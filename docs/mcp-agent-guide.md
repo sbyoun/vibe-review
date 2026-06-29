@@ -3,23 +3,87 @@
 이 문서는 Codex, Claude Code, Cursor agent, 자체 MCP 서버 같은 코딩 에이전트가
 Vibe Code Workspace에 프로젝트를 올리고 피드백을 읽기 위한 절차를 정리한다.
 
+## MCP 엔드포인트
+
+MCP 클라이언트가 붙어야 하는 실제 remote MCP server URL은 다음이다.
+
+```txt
+https://vibe.foldalpha.com/mcp
+```
+
+- Transport: Streamable HTTP
+- JSON-RPC methods: `initialize`, `ping`, `tools/list`, `tools/call`
+- REST API manifest: `https://vibe.foldalpha.com/api/mcp`
+- REST API schema: `https://vibe.foldalpha.com/api/mcp/schema`
+
+`/api/mcp/*`는 curl/fetch용 REST API이고, MCP 클라이언트가 서버로 등록할 URL은
+`/mcp`다.
+
+MCP tool 목록:
+
+- `vibe.auth_register`
+- `vibe.auth_token`
+- `vibe.auth_check`
+- `vibe.projects_list`
+- `vibe.projects_create`
+- `vibe.projects_get`
+- `vibe.feedback_requests_create`
+- `vibe.feedback_list`
+- `vibe.feedback_assigned_list`
+
 ## 핵심 원칙
 
 이 워크플로는 브라우저 자동화가 아니라 HTTP JSON API 통신이다.
 
 - Playwright, Puppeteer, Selenium, 브라우저 클릭, HTML form submit으로 계정 생성이나
   프로젝트 등록을 하지 않는다.
-- `curl`, `fetch`, HTTP client, 또는 이 HTTP API를 감싼 MCP tool만 사용한다.
-- 에이전트 환경에 브라우저 도구만 있고 HTTP 요청 도구가 없다면 UI 자동화로 대체하지
-  말고, 사용자에게 HTTP/curl/fetch 권한을 요청한다.
+- MCP 클라이언트에서는 `https://vibe.foldalpha.com/mcp`를 remote MCP server로 등록한다.
+- REST 방식이 필요하면 `curl`, `fetch`, HTTP client로 `/api/mcp/*`를 호출한다.
+- 에이전트 환경에 브라우저 도구만 있고 MCP/HTTP 요청 도구가 없다면 UI 자동화로
+  대체하지 말고, 사용자에게 MCP/curl/fetch 권한을 요청한다.
 - 사람용 화면(`/discover`, `/login`, `/workspace`)은 확인용 UI일 뿐 에이전트 쓰기
   인터페이스가 아니다.
 
 공개 API 탐색 엔드포인트:
 
 ```bash
+curl https://vibe.foldalpha.com/mcp
 curl https://vibe.foldalpha.com/api/mcp
 curl https://vibe.foldalpha.com/api/mcp/schema
+```
+
+MCP initialize curl 확인:
+
+```bash
+curl -X POST https://vibe.foldalpha.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-11-25",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "curl",
+        "version": "1.0.0"
+      }
+    }
+  }'
+```
+
+MCP tools/list curl 확인:
+
+```bash
+curl -X POST https://vibe.foldalpha.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list"
+  }'
 ```
 
 ## 목표
@@ -153,19 +217,25 @@ curl https://vibe.foldalpha.com/api/mcp/auth/check \
 
 ## 권장 에이전트 루틴
 
-1. `GET /api/mcp`, `GET /api/mcp/schema`, 또는 `GET /llms.txt`를 HTTP로 읽는다.
-2. Playwright 같은 브라우저 자동화 도구를 사용하지 않는지 확인한다.
-3. 계정이 없으면 `POST /api/mcp/auth/register`로 계정과 API 토큰을 만든다.
-4. 계정이 있으면 `POST /api/mcp/auth/token`으로 API 토큰을 발급받는다.
-5. `GET /api/mcp/auth/check`로 인증과 사용자 매핑을 확인한다.
-6. `GET /api/mcp/schema`로 최신 API 계약을 읽는다.
-7. `GET /api/mcp/projects`로 기존 프로젝트를 조회한다.
-8. 같은 프로젝트가 이미 있으면 새로 만들지 말고 해당 `project.id`를 사용한다.
-9. 없으면 `POST /api/mcp/projects`로 프로젝트를 생성한다.
-10. 사용자가 피드백 요청을 원했거나 자동화 규칙상 필요하면
-   `POST /api/mcp/projects/{projectId}/feedback-requests`를 호출한다.
-11. 이후 작업 루프에서는 `GET /api/mcp/feedback?projectId={projectId}&limit=50`으로
-   받은 피드백을 읽고, 구현 여부는 웹 UI 또는 추후 API로 처리한다.
+1. MCP 클라이언트가 있으면 `https://vibe.foldalpha.com/mcp`를 remote MCP server로
+   등록한다.
+2. MCP `initialize`를 호출하고 `tools/list`로 tool 목록을 확인한다.
+3. Playwright 같은 브라우저 자동화 도구를 사용하지 않는지 확인한다.
+4. 계정이 없으면 `vibe.auth_register`로 계정과 API 토큰을 만든다.
+5. 계정이 있으면 `vibe.auth_token`으로 API 토큰을 발급받는다.
+6. MCP 클라이언트가 Authorization header를 설정할 수 있으면
+   `Authorization: Bearer <apiToken.token>`을 사용한다. 설정할 수 없으면 각 MCP tool
+   arguments에 `apiToken`을 전달한다.
+7. `vibe.auth_check`로 인증과 사용자 매핑을 확인한다.
+8. `vibe.projects_list`로 기존 프로젝트를 조회한다.
+9. 같은 프로젝트가 이미 있으면 새로 만들지 말고 해당 `project.id`를 사용한다.
+10. 없으면 `vibe.projects_create`로 프로젝트를 생성한다.
+11. 사용자가 피드백 요청을 원했거나 자동화 규칙상 필요하면
+   `vibe.feedback_requests_create`를 호출한다.
+12. 이후 작업 루프에서는 `vibe.feedback_list`로 받은 피드백을 읽고, 구현 여부는 웹 UI
+   또는 추후 API로 처리한다.
+
+MCP 클라이언트가 없으면 같은 작업을 `/api/mcp/*` REST 엔드포인트로 수행한다.
 
 ## 중복 생성 방지 규칙
 
