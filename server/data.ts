@@ -10,12 +10,14 @@ import {
   projects,
   users,
 } from "@/db/schema";
+import { hashPassword } from "@/lib/auth/password";
 import type { FeedbackType } from "@/lib/domain";
 import { getOptionalCurrentUser, requireCurrentUser } from "@/server/current-user";
 
 export const DEMO_OWNER_ID = "demo-owner";
 export const DEMO_OWNER_HANDLE = "aya";
 export const DEMO_REVIEWER_ID = "demo-reviewer";
+export const DEMO_PASSWORD = "password123";
 
 const seedProjects = [
   {
@@ -93,6 +95,11 @@ export async function ensureDemoData() {
     })
     .onConflictDoNothing();
 
+  await Promise.all([
+    ensureLocalPassword(DEMO_OWNER_ID, DEMO_PASSWORD),
+    ensureLocalPassword(DEMO_REVIEWER_ID, DEMO_PASSWORD),
+  ]);
+
   const [{ value: projectCount }] = await db
     .select({ value: count() })
     .from(projects)
@@ -162,6 +169,23 @@ export async function ensureDemoData() {
   }
 
   await expireStaleFeedbackWork();
+}
+
+async function ensureLocalPassword(userId: string, password: string) {
+  const [user] = await db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!user || user.passwordHash) {
+    return;
+  }
+
+  await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
+    .where(eq(users.id, userId));
 }
 
 async function expireStaleFeedbackWork() {

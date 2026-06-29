@@ -5,6 +5,7 @@ import Google from "next-auth/providers/google";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { verifyPassword } from "@/lib/auth/password";
 import { slugify } from "@/lib/domain";
 import { eq } from "drizzle-orm";
 
@@ -14,50 +15,35 @@ export const authConfig = {
     Credentials({
       credentials: {
         handle: {},
-        name: {},
+        password: {},
       },
       async authorize(credentials) {
         const handleValue = typeof credentials.handle === "string" ? credentials.handle : "";
-        const nameValue = typeof credentials.name === "string" ? credentials.name.trim() : "";
+        const password = typeof credentials.password === "string" ? credentials.password : "";
         const handle = slugify(handleValue).slice(0, 48);
 
-        if (!handle) {
+        if (!handle || !password) {
           return null;
         }
 
         const [existingUser] = await db.select().from(users).where(eq(users.handle, handle)).limit(1);
 
-        if (existingUser) {
-          return {
-            id: existingUser.id,
-            name: existingUser.name ?? existingUser.handle ?? handle,
-            email: existingUser.email,
-            image: existingUser.image,
-            handle: existingUser.handle,
-          };
+        if (!existingUser) {
+          return null;
         }
 
-        const [createdUser] = await db
-          .insert(users)
-          .values({
-            id: `local-${handle}`,
-            name: nameValue || handle,
-            email: `${handle}@local.vibecode.test`,
-            handle,
-            bio: "Building and reviewing vibe-coded projects.",
-            primaryRoles: ["Builder"],
-            toolsUsed: ["Codex"],
-            feedbackCredits: 10,
-            reputationScore: 0,
-          })
-          .returning();
+        const passwordMatches = await verifyPassword(password, existingUser.passwordHash);
+
+        if (!passwordMatches) {
+          return null;
+        }
 
         return {
-          id: createdUser.id,
-          name: createdUser.name ?? createdUser.handle ?? handle,
-          email: createdUser.email,
-          image: createdUser.image,
-          handle: createdUser.handle,
+          id: existingUser.id,
+          name: existingUser.name ?? existingUser.handle ?? handle,
+          email: existingUser.email,
+          image: existingUser.image,
+          handle: existingUser.handle,
         };
       },
     }),

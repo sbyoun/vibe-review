@@ -95,6 +95,7 @@ export const users = pgTable(
     emailVerified: timestamp("email_verified", { mode: "date" }),
     image: text("image"),
     handle: varchar("handle", { length: 48 }).unique(),
+    passwordHash: text("password_hash"),
     bio: text("bio"),
     primaryRoles: text("primary_roles")
       .array()
