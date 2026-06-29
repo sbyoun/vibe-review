@@ -1,13 +1,5 @@
 import Link from "next/link";
-import {
-  ArrowUpRight,
-  CheckCircle2,
-  CircleDollarSign,
-  Clock3,
-  Compass,
-  MessageSquareText,
-  UserRound,
-} from "lucide-react";
+import { Clock3, Compass, MessageSquareText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,20 +32,6 @@ export default async function DiscoverPage() {
               feedback.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Button type="button" variant="outline" asChild>
-              <Link href="/dashboard">
-                <ArrowUpRight className="size-4" aria-hidden="true" />
-                Dashboard
-              </Link>
-            </Button>
-            <Button type="button" asChild>
-              <Link href="/feedback">
-                <MessageSquareText className="size-4" aria-hidden="true" />
-                Feedback queue
-              </Link>
-            </Button>
-          </div>
         </header>
 
         <section className="grid gap-3 md:grid-cols-3">
@@ -65,96 +43,115 @@ export default async function DiscoverPage() {
           ))}
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-2">
-          {data.requests.map((request) => (
-            <article
-              key={request.id}
-              className="rounded-md border border-border bg-card p-4"
-            >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`rounded-md border px-2 py-0.5 text-xs ${
-                        statusTone[request.project.status]
-                      }`}
-                    >
-                      {statusLabel[request.project.status]}
-                    </span>
-                    <Badge variant="outline">{request.missingCount} missing</Badge>
-                  </div>
-                  <h2 className="mt-3 text-lg font-semibold">{request.project.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {request.project.summary}
-                  </p>
-                </div>
-                <Button type="button" size="sm" asChild>
-                  <Link href={`/p/${request.owner.handle}/${request.project.slug}`}>
-                    <MessageSquareText className="size-4" aria-hidden="true" />
-                    Give feedback
-                  </Link>
-                </Button>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {request.feedbackTypes.map((type) => (
-                  <Badge key={type} variant="secondary">
-                    {feedbackTypeLabel[type]}
-                  </Badge>
-                ))}
-              </div>
-
-              <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
-                <div className="rounded-md border border-border bg-background p-3">
-                  <p className="flex items-center gap-2 text-muted-foreground">
-                    <CheckCircle2 className="size-4" aria-hidden="true" />
-                    Progress
-                  </p>
-                  <p className="mt-2 font-semibold">
-                    {request.receivedCount}/{request.minFeedbackCount}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background p-3">
-                  <p className="flex items-center gap-2 text-muted-foreground">
-                    <CircleDollarSign className="size-4" aria-hidden="true" />
-                    Cost
-                  </p>
-                  <p className="mt-2 font-semibold">{request.creditCost}</p>
-                </div>
-                <div className="rounded-md border border-border bg-background p-3">
-                  <p className="flex items-center gap-2 text-muted-foreground">
-                    <Clock3 className="size-4" aria-hidden="true" />
-                    Deadline
-                  </p>
-                  <p className="mt-2 font-semibold">{formatShortDate(request.deadlineAt)}</p>
-                </div>
-                <div className="rounded-md border border-border bg-background p-3">
-                  <p className="flex items-center gap-2 text-muted-foreground">
-                    <UserRound className="size-4" aria-hidden="true" />
-                    Owner
-                  </p>
-                  <p className="mt-2 font-semibold">@{request.owner.handle}</p>
-                </div>
-              </div>
-
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full bg-primary"
-                  style={{ width: `${request.progressPercent}%` }}
-                />
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {request.project.tools.map((tool) => (
-                  <Badge key={tool} variant="outline">
-                    {tool}
-                  </Badge>
-                ))}
-              </div>
-            </article>
-          ))}
+        <section className="overflow-hidden rounded-md border border-border bg-card">
+          {data.requests.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
+                <thead className="border-b border-border bg-muted/60 text-xs uppercase tracking-normal text-muted-foreground">
+                  <tr>
+                    <th className="w-[30%] px-4 py-3 font-medium">Project</th>
+                    <th className="w-[12%] px-4 py-3 font-medium">Owner</th>
+                    <th className="w-[20%] px-4 py-3 font-medium">Request</th>
+                    <th className="w-[14%] px-4 py-3 font-medium">Progress</th>
+                    <th className="w-[10%] px-4 py-3 font-medium">Deadline</th>
+                    <th className="w-[10%] px-4 py-3 font-medium">Stack</th>
+                    <th className="w-[4%] px-4 py-3 text-right font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {data.requests.map((request) => (
+                    <tr key={request.id} className="bg-card align-top hover:bg-muted/35">
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Link
+                              href={`/p/${request.owner.handle}/${request.project.slug}`}
+                              className="font-semibold text-foreground hover:text-primary"
+                            >
+                              {request.project.title}
+                            </Link>
+                            <span
+                              className={`rounded-md border px-2 py-0.5 text-xs ${
+                                statusTone[request.project.status]
+                              }`}
+                            >
+                              {statusLabel[request.project.status]}
+                            </span>
+                          </div>
+                          <p className="line-clamp-2 max-w-xl text-xs leading-5 text-muted-foreground">
+                            {request.project.summary}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <Link
+                          href={`/p/${request.owner.handle}`}
+                          className="font-medium hover:text-primary"
+                        >
+                          @{request.owner.handle}
+                        </Link>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {request.owner.reputationScore} rep
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex max-w-sm flex-wrap gap-1.5">
+                          {request.feedbackTypes.slice(0, 3).map((type) => (
+                            <Badge key={type} variant="secondary">
+                              {feedbackTypeLabel[type]}
+                            </Badge>
+                          ))}
+                          {request.feedbackTypes.length > 3 ? (
+                            <Badge variant="outline">+{request.feedbackTypes.length - 3}</Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {request.creditCost} credits
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full bg-primary"
+                              style={{ width: `${request.progressPercent}%` }}
+                            />
+                          </div>
+                          <span className="whitespace-nowrap font-medium">
+                            {request.receivedCount}/{request.minFeedbackCount}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {request.missingCount} missing
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="flex items-center gap-1.5 font-medium">
+                          <Clock3 className="size-4 text-muted-foreground" aria-hidden="true" />
+                          {formatShortDate(request.deadlineAt)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="max-w-[10rem] truncate text-xs text-muted-foreground">
+                          {request.project.tools.join(", ") || "None"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <Button type="button" size="sm" asChild>
+                          <Link href={`/p/${request.owner.handle}/${request.project.slug}`}>
+                            <MessageSquareText className="size-4" aria-hidden="true" />
+                            Feedback
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
           {data.requests.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border bg-card p-6">
+            <div className="p-6">
               <div className="flex items-center gap-2">
                 <Compass className="size-5 text-primary" aria-hidden="true" />
                 <h2 className="text-lg font-semibold">No open requests</h2>

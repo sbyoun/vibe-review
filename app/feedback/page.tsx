@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   CircleDollarSign,
   Clock3,
-  Compass,
   MessageSquareText,
   Save,
   Star,
@@ -65,20 +64,6 @@ export default async function FeedbackPage() {
               Requests, received reviews, credit costs, and implementation state for active
               projects.
             </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button type="button" variant="outline" asChild>
-              <Link href="/discover">
-                <Compass className="size-4" aria-hidden="true" />
-                Discover
-              </Link>
-            </Button>
-            <Button type="button" asChild>
-              <Link href="/dashboard">
-                <ArrowUpRight className="size-4" aria-hidden="true" />
-                Dashboard
-              </Link>
-            </Button>
           </div>
         </header>
 

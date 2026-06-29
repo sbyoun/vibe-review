@@ -6,8 +6,6 @@ import {
   ClipboardList,
   Clock3,
   Columns3,
-  Compass,
-  MessageSquareText,
   Plus,
   Save,
   Send,
@@ -68,18 +66,6 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button type="button" variant="outline" asChild>
-              <Link href="/discover">
-                <Compass className="size-4" aria-hidden="true" />
-                Discover
-              </Link>
-            </Button>
-            <Button type="button" variant="outline" asChild>
-              <Link href="/feedback">
-                <MessageSquareText className="size-4" aria-hidden="true" />
-                Feedback queue
-              </Link>
-            </Button>
             <Button type="button" asChild>
               <a href="#new-project">
                 <Plus className="size-4" aria-hidden="true" />
