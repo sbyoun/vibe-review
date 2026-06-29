@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CircleDollarSign,
   Clock3,
+  Compass,
   MessageSquareText,
   Save,
   Star,
@@ -65,12 +66,20 @@ export default async function FeedbackPage() {
               projects.
             </p>
           </div>
-          <Button type="button" asChild>
-            <Link href="/dashboard">
-              <ArrowUpRight className="size-4" aria-hidden="true" />
-              Dashboard
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" variant="outline" asChild>
+              <Link href="/discover">
+                <Compass className="size-4" aria-hidden="true" />
+                Discover
+              </Link>
+            </Button>
+            <Button type="button" asChild>
+              <Link href="/dashboard">
+                <ArrowUpRight className="size-4" aria-hidden="true" />
+                Dashboard
+              </Link>
+            </Button>
+          </div>
         </header>
 
         <section className="grid gap-3 md:grid-cols-3">

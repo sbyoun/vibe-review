@@ -254,6 +254,55 @@ export async function getFeedbackQueueData() {
   };
 }
 
+export async function getDiscoverData() {
+  await ensureDemoData();
+
+  const rows = await db
+    .select({
+      request: feedbackRequests,
+      project: projects,
+      owner: users,
+    })
+    .from(feedbackRequests)
+    .innerJoin(projects, eq(feedbackRequests.projectId, projects.id))
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(and(eq(feedbackRequests.status, "open"), eq(projects.visibility, "public")))
+    .orderBy(asc(feedbackRequests.deadlineAt), desc(feedbackRequests.createdAt));
+
+  const requestIds = rows.map((row) => row.request.id);
+  const feedbackRows =
+    requestIds.length > 0
+      ? await db.select().from(feedback).where(inArray(feedback.requestId, requestIds))
+      : [];
+
+  const cards = rows.map((row) => {
+    const receivedCount = feedbackRows.filter(
+      (entry) => entry.requestId === row.request.id,
+    ).length;
+
+    return {
+      ...row.request,
+      project: decorateProject(row.project, [row.request], feedbackRows),
+      owner: row.owner,
+      receivedCount,
+      missingCount: Math.max(0, row.request.minFeedbackCount - receivedCount),
+      progressPercent: Math.min(
+        100,
+        Math.round((receivedCount / row.request.minFeedbackCount) * 100),
+      ),
+    };
+  });
+
+  return {
+    requests: cards,
+    stats: {
+      openRequests: cards.length,
+      neededFeedback: cards.reduce((total, card) => total + card.missingCount, 0),
+      publicProjects: new Set(cards.map((card) => card.projectId)).size,
+    },
+  };
+}
+
 export async function getPublicProfileData(handle: string) {
   await ensureDemoData();
 
