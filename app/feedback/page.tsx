@@ -1,10 +1,13 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
+  BookOpenCheck,
   CheckCircle2,
   CircleDollarSign,
   Clock3,
+  Compass,
   MessageSquareText,
+  Plus,
   Save,
   Star,
 } from "lucide-react";
@@ -154,9 +157,18 @@ export default async function FeedbackPage() {
               </article>
             ))}
             {data.assignedClaims.length === 0 ? (
-              <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                No assigned feedback tasks. Claim one from Discover.
-              </p>
+              <div className="rounded-md border border-dashed border-border p-4">
+                <p className="text-sm leading-6 text-muted-foreground">
+                  맡은 피드백 작업이 없습니다. Discover에서 다른 사람의 요청을 맡으면 이
+                  영역에 마감일과 제출 링크가 표시됩니다.
+                </p>
+                <Button type="button" size="sm" variant="outline" className="mt-3" asChild>
+                  <Link href="/discover">
+                    <Compass className="size-4" aria-hidden="true" />
+                    Discover
+                  </Link>
+                </Button>
+              </div>
             ) : null}
           </div>
         </section>
@@ -233,9 +245,26 @@ export default async function FeedbackPage() {
                 );
               })}
               {data.requests.length === 0 ? (
-                <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  No requests yet.
-                </p>
+                <div className="rounded-md border border-dashed border-border p-4">
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    아직 내가 연 피드백 요청이 없습니다. 먼저 프로젝트를 등록한 뒤
+                    Dashboard에서 필요한 피드백 유형과 최소 개수를 정해 요청을 여세요.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <Button type="button" size="sm" asChild>
+                      <Link href="/dashboard#new-project">
+                        <Plus className="size-4" aria-hidden="true" />
+                        프로젝트 등록
+                      </Link>
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" asChild>
+                      <Link href="/guide">
+                        <BookOpenCheck className="size-4" aria-hidden="true" />
+                        Guide
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>
@@ -299,8 +328,9 @@ export default async function FeedbackPage() {
                 );
               })}
               {data.feedback.length === 0 ? (
-                <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  No feedback yet.
+                <p className="rounded-md border border-dashed border-border p-3 text-sm leading-6 text-muted-foreground">
+                  아직 받은 피드백이 없습니다. 열린 요청에 피드백이 들어오면 여기서
+                  구현 여부와 후속 처리 상태를 관리합니다.
                 </p>
               ) : null}
             </div>

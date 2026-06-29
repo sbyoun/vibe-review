@@ -2,6 +2,8 @@ import Link from "next/link";
 import {
   Activity,
   ArrowUpRight,
+  BookOpenCheck,
+  CheckCircle2,
   CircleDollarSign,
   ClipboardList,
   Clock3,
@@ -43,6 +45,21 @@ const creditReasonLabel: Record<string, string> = {
   request_refund: "Request refund",
   admin_adjustment: "Admin adjustment",
 };
+
+const workspaceGuideSteps = [
+  {
+    title: "프로젝트 등록",
+    body: "아이디어나 작업 중인 앱도 제목, 요약, 현재 상태, 데모/저장소 링크를 남깁니다.",
+  },
+  {
+    title: "피드백 요청",
+    body: "공개 프로젝트에서 필요한 피드백 유형, 최소 개수, 마감일, 크레딧 비용을 정합니다.",
+  },
+  {
+    title: "피드백 처리",
+    body: "받은 피드백을 planned, implemented, later 등으로 정리해 다음 작업으로 연결합니다.",
+  },
+];
 
 export default async function DashboardPage() {
   const data = await getWorkspaceData();
@@ -94,6 +111,49 @@ export default async function DashboardPage() {
           ))}
         </section>
 
+        {data.projects.length === 0 ? (
+          <section className="rounded-md border border-border bg-card p-4">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <BookOpenCheck className="size-5 text-primary" aria-hidden="true" />
+                  <h2 className="text-lg font-semibold">처음 시작하는 순서</h2>
+                </div>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  이 워크스페이스는 바이브 코딩으로 만든 결과물을 모아두고, 필요한
+                  피드백을 요청한 뒤 처리 상태까지 남기는 곳입니다. 먼저 프로젝트 하나를
+                  등록하면 보드, 피드백 요청, 공개 프로필 흐름이 이어집니다.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button type="button" asChild>
+                  <a href="#new-project">
+                    <Plus className="size-4" aria-hidden="true" />
+                    프로젝트 등록
+                  </a>
+                </Button>
+                <Button type="button" variant="outline" asChild>
+                  <Link href="/guide">
+                    <BookOpenCheck className="size-4" aria-hidden="true" />
+                    Guide
+                  </Link>
+                </Button>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {workspaceGuideSteps.map((step) => (
+                <article key={step.title} className="rounded-md border border-border bg-background p-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-primary" aria-hidden="true" />
+                    <h3 className="text-sm font-semibold">{step.title}</h3>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{step.body}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
           <div className="rounded-md border border-border bg-card p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -104,87 +164,100 @@ export default async function DashboardPage() {
               <Badge variant="outline">{data.projects.length} projects</Badge>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {projectStatuses.map((status) => {
-                const projects = data.projects.filter((project) => project.status === status);
+            {data.projects.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border bg-background p-5">
+                <div className="flex items-center gap-2">
+                  <Columns3 className="size-5 text-primary" aria-hidden="true" />
+                  <h3 className="text-base font-semibold">아직 프로젝트가 없습니다</h3>
+                </div>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  오른쪽의 Create project 폼에서 첫 프로젝트를 만들면 상태별 보드가
+                  생성됩니다. 작업 중인 앱, 실험, 아이디어 모두 등록할 수 있습니다.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {projectStatuses.map((status) => {
+                  const projects = data.projects.filter((project) => project.status === status);
 
-                return (
-                  <div
-                    key={status}
-                    className="min-h-56 rounded-md border border-border bg-background p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-medium">{statusLabel[status]}</h3>
-                      <span className="text-xs text-muted-foreground">{projects.length}</span>
-                    </div>
-                    <div className="mt-3 grid gap-3">
-                      {projects.map((project) => (
-                        <article
-                          key={project.id}
-                          className="rounded-md border border-border bg-card p-3"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <h3 className="text-sm font-semibold leading-5">{project.title}</h3>
-                            <Link href={`/p/${data.owner.handle}/${project.slug}`}>
-                              <ArrowUpRight
-                                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                                aria-hidden="true"
-                              />
-                            </Link>
-                          </div>
-                          <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">
-                            {project.summary}
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            {project.tools.slice(0, 3).map((tool) => (
-                              <Badge key={tool} variant="outline">
-                                {tool}
-                              </Badge>
-                            ))}
-                          </div>
-                          <form action={updateProjectStatus} className="mt-3 flex gap-2">
-                            <input type="hidden" name="projectId" value={project.id} />
-                            <select
-                              name="status"
-                              defaultValue={project.status}
-                              className={inputClass}
-                              aria-label={`${project.title} status`}
-                            >
-                              {projectStatuses.map((option) => (
-                                <option key={option} value={option}>
-                                  {statusLabel[option]}
-                                </option>
-                              ))}
-                            </select>
-                            <Button type="submit" size="sm" variant="outline">
-                              <Save className="size-4" aria-hidden="true" />
-                              Save
-                            </Button>
-                          </form>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="mt-3 w-full"
-                            asChild
+                  return (
+                    <div
+                      key={status}
+                      className="min-h-56 rounded-md border border-border bg-background p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-medium">{statusLabel[status]}</h3>
+                        <span className="text-xs text-muted-foreground">{projects.length}</span>
+                      </div>
+                      <div className="mt-3 grid gap-3">
+                        {projects.map((project) => (
+                          <article
+                            key={project.id}
+                            className="rounded-md border border-border bg-card p-3"
                           >
-                            <Link href={`/dashboard/projects/${project.id}`}>
-                              <Settings className="size-4" aria-hidden="true" />
-                              Manage
-                            </Link>
-                          </Button>
-                        </article>
-                      ))}
-                      {projects.length === 0 ? (
-                        <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                          No projects
-                        </div>
-                      ) : null}
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="text-sm font-semibold leading-5">{project.title}</h3>
+                              <Link href={`/p/${data.owner.handle}/${project.slug}`}>
+                                <ArrowUpRight
+                                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                                  aria-hidden="true"
+                                />
+                              </Link>
+                            </div>
+                            <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted-foreground">
+                              {project.summary}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              {project.tools.slice(0, 3).map((tool) => (
+                                <Badge key={tool} variant="outline">
+                                  {tool}
+                                </Badge>
+                              ))}
+                            </div>
+                            <form action={updateProjectStatus} className="mt-3 flex gap-2">
+                              <input type="hidden" name="projectId" value={project.id} />
+                              <select
+                                name="status"
+                                defaultValue={project.status}
+                                className={inputClass}
+                                aria-label={`${project.title} status`}
+                              >
+                                {projectStatuses.map((option) => (
+                                  <option key={option} value={option}>
+                                    {statusLabel[option]}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button type="submit" size="sm" variant="outline">
+                                <Save className="size-4" aria-hidden="true" />
+                                Save
+                              </Button>
+                            </form>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="mt-3 w-full"
+                              asChild
+                            >
+                              <Link href={`/dashboard/projects/${project.id}`}>
+                                <Settings className="size-4" aria-hidden="true" />
+                                Manage
+                              </Link>
+                            </Button>
+                          </article>
+                        ))}
+                        {projects.length === 0 ? (
+                          <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                            No projects
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <aside className="grid gap-6">
@@ -256,73 +329,96 @@ export default async function DashboardPage() {
                 <ClipboardList className="size-5 text-primary" aria-hidden="true" />
                 <h2 className="text-lg font-semibold">Open feedback request</h2>
               </div>
-              <form action={createFeedbackRequest} className="mt-4 grid gap-3">
-                <label className="grid gap-1.5">
-                  <span className={labelClass}>Project</span>
-                  <select className={inputClass} name="projectId" required>
-                    {data.projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <label className="grid gap-1.5">
-                    <span className={labelClass}>Minimum</span>
-                    <input
-                      className={inputClass}
-                      name="minFeedbackCount"
-                      type="number"
-                      min={1}
-                      max={20}
-                      defaultValue={3}
-                    />
-                  </label>
-                  <label className="grid gap-1.5">
-                    <span className={labelClass}>Credits</span>
-                    <input
-                      className={inputClass}
-                      name="creditCost"
-                      type="number"
-                      min={1}
-                      max={20}
-                      defaultValue={3}
-                    />
-                  </label>
-                  <label className="grid gap-1.5">
-                    <span className={labelClass}>Days</span>
-                    <input
-                      className={inputClass}
-                      name="deadlineDays"
-                      type="number"
-                      min={1}
-                      max={30}
-                      defaultValue={2}
-                    />
-                  </label>
-                </div>
-                <div className="grid gap-2">
-                  <p className={labelClass}>Feedback types</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {feedbackTypes.map((type) => (
-                      <label key={type} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          name="feedbackTypes"
-                          value={type}
-                          defaultChecked={type === "first_impression" || type === "ux_ui"}
-                        />
-                        {feedbackTypeLabel[type]}
-                      </label>
-                    ))}
+              {data.projects.length === 0 ? (
+                <div className="mt-4 rounded-md border border-dashed border-border bg-background p-4">
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    피드백 요청은 프로젝트를 만든 뒤 열 수 있습니다. 첫 프로젝트를 등록하면
+                    여기서 피드백 유형, 최소 개수, 마감일, 크레딧 비용을 설정합니다.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <Button type="button" size="sm" asChild>
+                      <a href="#new-project">
+                        <Plus className="size-4" aria-hidden="true" />
+                        프로젝트 등록
+                      </a>
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" asChild>
+                      <Link href="/guide">
+                        <BookOpenCheck className="size-4" aria-hidden="true" />
+                        Guide
+                      </Link>
+                    </Button>
                   </div>
                 </div>
-                <Button type="submit" disabled={data.projects.length === 0}>
-                  <Send className="size-4" aria-hidden="true" />
-                  Spend credits and open
-                </Button>
-              </form>
+              ) : (
+                <form action={createFeedbackRequest} className="mt-4 grid gap-3">
+                  <label className="grid gap-1.5">
+                    <span className={labelClass}>Project</span>
+                    <select className={inputClass} name="projectId" required>
+                      {data.projects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className="grid gap-1.5">
+                      <span className={labelClass}>Minimum</span>
+                      <input
+                        className={inputClass}
+                        name="minFeedbackCount"
+                        type="number"
+                        min={1}
+                        max={20}
+                        defaultValue={3}
+                      />
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className={labelClass}>Credits</span>
+                      <input
+                        className={inputClass}
+                        name="creditCost"
+                        type="number"
+                        min={1}
+                        max={20}
+                        defaultValue={3}
+                      />
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className={labelClass}>Days</span>
+                      <input
+                        className={inputClass}
+                        name="deadlineDays"
+                        type="number"
+                        min={1}
+                        max={30}
+                        defaultValue={2}
+                      />
+                    </label>
+                  </div>
+                  <div className="grid gap-2">
+                    <p className={labelClass}>Feedback types</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {feedbackTypes.map((type) => (
+                        <label key={type} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            name="feedbackTypes"
+                            value={type}
+                            defaultChecked={type === "first_impression" || type === "ux_ui"}
+                          />
+                          {feedbackTypeLabel[type]}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <Button type="submit">
+                    <Send className="size-4" aria-hidden="true" />
+                    Spend credits and open
+                  </Button>
+                </form>
+              )}
             </section>
           </aside>
         </section>

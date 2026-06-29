@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   Archive,
+  BookOpenCheck,
   Columns3,
   Compass,
   LogIn,
@@ -20,8 +21,9 @@ export async function SiteNav() {
   const user = await getOptionalCurrentUser();
   const profileHref = user?.handle ? (`/p/${user.handle}` as Route) : "/login";
   const navItems: Array<{ href: Route; label: string; icon: LucideIcon }> = [
-    { href: "/discover", label: "Discover", icon: Compass },
+    { href: "/guide", label: "Guide", icon: BookOpenCheck },
     { href: "/dashboard", label: "Dashboard", icon: Columns3 },
+    { href: "/discover", label: "Discover", icon: Compass },
     { href: "/feedback", label: "Feedback", icon: MessageSquareText },
     { href: profileHref, label: "Profile", icon: UserRound },
   ];

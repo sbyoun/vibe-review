@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock3, Compass, LogIn, MessageSquareText } from "lucide-react";
+import { BookOpenCheck, Clock3, Compass, LogIn, MessageSquareText, Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -179,8 +179,23 @@ export default async function DiscoverPage() {
                 <h2 className="text-lg font-semibold">No open requests</h2>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Create a public project and open a feedback request from the dashboard.
+                아직 공개 피드백 요청이 없습니다. 프로젝트를 만들고 public으로 공개한 뒤
+                피드백 요청을 열면 이 보드에 표시됩니다.
               </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Button type="button" size="sm" asChild>
+                  <Link href="/dashboard#new-project">
+                    <Plus className="size-4" aria-hidden="true" />
+                    프로젝트 등록
+                  </Link>
+                </Button>
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <Link href="/guide">
+                    <BookOpenCheck className="size-4" aria-hidden="true" />
+                    Guide
+                  </Link>
+                </Button>
+              </div>
             </div>
           ) : null}
         </section>

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -11,7 +11,6 @@ import {
   users,
 } from "@/db/schema";
 import { hashPassword } from "@/lib/auth/password";
-import type { FeedbackType } from "@/lib/domain";
 import { getOptionalCurrentUser, requireCurrentUser } from "@/server/current-user";
 
 export const DEMO_OWNER_ID = "demo-owner";
@@ -19,49 +18,10 @@ export const DEMO_OWNER_HANDLE = "aya";
 export const DEMO_REVIEWER_ID = "demo-reviewer";
 export const DEMO_PASSWORD = "password123";
 
-const seedProjects = [
-  {
-    id: "11111111-1111-4111-8111-111111111111",
-    title: "Launch Archive",
-    slug: "launch-archive",
-    summary: "A public archive for small AI-built product launches and feedback rounds.",
-    description:
-      "Launch Archive tracks tiny products, demo links, feedback requests, and iteration state in one public workspace.",
-    status: "needs_feedback" as const,
-    visibility: "public" as const,
-    demoUrl: "https://example.com/launch-archive",
-    repoUrl: "https://github.com/example/launch-archive",
-    tools: ["Next.js", "Claude Code", "Vercel"],
-    feedbackFocus: ["first_impression", "ux_ui", "mobile_usability"] as FeedbackType[],
-  },
-  {
-    id: "22222222-2222-4222-8222-222222222222",
-    title: "Billing Notes",
-    slug: "billing-notes",
-    summary: "A renewal-risk notebook for SaaS invoices and contract context.",
-    description:
-      "Billing Notes turns invoices, renewal dates, and owner comments into a simple review queue.",
-    status: "iterating" as const,
-    visibility: "public" as const,
-    demoUrl: "https://example.com/billing-notes",
-    repoUrl: "https://github.com/example/billing-notes",
-    tools: ["Cursor", "Postgres", "Resend"],
-    feedbackFocus: ["business", "first_impression"] as FeedbackType[],
-  },
-  {
-    id: "33333333-3333-4333-8333-333333333333",
-    title: "Research Desk",
-    slug: "research-desk",
-    summary: "A private dashboard for collecting research links and review notes.",
-    description:
-      "Research Desk is still private while the upload and citation review states are being tightened.",
-    status: "building" as const,
-    visibility: "unlisted" as const,
-    demoUrl: "https://example.com/research-desk",
-    repoUrl: "https://github.com/example/research-desk",
-    tools: ["Codex", "Drizzle", "R2"],
-    feedbackFocus: ["ux_ui", "code_structure"] as FeedbackType[],
-  },
+const legacySeedProjectIds = [
+  "11111111-1111-4111-8111-111111111111",
+  "22222222-2222-4222-8222-222222222222",
+  "33333333-3333-4333-8333-333333333333",
 ];
 
 export async function ensureDemoData() {
@@ -100,74 +60,7 @@ export async function ensureDemoData() {
     ensureLocalPassword(DEMO_REVIEWER_ID, DEMO_PASSWORD),
   ]);
 
-  const [{ value: projectCount }] = await db
-    .select({ value: count() })
-    .from(projects)
-    .where(eq(projects.ownerId, DEMO_OWNER_ID));
-
-  if (projectCount === 0) {
-    await db.insert(projects).values(
-      seedProjects.map((project) => ({
-        ...project,
-        ownerId: DEMO_OWNER_ID,
-        lastActivityAt: new Date(),
-      })),
-    );
-
-    await db.insert(projectStatusEvents).values(
-      seedProjects.map((project) => ({
-        projectId: project.id,
-        actorId: DEMO_OWNER_ID,
-        toStatus: project.status,
-        note: "Seeded demo project",
-      })),
-    );
-
-    const [request] = await db
-      .insert(feedbackRequests)
-      .values({
-        projectId: seedProjects[0].id,
-        requestedById: DEMO_OWNER_ID,
-        feedbackTypes: ["first_impression", "ux_ui"],
-        creditCost: 3,
-        minFeedbackCount: 3,
-        deadlineAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 2),
-        status: "open",
-      })
-      .returning();
-
-    await db.insert(creditLedger).values({
-      userId: DEMO_OWNER_ID,
-      actorId: DEMO_OWNER_ID,
-      amount: -3,
-      reason: "spent_feedback_request",
-      relatedRequestId: request.id,
-      idempotencyKey: `seed-request-${request.id}`,
-      balanceAfter: 9,
-    });
-
-    await db.insert(feedback).values({
-      projectId: seedProjects[0].id,
-      requestId: request.id,
-      authorId: DEMO_REVIEWER_ID,
-      feedbackType: "mobile_usability",
-      body: "The archive card hierarchy is clear, but the mobile action area needs more spacing.",
-      rating: 4,
-      helpfulStatus: "helpful",
-      implementedStatus: "planned",
-    });
-
-    await db.insert(creditLedger).values({
-      userId: DEMO_REVIEWER_ID,
-      actorId: DEMO_REVIEWER_ID,
-      amount: 1,
-      reason: "earned_feedback",
-      relatedRequestId: request.id,
-      idempotencyKey: `seed-feedback-${request.id}`,
-      balanceAfter: 1,
-    });
-  }
-
+  await cleanupLegacyDemoData();
   await expireStaleFeedbackWork();
 }
 
@@ -186,6 +79,21 @@ async function ensureLocalPassword(userId: string, password: string) {
     .update(users)
     .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
     .where(eq(users.id, userId));
+}
+
+async function cleanupLegacyDemoData() {
+  await db.delete(creditLedger).where(like(creditLedger.idempotencyKey, "seed-%"));
+  await db.delete(projects).where(inArray(projects.id, legacySeedProjectIds));
+
+  await db
+    .update(users)
+    .set({
+      bio: "Use this account to try the workspace flow with your own projects.",
+      feedbackCredits: 10,
+      reputationScore: 0,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(users.id, DEMO_OWNER_ID), eq(users.reputationScore, 42)));
 }
 
 async function expireStaleFeedbackWork() {
