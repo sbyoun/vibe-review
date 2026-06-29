@@ -1,13 +1,20 @@
 import { randomUUID } from "node:crypto";
 
-import { eq, or } from "drizzle-orm";
+import { eq, like, or } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { projects, users, verificationTokens } from "@/db/schema";
 import { assertValidPassword, hashPassword, verifyPassword } from "@/lib/auth/password";
 import { slugify } from "@/lib/domain";
-import { ApiError, createMcpApiToken, serializeMcpUser, type McpUser } from "@/server/mcp-api";
+import {
+  ApiError,
+  createMcpApiToken,
+  mcpTokenPrefix,
+  serializeMcpUser,
+  type McpUser,
+} from "@/server/mcp-api";
 
 export const registerMcpAccountSchema = z.object({
   email: z.string().trim().email().transform((value) => value.toLowerCase()),
@@ -31,6 +38,15 @@ export const registerMcpAccountSchema = z.object({
 export const createMcpTokenSchema = z.object({
   login: z.string().trim().min(1),
   password: z.string().min(1),
+});
+
+export const revokeMcpTokensSchema = z.object({
+  confirm: z.literal(true),
+});
+
+export const deleteMcpAccountSchema = z.object({
+  confirmEmail: z.string().trim().email().transform((value) => value.toLowerCase()),
+  confirm: z.literal(true),
 });
 
 export async function registerMcpAccount(input: z.output<typeof registerMcpAccountSchema>) {
@@ -115,5 +131,58 @@ export async function createMcpToken(input: z.output<typeof createMcpTokenSchema
   return {
     user: serializeMcpUser(user as McpUser),
     apiToken,
+  };
+}
+
+export async function revokeMcpTokens(
+  owner: McpUser,
+  input: z.output<typeof revokeMcpTokensSchema>,
+) {
+  const revokedTokens = await db
+    .delete(verificationTokens)
+    .where(like(verificationTokens.identifier, `${mcpTokenPrefix}:${owner.id}:%`))
+    .returning({ identifier: verificationTokens.identifier });
+
+  return {
+    confirmed: input.confirm,
+    revokedCount: revokedTokens.length,
+  };
+}
+
+export async function deleteMcpAccount(
+  owner: McpUser,
+  input: z.output<typeof deleteMcpAccountSchema>,
+) {
+  if (owner.email?.toLowerCase() !== input.confirmEmail) {
+    throw new ApiError(422, "email_confirmation_mismatch", "confirmEmail must match the account email.");
+  }
+
+  const ownedProjects = await db
+    .select({ id: projects.id, slug: projects.slug })
+    .from(projects)
+    .where(eq(projects.ownerId, owner.id));
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(verificationTokens)
+      .where(like(verificationTokens.identifier, `${mcpTokenPrefix}:${owner.id}:%`));
+    await tx.delete(users).where(eq(users.id, owner.id));
+  });
+
+  revalidatePath("/");
+  revalidatePath("/dashboard");
+  revalidatePath("/discover");
+  revalidatePath("/feedback");
+  revalidatePath(`/p/${owner.handle}`);
+
+  for (const project of ownedProjects) {
+    revalidatePath(`/dashboard/projects/${project.id}`);
+    revalidatePath(`/p/${owner.handle}/${project.slug}`);
+  }
+
+  return {
+    deleted: true,
+    user: serializeMcpUser(owner),
+    deletedProjectCount: ownedProjects.length,
   };
 }

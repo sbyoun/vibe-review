@@ -170,6 +170,26 @@ export async function createMcpProject(
   return serializeProject(project, [], [], owner.handle);
 }
 
+export async function deleteMcpProject(owner: McpUser, projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, owner.id)))
+    .limit(1);
+
+  if (!project) {
+    throw new ApiError(404, "project_not_found", "Project was not found for this API user.");
+  }
+
+  await db.delete(projects).where(eq(projects.id, project.id));
+  revalidateWorkspace(owner.handle, project.slug, project.id);
+
+  return {
+    deleted: true,
+    project: serializeProject(project, [], [], owner.handle),
+  };
+}
+
 export async function createMcpFeedbackRequest(
   owner: McpUser,
   projectId: string,

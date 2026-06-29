@@ -24,9 +24,12 @@ MCP tool 목록:
 - `vibe.auth_register`
 - `vibe.auth_token`
 - `vibe.auth_check`
+- `vibe.auth_tokens_revoke`
+- `vibe.auth_account_delete`
 - `vibe.projects_list`
 - `vibe.projects_create`
 - `vibe.projects_get`
+- `vibe.projects_delete`
 - `vibe.feedback_requests_create`
 - `vibe.feedback_list`
 - `vibe.feedback_assigned_list`
@@ -234,6 +237,11 @@ curl https://vibe.foldalpha.com/api/mcp/auth/check \
    `vibe.feedback_requests_create`를 호출한다.
 12. 이후 작업 루프에서는 `vibe.feedback_list`로 받은 피드백을 읽고, 구현 여부는 웹 UI
    또는 추후 API로 처리한다.
+13. 테스트 데이터나 잘못 만든 프로젝트는 `vibe.projects_delete`로 삭제한다.
+14. 테스트 계정까지 지워야 하면 `vibe.auth_account_delete`를 사용한다. 이 tool은
+   `confirm: true`와 계정 email을 `confirmEmail`로 요구한다.
+15. 토큰만 폐기하려면 `vibe.auth_tokens_revoke`를 사용한다. 이 tool은 해당 사용자의
+   모든 MCP API 토큰을 폐기한다.
 
 MCP 클라이언트가 없으면 같은 작업을 `/api/mcp/*` REST 엔드포인트로 수행한다.
 
@@ -245,6 +253,13 @@ MCP 클라이언트가 없으면 같은 작업을 `/api/mcp/*` REST 엔드포인
 2. `demoUrl`이 같으면 같은 프로젝트로 간주한다.
 3. 정규화한 `title`이 같거나 `slug`가 예상 slug와 같으면 같은 프로젝트일 수 있으므로
    새로 만들기 전에 사용자에게 확인한다.
+
+## Slug 규칙
+
+프로젝트 slug는 title에서 만든다. 영문, 숫자뿐 아니라 한글 같은 유니코드 문자도
+보존한다. 예를 들어 `MCP 연동 테스트 프로젝트`는 `mcp-연동-테스트-프로젝트`가 된다.
+동일 owner 안에서 slug가 충돌하면 `-2`, `-3` 같은 suffix를 붙여 고유하게 만든다.
+title에서 사용할 수 있는 문자가 하나도 없으면 `project`를 fallback base로 사용한다.
 
 ## 프로젝트 생성
 
@@ -307,11 +322,14 @@ curl "https://vibe.foldalpha.com/api/mcp/feedback?projectId={projectId}&limit=50
 MCP tool 이름은 다음처럼 잡으면 에이전트가 이해하기 쉽다.
 
 - `vibe.auth_check`
+- `vibe.auth_tokens_revoke`
+- `vibe.auth_account_delete`
 - `vibe.auth_register`
 - `vibe.auth_token`
 - `vibe.projects_list`
 - `vibe.projects_create`
 - `vibe.projects_get`
+- `vibe.projects_delete`
 - `vibe.feedback_requests_create`
 - `vibe.feedback_list`
 - `vibe.feedback_assigned_list`

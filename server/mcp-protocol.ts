@@ -4,14 +4,19 @@ import { ApiError, getMcpUserForToken, requireMcpUser, serializeMcpUser } from "
 import {
   createMcpToken,
   createMcpTokenSchema,
+  deleteMcpAccount,
+  deleteMcpAccountSchema,
   registerMcpAccount,
   registerMcpAccountSchema,
+  revokeMcpTokens,
+  revokeMcpTokensSchema,
 } from "@/server/mcp-auth-service";
 import {
   createMcpFeedbackRequest,
   createMcpFeedbackRequestSchema,
   createMcpProject,
   createMcpProjectSchema,
+  deleteMcpProject,
   getMcpProject,
   listMcpAssignedFeedback,
   listMcpFeedback,
@@ -98,6 +103,37 @@ const tools = [
     inputSchema: authInputSchema(),
   },
   {
+    name: "vibe.auth_tokens_revoke",
+    title: "Revoke Vibe MCP API Tokens",
+    description:
+      "Revoke all MCP API tokens for the authenticated user. Requires confirm: true. The current token will stop working.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        confirm: { type: "boolean", const: true },
+      },
+      required: ["confirm"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.auth_account_delete",
+    title: "Delete Vibe Workspace Account",
+    description:
+      "Delete the authenticated account, its projects, and its MCP API tokens. Requires confirm: true and confirmEmail.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        confirmEmail: { type: "string", format: "email" },
+        confirm: { type: "boolean", const: true },
+      },
+      required: ["confirmEmail", "confirm"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "vibe.projects_list",
     title: "List Vibe Projects",
     description:
@@ -158,6 +194,20 @@ const tools = [
     name: "vibe.projects_get",
     title: "Get Vibe Project",
     description: "Read one owned project with feedback requests and received feedback.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        projectId: { type: "string" },
+      },
+      required: ["projectId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.projects_delete",
+    title: "Delete Vibe Project",
+    description: "Delete one project owned by the authenticated user.",
     inputSchema: {
       type: "object",
       properties: {
@@ -308,12 +358,18 @@ async function callTool(request: Request, params: unknown) {
         return toolSuccess(await authToken(args));
       case "vibe.auth_check":
         return toolSuccess(await authCheck(request, args));
+      case "vibe.auth_tokens_revoke":
+        return toolSuccess(await authTokensRevoke(request, args));
+      case "vibe.auth_account_delete":
+        return toolSuccess(await authAccountDelete(request, args));
       case "vibe.projects_list":
         return toolSuccess({ projects: await listMcpProjects(await requireToolUser(request, args)) });
       case "vibe.projects_create":
         return toolSuccess(await projectsCreate(request, args));
       case "vibe.projects_get":
         return toolSuccess(await projectsGet(request, args));
+      case "vibe.projects_delete":
+        return toolSuccess(await projectsDelete(request, args));
       case "vibe.feedback_requests_create":
         return toolSuccess(await feedbackRequestCreate(request, args));
       case "vibe.feedback_list":
@@ -356,12 +412,29 @@ async function authCheck(request: Request, args: JsonObject) {
     capabilities: [
       "projects:list",
       "projects:create",
+      "projects:delete",
       "projects:read",
+      "auth_tokens:revoke",
+      "auth_account:delete",
       "feedback_requests:create",
       "feedback:read",
       "feedback_assigned:read",
     ],
   };
+}
+
+async function authTokensRevoke(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(revokeMcpTokensSchema, stripApiToken(args));
+
+  return revokeMcpTokens(user, input);
+}
+
+async function authAccountDelete(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(deleteMcpAccountSchema, stripApiToken(args));
+
+  return deleteMcpAccount(user, input);
 }
 
 async function projectsCreate(request: Request, args: JsonObject) {
@@ -377,6 +450,13 @@ async function projectsGet(request: Request, args: JsonObject) {
   const input = parseToolInput(projectIdSchema, args);
 
   return getMcpProject(user, input.projectId);
+}
+
+async function projectsDelete(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(projectIdSchema, args);
+
+  return deleteMcpProject(user, input.projectId);
 }
 
 async function feedbackRequestCreate(request: Request, args: JsonObject) {
