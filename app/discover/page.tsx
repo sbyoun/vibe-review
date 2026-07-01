@@ -81,75 +81,92 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
 
                     <Link
                       href={`/p/${owner.handle}/${project.slug}`}
-                      className="min-w-0 px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:px-0"
+                      className={
+                        project.coverImageUrl
+                          ? "grid min-w-0 gap-3 px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[96px_minmax(0,1fr)] md:px-0"
+                          : "min-w-0 px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:px-0"
+                      }
                     >
-                      <div className="mb-0.5 flex min-w-0 flex-wrap items-baseline gap-1">
-                        <span className="truncate text-base font-semibold leading-[22px] text-foreground hover:text-primary">
-                          {project.title}
-                        </span>
-                        <span className="whitespace-nowrap rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[11px] leading-[14px] text-muted-foreground">
-                          {project.projectType === "external" ? "external review" : "project"}
-                        </span>
-                        <span className="whitespace-nowrap rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[11px] leading-[14px] text-muted-foreground">
-                          {projectHost(project.sourceUrl ?? project.demoUrl ?? project.repoUrl) ?? `@${owner.handle}`}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs leading-4 text-muted-foreground">
-                        <div className="flex flex-wrap items-center gap-1">
-                          {project.categoryTags.slice(0, 3).map((tag, tagIndex) => (
-                            <span key={tag} className="contents">
-                              {tagIndex > 0 ? <span className="text-border">•</span> : null}
-                              <span className="font-medium text-foreground">{tag}</span>
-                            </span>
-                          ))}
-                          {project.categoryTags.length > 0 && project.tools.length > 0 ? (
-                            <span className="text-border">•</span>
-                          ) : null}
-                          {project.tools.slice(0, 3).map((tool, toolIndex) => (
-                            <span key={tool} className="contents">
-                              {toolIndex > 0 ? <span className="text-border">•</span> : null}
-                              <span className="font-medium text-primary">{tool}</span>
-                            </span>
-                          ))}
-                          {project.tools.length === 0 ? (
-                            <span className="font-medium text-primary">
-                              {statusLabel[project.status]}
-                            </span>
-                          ) : null}
+                      {project.coverImageUrl ? (
+                        <div className="relative hidden aspect-[4/3] overflow-hidden border border-border bg-muted sm:block">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={project.coverImageUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
                         </div>
-                        <div className="flex flex-wrap items-center gap-1">
-                          {project.projectType === "external" ? (
-                            <>
-                              <span>
-                                owner{" "}
-                                <span className="text-foreground">
-                                  {project.externalOwnerName ??
-                                    projectHost(project.externalOwnerUrl ?? project.sourceUrl) ??
-                                    "unclaimed"}
-                                </span>
+                      ) : null}
+                      <div className="min-w-0">
+                        <div className="mb-0.5 flex min-w-0 flex-wrap items-baseline gap-1">
+                          <span className="truncate text-base font-semibold leading-[22px] text-foreground hover:text-primary">
+                            {project.title}
+                          </span>
+                          <span className="whitespace-nowrap rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[11px] leading-[14px] text-muted-foreground">
+                            {project.projectType === "external" ? "external review" : "project"}
+                          </span>
+                          <span className="whitespace-nowrap rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[11px] leading-[14px] text-muted-foreground">
+                            {projectHost(project.sourceUrl ?? project.demoUrl ?? project.repoUrl) ?? `@${owner.handle}`}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs leading-4 text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {project.categoryTags.slice(0, 3).map((tag, tagIndex) => (
+                              <span key={tag} className="contents">
+                                {tagIndex > 0 ? <span className="text-border">•</span> : null}
+                                <span className="font-medium text-foreground">{tag}</span>
                               </span>
+                            ))}
+                            {project.categoryTags.length > 0 && project.tools.length > 0 ? (
                               <span className="text-border">•</span>
+                            ) : null}
+                            {project.tools.slice(0, 3).map((tool, toolIndex) => (
+                              <span key={tool} className="contents">
+                                {toolIndex > 0 ? <span className="text-border">•</span> : null}
+                                <span className="font-medium text-primary">{tool}</span>
+                              </span>
+                            ))}
+                            {project.tools.length === 0 ? (
+                              <span className="font-medium text-primary">
+                                {statusLabel[project.status]}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            {project.projectType === "external" ? (
+                              <>
+                                <span>
+                                  owner{" "}
+                                  <span className="text-foreground">
+                                    {project.externalOwnerName ??
+                                      projectHost(project.externalOwnerUrl ?? project.sourceUrl) ??
+                                      "unclaimed"}
+                                  </span>
+                                </span>
+                                <span className="text-border">•</span>
+                                <span>
+                                  reviewed by{" "}
+                                  <span className="text-foreground hover:underline">
+                                    {owner.handle ?? owner.name ?? "user"}
+                                  </span>
+                                </span>
+                              </>
+                            ) : (
                               <span>
-                                reviewed by{" "}
+                                by{" "}
                                 <span className="text-foreground hover:underline">
                                   {owner.handle ?? owner.name ?? "user"}
                                 </span>
                               </span>
-                            </>
-                          ) : (
-                            <span>
-                              by{" "}
-                              <span className="text-foreground hover:underline">
-                                {owner.handle ?? owner.name ?? "user"}
-                              </span>
-                            </span>
-                          )}
-                          <span className="text-border">•</span>
-                          <span>{formatShortDate(project.lastActivityAt)}</span>
+                            )}
+                            <span className="text-border">•</span>
+                            <span>{formatShortDate(project.lastActivityAt)}</span>
+                          </div>
+                          <span className="md:hidden">
+                            {project.feedbackCount} comments · {project.favoriteCount} favorites
+                          </span>
                         </div>
-                        <span className="md:hidden">
-                          {project.feedbackCount} comments · {project.favoriteCount} favorites
-                        </span>
                       </div>
                     </Link>
 
