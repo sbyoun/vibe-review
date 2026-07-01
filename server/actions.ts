@@ -43,7 +43,8 @@ const coverImageTypes = new Map([
   ["image/webp", "webp"],
   ["image/gif", "gif"],
 ]);
-const coverUploadDir = path.join(process.cwd(), "public", "uploads", "project-covers");
+const uploadRootDir = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "public", "uploads");
+const coverUploadDir = path.join(uploadRootDir, "project-covers");
 const coverPublicPath = "/uploads/project-covers";
 
 export async function updateCurrentUserProfile(formData: FormData) {

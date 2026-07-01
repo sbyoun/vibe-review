@@ -29,7 +29,8 @@ import { projectRevisionValues } from "@/server/project-revisions";
 
 const maxThumbnailBytes = 5 * 1024 * 1024;
 const maxThumbnailBase64Chars = Math.ceil((maxThumbnailBytes * 4) / 3) + 128;
-const thumbnailUploadDir = path.join(process.cwd(), "public", "uploads", "project-covers");
+const uploadRootDir = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "public", "uploads");
+const thumbnailUploadDir = path.join(uploadRootDir, "project-covers");
 const thumbnailPublicPath = "/uploads/project-covers";
 const thumbnailMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 const thumbnailExtensions = new Map<(typeof thumbnailMimeTypes)[number], string>([

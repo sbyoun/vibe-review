@@ -14,6 +14,7 @@ Environment=HOSTNAME=0.0.0.0
 Environment=AUTH_URL=https://vibe.foldalpha.com
 Environment=NEXTAUTH_URL=https://vibe.foldalpha.com
 Environment=AUTH_TRUST_HOST=true
+Environment=UPLOAD_DIR=/var/lib/vibe-review/uploads
 EnvironmentFile=-/home/ubuntu/vibe-code-workspace/.env.production.local
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/home/ubuntu/vibe-code-workspace/node_modules/.bin/next start --hostname 0.0.0.0 --port 3003
