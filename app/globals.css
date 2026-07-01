@@ -81,6 +81,24 @@
     @apply h-8 rounded-none border border-input bg-white px-2 text-xs leading-4 text-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-0;
   }
 
+  select.vc-input,
+  select.vc-input-compact {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23404756' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 0.875rem;
+  }
+
+  select.vc-input {
+    padding-right: 2.5rem;
+  }
+
+  select.vc-input-compact {
+    min-width: 6.5rem;
+    padding-right: 1.75rem;
+  }
+
   .vc-markdown {
     @apply text-sm leading-6 text-foreground;
   }
