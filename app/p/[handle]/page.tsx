@@ -13,7 +13,7 @@ import {
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { Badge } from "@/components/ui/badge";
-import { feedbackTypeLabel, formatShortDate } from "@/lib/domain";
+import { feedbackKindLabel, feedbackTypeLabel, formatShortDate } from "@/lib/domain";
 import { getOptionalCurrentUser } from "@/server/current-user";
 import { getFeedbackQueueData, getPublicProfileData } from "@/server/data";
 
@@ -277,10 +277,18 @@ export default async function PublicProfilePage({
                       {entry.projectTitle}
                     </Link>
                     <span>{formatShortDate(entry.createdAt)}</span>
-                    <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] uppercase text-primary">
-                      [{feedbackTypeLabel[entry.feedbackType]}]
-                    </span>
-                    <span>{entry.rating ?? "-"} / 5</span>
+                    {entry.kind === "feedback" ? (
+                      <>
+                        <span className="rounded-sm border border-primary px-1.5 py-0.5 text-[10px] uppercase text-primary">
+                          [{feedbackTypeLabel[entry.feedbackType]}]
+                        </span>
+                        <span>{entry.rating ?? "-"} / 5</span>
+                      </>
+                    ) : (
+                      <span className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        {feedbackKindLabel[entry.kind]}
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 line-clamp-4 whitespace-pre-line pl-6 text-sm leading-6 text-muted-foreground">
                     {entry.body}

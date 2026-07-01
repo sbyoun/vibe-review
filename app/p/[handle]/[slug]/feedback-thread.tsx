@@ -217,30 +217,39 @@ function FeedbackItem({
                   </select>
                 </>
               ) : null}
-              <select
-                className={compactInputClass}
-                name="feedbackType"
-                defaultValue={entry.feedbackType}
-                aria-label="Feedback type"
-              >
-                {feedbackTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {feedbackTypeLabel[type]}
-                  </option>
-                ))}
-              </select>
-              <select
-                className={compactInputClass}
-                name="rating"
-                defaultValue={entry.rating ?? 4}
-                aria-label="Rating"
-              >
-                {[5, 4, 3, 2, 1].map((rating) => (
-                  <option key={rating} value={rating}>
-                    {rating}
-                  </option>
-                ))}
-              </select>
+              {entry.kind === "feedback" ? (
+                <>
+                  <select
+                    className={compactInputClass}
+                    name="feedbackType"
+                    defaultValue={entry.feedbackType}
+                    aria-label="Feedback type"
+                  >
+                    {feedbackTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {feedbackTypeLabel[type]}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className={compactInputClass}
+                    name="rating"
+                    defaultValue={entry.rating ?? 4}
+                    aria-label="Rating"
+                  >
+                    {[5, 4, 3, 2, 1].map((rating) => (
+                      <option key={rating} value={rating}>
+                        {rating}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <>
+                  <input type="hidden" name="feedbackType" value={entry.feedbackType} />
+                  <input type="hidden" name="rating" value={entry.rating ?? 4} />
+                </>
+              )}
             </div>
           </div>
           <textarea
@@ -274,7 +283,7 @@ function FeedbackItem({
             <a className="font-bold text-foreground hover:underline" href={`#feedback-${entry.id}`}>
               {entry.authorName ?? "User"}
             </a>
-            <span>({(entry.rating ?? 0) * 120})</span>
+            {entry.kind === "feedback" ? <span>({(entry.rating ?? 0) * 120})</span> : null}
             <span>{formatShortDate(entry.createdAt)}</span>
             <span>[-]</span>
             <FeedbackBadges entry={entry} />
@@ -397,12 +406,16 @@ function FeedbackItem({
 function FeedbackBadges({ entry }: { entry: FeedbackEntry }) {
   return (
     <>
-      <span className="ml-1 rounded-sm border border-primary px-1.5 py-0.5 text-[10px] uppercase text-primary">
-        [{feedbackTypeLabel[entry.feedbackType]}]
-      </span>
-      <span className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-        {entry.rating ?? "-"} / 5
-      </span>
+      {entry.kind === "feedback" ? (
+        <>
+          <span className="ml-1 rounded-sm border border-primary px-1.5 py-0.5 text-[10px] uppercase text-primary">
+            [{feedbackTypeLabel[entry.feedbackType]}]
+          </span>
+          <span className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            {entry.rating ?? "-"} / 5
+          </span>
+        </>
+      ) : null}
       {entry.visibility === "private" ? (
         <span className="rounded-sm border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-800">
           private

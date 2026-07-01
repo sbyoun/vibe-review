@@ -496,6 +496,7 @@ export async function createFeedback(formData: FormData) {
   const visibility = parentVisibility === "private" ? "private" : requestedVisibility;
   const kind = isProjectOwner ? requestedKind : "feedback";
   const actionStatus = isProjectOwner ? requestedActionStatus : "none";
+  const storedRating = kind === "feedback" ? rating : null;
 
   const [owner] = await db
     .select({ handle: users.handle })
@@ -526,7 +527,7 @@ export async function createFeedback(formData: FormData) {
         authorId: reviewer.id,
         feedbackType,
         body,
-        rating,
+        rating: storedRating,
         helpfulStatus: "unreviewed",
         implementedStatus: "unreviewed",
         visibility,
@@ -592,6 +593,7 @@ export async function updateFeedbackDetails(formData: FormData) {
   const actionStatus = isProjectOwner
     ? coerceFeedbackActionStatus(formData.get("actionStatus"), entry.actionStatus)
     : entry.actionStatus;
+  const storedRating = kind === "feedback" ? rating : null;
 
   const [owner] = await db
     .select({ handle: users.handle })
@@ -607,7 +609,7 @@ export async function updateFeedbackDetails(formData: FormData) {
       .set({
         body,
         feedbackType,
-        rating,
+        rating: storedRating,
         visibility,
         kind,
         actionStatus,

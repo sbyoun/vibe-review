@@ -54,7 +54,7 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
   const isOwner = viewer?.id === profile.id;
   const projectUrl = project.sourceUrl ?? project.repoUrl ?? project.demoUrl;
   const isExternal = project.projectType === "external";
-  const publicFeedback = feedback.filter((entry) => entry.visibility === "public");
+  const publicFeedback = feedback.filter((entry) => entry.visibility === "public" && entry.kind === "feedback");
   const externalOwnerLabel =
     project.externalOwnerName ??
     projectHost(project.externalOwnerUrl ?? project.sourceUrl) ??

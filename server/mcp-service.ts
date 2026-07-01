@@ -574,6 +574,7 @@ export async function createMcpFeedback(
   const visibility = parentVisibility === "private" ? "private" : requestedVisibility;
   const kind = isProjectOwner ? requestedKind : "feedback";
   const actionStatus = isProjectOwner ? requestedActionStatus : "none";
+  const storedRating = kind === "feedback" ? input.rating : null;
 
   const [entry] = await db.transaction(async (tx) => {
     const now = new Date();
@@ -586,7 +587,7 @@ export async function createMcpFeedback(
         authorId: author.id,
         feedbackType: input.feedbackType,
         body: input.body,
-        rating: input.rating,
+        rating: storedRating,
         helpfulStatus: "unreviewed",
         implementedStatus: "unreviewed",
         visibility,
@@ -727,7 +728,7 @@ export async function updateMcpFeedback(
   const patch: Partial<{
     body: string;
     feedbackType: FeedbackType;
-    rating: number;
+    rating: number | null;
     visibility: FeedbackVisibility;
     kind: FeedbackKind;
     actionStatus: FeedbackActionStatus;
@@ -755,11 +756,20 @@ export async function updateMcpFeedback(
 
     if (input.kind !== undefined) {
       patch.kind = isProjectOwner ? input.kind : "feedback";
+      if (patch.kind !== "feedback") {
+        patch.rating = null;
+      }
     }
   }
 
   if (isProjectOwner && input.actionStatus !== undefined) {
     patch.actionStatus = input.actionStatus;
+  }
+
+  const finalKind = patch.kind ?? row.feedback.kind;
+
+  if (finalKind !== "feedback") {
+    patch.rating = null;
   }
 
   const [updated] = await db.transaction(async (tx) => {
@@ -926,9 +936,9 @@ function serializeFeedback<
       name: entry.authorName ?? null,
       handle: entry.authorHandle ?? null,
     },
-    feedbackType: entry.feedbackType,
+    feedbackType: entry.kind === "feedback" ? entry.feedbackType : null,
     body: entry.body,
-    rating: entry.rating ?? null,
+    rating: entry.kind === "feedback" ? entry.rating ?? null : null,
     helpfulStatus: entry.helpfulStatus,
     implementedStatus: entry.implementedStatus,
     visibility: entry.visibility,

@@ -3,7 +3,7 @@ import { ArrowUpRight, Inbox, MessageSquareText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { feedbackTypeLabel, formatShortDate } from "@/lib/domain";
+import { feedbackKindLabel, feedbackTypeLabel, formatShortDate } from "@/lib/domain";
 import { getFeedbackQueueData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
@@ -49,8 +49,14 @@ export default async function FeedbackPage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">{feedbackTypeLabel[entry.feedbackType]}</Badge>
-                      <Badge variant="outline">{entry.rating ?? "-"} / 5</Badge>
+                      {entry.kind === "feedback" ? (
+                        <>
+                          <Badge variant="outline">{feedbackTypeLabel[entry.feedbackType]}</Badge>
+                          <Badge variant="outline">{entry.rating ?? "-"} / 5</Badge>
+                        </>
+                      ) : (
+                        <Badge variant="outline">{feedbackKindLabel[entry.kind]}</Badge>
+                      )}
                     </div>
                   </div>
                   <p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">
@@ -102,8 +108,14 @@ export default async function FeedbackPage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">{feedbackTypeLabel[entry.feedbackType]}</Badge>
-                    <Badge variant="outline">{entry.rating ?? "-"} / 5</Badge>
+                    {entry.kind === "feedback" ? (
+                      <>
+                        <Badge variant="outline">{feedbackTypeLabel[entry.feedbackType]}</Badge>
+                        <Badge variant="outline">{entry.rating ?? "-"} / 5</Badge>
+                      </>
+                    ) : (
+                      <Badge variant="outline">{feedbackKindLabel[entry.kind]}</Badge>
+                    )}
                   </div>
                 </div>
                 <p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">
