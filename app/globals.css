@@ -4,24 +4,24 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222 33% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 33% 10%;
-    --primary: 172 59% 30%;
+    --background: 20 40% 98%;
+    --foreground: 180 2% 11%;
+    --card: 20 40% 98%;
+    --card-foreground: 180 2% 11%;
+    --primary: 213 100% 38%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 18% 14%;
+    --secondary: 24 100% 50%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 210 20% 92%;
-    --muted-foreground: 215 16% 38%;
-    --accent: 43 92% 56%;
-    --accent-foreground: 222 33% 10%;
+    --muted: 20 7% 93%;
+    --muted-foreground: 223 12% 29%;
+    --accent: 20 6% 90%;
+    --accent-foreground: 180 2% 11%;
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 18% 82%;
-    --input: 214 18% 82%;
-    --ring: 172 59% 30%;
-    --radius: 0.5rem;
+    --border: 227 22% 80%;
+    --input: 227 22% 80%;
+    --ring: 213 100% 38%;
+    --radius: 0.125rem;
   }
 
   * {
@@ -37,5 +37,100 @@
     font-family:
       Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
       sans-serif;
+  }
+}
+
+@layer components {
+  .vc-container {
+    @apply mx-auto w-full max-w-[1100px] px-3 py-6 md:px-6;
+  }
+
+  .vc-page-header {
+    @apply border-b border-border pb-2;
+  }
+
+  .vc-kicker {
+    @apply text-[11px] font-medium uppercase leading-[14px] text-muted-foreground;
+  }
+
+  .vc-title {
+    @apply text-xl font-semibold leading-7 tracking-normal text-foreground;
+  }
+
+  .vc-subtitle {
+    @apply mt-1 text-xs leading-4 text-muted-foreground;
+  }
+
+  .vc-panel {
+    @apply border border-border bg-card;
+  }
+
+  .vc-row-hover {
+    @apply transition-colors hover:bg-muted/70 focus-visible:bg-muted/70;
+  }
+
+  .vc-label {
+    @apply text-xs font-medium leading-4 text-foreground;
+  }
+
+  .vc-input {
+    @apply min-h-10 w-full rounded-none border border-input bg-white px-3 py-2 text-sm leading-5 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-0;
+  }
+
+  .vc-input-compact {
+    @apply h-8 rounded-none border border-input bg-white px-2 text-xs leading-4 text-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-0;
+  }
+
+  .vc-markdown {
+    @apply text-sm leading-6 text-foreground;
+  }
+
+  .vc-markdown > * + * {
+    @apply mt-3;
+  }
+
+  .vc-markdown h1 {
+    @apply text-xl font-semibold leading-7;
+  }
+
+  .vc-markdown h2 {
+    @apply text-base font-semibold leading-[22px];
+  }
+
+  .vc-markdown h3 {
+    @apply text-sm font-semibold leading-5;
+  }
+
+  .vc-markdown ul {
+    @apply list-disc pl-5;
+  }
+
+  .vc-markdown ol {
+    @apply list-decimal pl-5;
+  }
+
+  .vc-markdown blockquote {
+    @apply border-l-2 border-border pl-3 text-muted-foreground;
+  }
+
+  .vc-markdown code {
+    @apply rounded-sm border border-border bg-muted px-1 py-0.5 font-mono text-[0.85em];
+  }
+
+  .vc-markdown pre {
+    @apply overflow-x-auto border border-border bg-muted p-3;
+  }
+
+  .vc-markdown pre code {
+    @apply border-0 bg-transparent p-0;
+  }
+
+  .vc-markdown table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .vc-markdown th,
+  .vc-markdown td {
+    @apply border border-border px-2 py-1 text-left align-top;
   }
 }

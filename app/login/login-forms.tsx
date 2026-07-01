@@ -16,7 +16,8 @@ import {
 } from "@/server/auth-actions";
 
 const inputClass =
-  "min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "w-full border border-border bg-card px-3 py-2 text-sm leading-5 text-foreground outline-none transition-colors focus:border-primary focus:ring-0";
+const labelClass = "block text-xs leading-4 text-muted-foreground";
 
 const emptyState: AuthFormState = {
   status: "idle",
@@ -25,28 +26,31 @@ const emptyState: AuthFormState = {
 
 type LoginFormsProps = {
   credentialsError: boolean;
+  notice?: string;
 };
 
-export function LoginForm({ credentialsError }: LoginFormsProps) {
+export function LoginForm({ credentialsError, notice }: LoginFormsProps) {
   const loginInitialState: AuthFormState = credentialsError
     ? {
         status: "error",
         message: "Invalid handle/email or password.",
       }
-    : emptyState;
+    : notice
+      ? {
+          status: "success",
+          message: notice,
+        }
+      : emptyState;
   const [loginState, loginAction] = useActionState(loginWithPassword, loginInitialState);
 
   return (
-    <form action={loginAction} className="grid gap-4 rounded-md border border-border bg-card p-6">
-      <div className="flex items-center gap-2">
-        <LogIn className="size-5 text-primary" aria-hidden="true" />
-        <h2 className="text-lg font-semibold">Log in</h2>
-      </div>
+    <form action={loginAction} className="border border-border bg-card p-6">
+      <div className="flex flex-col gap-4">
+        <FormMessage state={loginState} />
+        <DevActionLink href={loginState.verificationUrl} label="Verify email" />
 
-      <FormMessage state={loginState} />
-
-      <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Handle or email</span>
+      <label className="grid gap-1">
+        <span className={labelClass}>Handle or Email</span>
         <input
           className={inputClass}
           name="handle"
@@ -57,8 +61,8 @@ export function LoginForm({ credentialsError }: LoginFormsProps) {
         />
       </label>
 
-      <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Password</span>
+      <label className="grid gap-1">
+        <span className={labelClass}>Password</span>
         <input
           className={inputClass}
           name="password"
@@ -69,9 +73,10 @@ export function LoginForm({ credentialsError }: LoginFormsProps) {
         />
       </label>
 
-      <AuthSubmitButton intent="login" />
+        <AuthSubmitButton intent="login" />
+      </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs leading-4">
         <Link href="/forgot-password" className="font-medium text-primary hover:underline">
           Forgot password?
         </Link>
@@ -89,17 +94,14 @@ export function SignupForm() {
   return (
     <form
       action={registerAction}
-      className="grid gap-4 rounded-md border border-border bg-card p-6"
+      className="border border-border bg-card p-6"
     >
-      <div className="flex items-center gap-2">
-        <UserPlus className="size-5 text-primary" aria-hidden="true" />
-        <h2 className="text-lg font-semibold">Create account</h2>
-      </div>
+      <div className="flex flex-col gap-4">
+        <FormMessage state={registerState} />
+        <DevActionLink href={registerState.verificationUrl} label="Verify email" />
 
-      <FormMessage state={registerState} />
-
-      <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Email</span>
+      <label className="grid gap-1">
+        <span className={labelClass}>Email</span>
         <input
           className={inputClass}
           name="email"
@@ -111,8 +113,8 @@ export function SignupForm() {
         />
       </label>
 
-      <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Handle</span>
+      <label className="grid gap-1">
+        <span className={labelClass}>Username</span>
         <input
           className={inputClass}
           name="handle"
@@ -123,8 +125,8 @@ export function SignupForm() {
         />
       </label>
 
-      <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Name</span>
+      <label className="grid gap-1">
+        <span className={labelClass}>Name</span>
         <input
           className={inputClass}
           name="name"
@@ -134,8 +136,8 @@ export function SignupForm() {
         />
       </label>
 
-      <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Password</span>
+      <label className="grid gap-1">
+        <span className={labelClass}>Password</span>
         <input
           className={inputClass}
           name="password"
@@ -146,8 +148,8 @@ export function SignupForm() {
         />
       </label>
 
-      <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Confirm password</span>
+      <label className="grid gap-1">
+        <span className={labelClass}>Confirm password</span>
         <input
           className={inputClass}
           name="confirmPassword"
@@ -158,11 +160,15 @@ export function SignupForm() {
         />
       </label>
 
-      <AuthSubmitButton intent="register" />
+        <AuthSubmitButton intent="register" />
+      </div>
 
-      <Link href="/login" className="text-sm font-medium text-primary hover:underline">
-        Log in
-      </Link>
+      <p className="mt-4 text-center text-xs leading-4 text-muted-foreground">
+        Already have an account?{" "}
+        <Link href="/login" className="text-primary hover:underline">
+          Log in
+        </Link>
+      </p>
     </form>
   );
 }
@@ -171,16 +177,11 @@ export function ForgotPasswordForm() {
   const [resetState, resetAction] = useActionState(requestPasswordReset, emptyState);
 
   return (
-    <form action={resetAction} className="grid gap-4 rounded-md border border-border bg-card p-6">
-      <div className="flex items-center gap-2">
-        <Mail className="size-5 text-primary" aria-hidden="true" />
-        <h2 className="text-lg font-semibold">Reset password</h2>
-      </div>
-
+    <form action={resetAction} className="flex flex-col gap-4">
       <FormMessage state={resetState} />
 
-      <label className="grid gap-1.5">
-        <span className="text-sm font-medium">Email</span>
+      <label className="grid gap-1">
+        <span className="text-xs leading-4 text-foreground">Email Address</span>
         <input
           className={inputClass}
           name="email"
@@ -195,16 +196,11 @@ export function ForgotPasswordForm() {
       <AuthSubmitButton intent="requestReset" />
 
       {resetState.resetUrl ? (
-        <Button type="button" variant="outline" asChild>
-          <a href={resetState.resetUrl}>
-            <KeyRound className="size-4" aria-hidden="true" />
-            Reset link
-          </a>
-        </Button>
+        <DevActionLink href={resetState.resetUrl} label="Reset password" />
       ) : null}
 
-      <Link href="/login" className="text-sm font-medium text-primary hover:underline">
-        Log in
+      <Link href="/login" className="w-full py-2 text-center text-xs font-medium leading-4 text-primary hover:underline">
+        Return to Login
       </Link>
     </form>
   );
@@ -220,11 +216,12 @@ export function ResetPasswordForm({
   const [resetState, resetAction] = useActionState(resetPasswordWithToken, emptyState);
 
   return (
-    <form action={resetAction} className="grid gap-4 rounded-md border border-border bg-card p-6">
-      <div className="flex items-center gap-2">
-        <KeyRound className="size-5 text-primary" aria-hidden="true" />
-        <h2 className="text-lg font-semibold">New password</h2>
-      </div>
+    <form action={resetAction} className="border border-border bg-card p-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <KeyRound className="size-5 text-primary" aria-hidden="true" />
+          <h2 className="text-lg font-semibold">New password</h2>
+        </div>
 
       <FormMessage state={resetState} />
 
@@ -255,7 +252,8 @@ export function ResetPasswordForm({
         />
       </label>
 
-      <AuthSubmitButton intent="resetPassword" />
+        <AuthSubmitButton intent="resetPassword" />
+      </div>
 
       {resetState.status === "success" ? (
         <Link href="/login" className="text-sm font-medium text-primary hover:underline">
@@ -270,11 +268,12 @@ export function ChangePasswordForm() {
   const [changeState, changeAction] = useActionState(changeCurrentUserPassword, emptyState);
 
   return (
-    <form action={changeAction} className="grid gap-4 rounded-md border border-border bg-card p-6">
-      <div className="flex items-center gap-2">
-        <KeyRound className="size-5 text-primary" aria-hidden="true" />
-        <h2 className="text-lg font-semibold">Change password</h2>
-      </div>
+    <form action={changeAction} className="border border-border bg-card p-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <KeyRound className="size-5 text-primary" aria-hidden="true" />
+          <h2 className="text-lg font-semibold">Change password</h2>
+        </div>
 
       <FormMessage state={changeState} />
 
@@ -313,7 +312,8 @@ export function ChangePasswordForm() {
         />
       </label>
 
-      <AuthSubmitButton intent="changePassword" />
+        <AuthSubmitButton intent="changePassword" />
+      </div>
     </form>
   );
 }
@@ -332,6 +332,21 @@ function FormMessage({ state }: { state: AuthFormState }) {
     <p role="alert" aria-live="polite" className={className}>
       {state.message}
     </p>
+  );
+}
+
+function DevActionLink({ href, label }: { href?: string; label: string }) {
+  if (!href) {
+    return null;
+  }
+
+  return (
+    <Button type="button" variant="outline" asChild>
+      <a href={href}>
+        <KeyRound className="size-4" aria-hidden="true" />
+        {label}
+      </a>
+    </Button>
   );
 }
 
@@ -372,7 +387,7 @@ function AuthSubmitButton({
   const Icon = button.icon;
 
   return (
-    <Button type="submit" variant={button.variant as "default"} disabled={pending}>
+    <Button type="submit" variant={button.variant as "default"} disabled={pending} className="w-full">
       <Icon className="size-4" aria-hidden="true" />
       {pending ? button.pendingLabel : button.label}
     </Button>

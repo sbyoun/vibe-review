@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Signup - VibeCode</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#fcf9f8",
+                        "on-surface": "#1b1c1c",
+                        "outline-variant": "#c2c6d6",
+                        "surface-container-highest": "#e5e2e1",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "secondary-container": "#fe6500",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#424754",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#ffdbcd",
+                        "on-secondary-fixed": "#360f00",
+                        "surface-container-high": "#eae7e7",
+                        "inverse-primary": "#adc6ff",
+                        "surface-tint": "#005ac2",
+                        "primary-container": "#2170e4",
+                        "on-secondary-fixed-variant": "#7c2e00",
+                        "on-primary-fixed-variant": "#004395",
+                        "primary": "#0058be",
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-container": "#f0eded",
+                        "surface-variant": "#e5e2e1",
+                        "primary-fixed-dim": "#adc6ff",
+                        "tertiary-container": "#b75b00",
+                        "surface-container-low": "#f6f3f2",
+                        "on-background": "#1b1c1c",
+                        "secondary-fixed-dim": "#ffb596",
+                        "on-primary-container": "#fefcff",
+                        "tertiary": "#924700",
+                        "inverse-surface": "#303030",
+                        "on-secondary-container": "#541d00",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#001a42",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed": "#311400",
+                        "error": "#ba1a1a",
+                        "surface-dim": "#dcd9d9",
+                        "surface": "#fcf9f8",
+                        "outline": "#727785",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-primary": "#ffffff",
+                        "background": "#fcf9f8",
+                        "primary-fixed": "#d8e2ff",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "secondary": "#a33e00",
+                        "on-tertiary-container": "#fffbff",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-mobile": "12px",
+                        "stack-lg": "16px",
+                        "margin-desktop": "24px",
+                        "gutter": "16px",
+                        "container-max": "1100px",
+                        "stack-md": "8px",
+                        "stack-sm": "4px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "headline-md": ["16px", { "lineHeight": "22px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+</head>
+<body class="bg-surface-bright min-h-screen flex flex-col justify-center items-center py-margin-desktop px-margin-mobile md:px-margin-desktop font-body-md text-body-md text-on-surface">
+<div class="w-full max-w-[400px]">
+<!-- Header Section -->
+<div class="text-center mb-stack-lg">
+<h1 class="font-headline-lg text-headline-lg font-bold text-on-surface mb-stack-sm tracking-tight">VibeCode</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Join the community</p>
+</div>
+<!-- Form Container (Low-Chrome Flat Design) -->
+<div class="bg-surface-container-lowest border border-outline-variant p-margin-desktop">
+<form action="#" class="flex flex-col gap-stack-lg" method="POST">
+<!-- Username Field -->
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-stack-sm" for="username">Username</label>
+<input autocomplete="username" class="appearance-none block w-full px-3 py-2 border border-outline-variant bg-surface-container-lowest text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary focus:ring-0 transition-colors duration-200" id="username" name="username" required="" type="text"/>
+</div>
+<!-- Email Field -->
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-stack-sm" for="email">Email</label>
+<input autocomplete="email" class="appearance-none block w-full px-3 py-2 border border-outline-variant bg-surface-container-lowest text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary focus:ring-0 transition-colors duration-200" id="email" name="email" required="" type="email"/>
+</div>
+<!-- Password Field -->
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-stack-sm" for="password">Password</label>
+<input autocomplete="new-password" class="appearance-none block w-full px-3 py-2 border border-outline-variant bg-surface-container-lowest text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary focus:ring-0 transition-colors duration-200" id="password" name="password" required="" type="password"/>
+</div>
+<!-- Submit Action -->
+<div class="pt-stack-sm">
+<button class="w-full flex justify-center items-center py-2 px-4 border border-transparent font-label-md text-label-md font-bold text-on-primary bg-primary hover:bg-primary-container hover:text-on-primary-container transition-colors duration-200" type="submit">
+                        Create Account
+                    </button>
+</div>
+</form>
+</div>
+<!-- Secondary Action Link -->
+<div class="text-center mt-stack-lg">
+<p class="font-label-md text-label-md text-on-surface-variant">
+                Already have an account? 
+                <a class="text-primary hover:underline transition-colors duration-200" href="#">Log in</a>
+</p>
+</div>
+</div>
+</body></html>

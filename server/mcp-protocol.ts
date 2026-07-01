@@ -12,15 +12,18 @@ import {
   revokeMcpTokensSchema,
 } from "@/server/mcp-auth-service";
 import {
-  createMcpFeedbackRequest,
-  createMcpFeedbackRequestSchema,
+  createMcpFeedback,
+  createMcpFeedbackSchema,
   createMcpProject,
   createMcpProjectSchema,
   deleteMcpProject,
   getMcpProject,
-  listMcpAssignedFeedback,
+  listMcpProjectRevisions,
+  listMcpProjectRevisionsSchema,
   listMcpFeedback,
   listMcpProjects,
+  updateMcpProject,
+  updateMcpProjectSchema,
 } from "@/server/mcp-service";
 
 const protocolVersion = "2025-11-25";
@@ -64,11 +67,26 @@ const feedbackListSchema = apiTokenSchema.extend({
   limit: z.number().int().min(1).max(100).optional(),
 });
 
+const projectUpdateSchema = apiTokenSchema.extend({
+  projectId: z.string().trim().min(1),
+  patch: updateMcpProjectSchema,
+});
+
+const projectHistorySchema = apiTokenSchema.extend({
+  projectId: z.string().trim().min(1),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+
+const feedbackCreateSchema = createMcpFeedbackSchema.extend({
+  apiToken: z.string().trim().min(1).optional(),
+});
+
 const tools = [
   {
     name: "vibe.auth_register",
     title: "Register Vibe Workspace Account",
-    description: "Create a Vibe Code Workspace account and return a one-time-visible MCP API token.",
+    description:
+      "Create a VibeReview account and send an email verification link. Call vibe.auth_token after verification.",
     inputSchema: {
       type: "object",
       properties: {
@@ -84,7 +102,8 @@ const tools = [
   {
     name: "vibe.auth_token",
     title: "Issue Vibe Workspace API Token",
-    description: "Issue a new MCP API token for an existing account using handle/email and password.",
+    description:
+      "Issue a new MCP API token for an email-verified account using handle/email and password.",
     inputSchema: {
       type: "object",
       properties: {
@@ -137,20 +156,29 @@ const tools = [
     name: "vibe.projects_list",
     title: "List Vibe Projects",
     description:
-      "List projects owned by the authenticated user. Always call this before creating a project to avoid duplicates.",
+      "List owned projects and external project reviews managed by the authenticated user. Always call this before creating a project to avoid duplicates.",
     inputSchema: authInputSchema(),
   },
   {
     name: "vibe.projects_create",
     title: "Create Vibe Project",
-    description: "Create a project owned by the authenticated user.",
+    description:
+      "Create an owned project or external public project review. summary and description support Markdown; thumbnailUrl, images, or thumbnailBase64 can provide screenshots.",
     inputSchema: {
       type: "object",
       properties: {
         ...authInputProperties(),
         title: { type: "string", minLength: 1, maxLength: 160 },
-        summary: { type: "string", minLength: 1, maxLength: 500 },
-        description: { type: "string" },
+        summary: { type: "string", minLength: 1, maxLength: 500, description: "Markdown supported." },
+        description: { type: "string", description: "Markdown supported." },
+        projectType: { type: "string", enum: ["owned", "external"], default: "owned" },
+        externalOwnerName: { type: "string", maxLength: 160 },
+        externalOwnerUrl: { type: "string", format: "uri" },
+        sourceUrl: {
+          type: "string",
+          format: "uri",
+          description: "Original project URL. Required for external projects unless demoUrl or repoUrl is present.",
+        },
         status: {
           type: "string",
           enum: [
@@ -167,7 +195,41 @@ const tools = [
         visibility: { type: "string", enum: ["private", "unlisted", "public"] },
         demoUrl: { type: "string", format: "uri" },
         repoUrl: { type: "string", format: "uri" },
+        thumbnailUrl: {
+          type: "string",
+          format: "uri",
+          description: "Optional screenshot or thumbnail image URL. Stored as the project cover image.",
+        },
+        coverImageUrl: {
+          type: "string",
+          format: "uri",
+          description: "Alias for thumbnailUrl.",
+        },
+        thumbnailBase64: {
+          type: "string",
+          description:
+            "Optional base64 image bytes or data URI. Use with thumbnailMimeType unless using a data URI. Max decoded size 5MB.",
+        },
+        thumbnailMimeType: {
+          type: "string",
+          enum: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+        },
+        images: {
+          type: "array",
+          maxItems: 8,
+          items: {
+            type: "object",
+            properties: {
+              url: { type: "string", format: "uri" },
+              alt: { type: "string", maxLength: 160 },
+            },
+            required: ["url"],
+            additionalProperties: false,
+          },
+          description: "Optional image list. The first URL is used as the project thumbnail.",
+        },
         tools: { type: "array", items: { type: "string" }, maxItems: 12 },
+        categoryTags: { type: "array", items: { type: "string" }, maxItems: 12 },
         feedbackFocus: {
           type: "array",
           items: {
@@ -193,12 +255,124 @@ const tools = [
   {
     name: "vibe.projects_get",
     title: "Get Vibe Project",
-    description: "Read one owned project with feedback requests and received feedback.",
+    description: "Read one owned project with its received feedback comments.",
     inputSchema: {
       type: "object",
       properties: {
         ...authInputProperties(),
         projectId: { type: "string" },
+      },
+      required: ["projectId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.projects_update",
+    title: "Update Vibe Project",
+    description:
+      "Update one project post owned by the authenticated user. The slug stays stable. Markdown descriptions and thumbnails are supported.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        projectId: { type: "string" },
+        patch: {
+          type: "object",
+          properties: {
+            title: { type: "string", minLength: 1, maxLength: 160 },
+            summary: { type: "string", minLength: 1, maxLength: 500, description: "Markdown supported." },
+            description: { type: ["string", "null"], description: "Markdown supported." },
+            projectType: { type: "string", enum: ["owned", "external"] },
+            externalOwnerName: { type: ["string", "null"], maxLength: 160 },
+            externalOwnerUrl: { type: ["string", "null"], format: "uri" },
+            sourceUrl: { type: ["string", "null"], format: "uri" },
+            status: {
+              type: "string",
+              enum: [
+                "idea",
+                "prototype",
+                "building",
+                "needs_feedback",
+                "iterating",
+                "shipped",
+                "parked",
+                "archived",
+              ],
+            },
+            visibility: { type: "string", enum: ["private", "unlisted", "public"] },
+            demoUrl: { type: ["string", "null"], format: "uri" },
+            repoUrl: { type: ["string", "null"], format: "uri" },
+            thumbnailUrl: {
+              type: ["string", "null"],
+              format: "uri",
+              description: "Set, replace, or clear the project thumbnail URL.",
+            },
+            coverImageUrl: {
+              type: ["string", "null"],
+              format: "uri",
+              description: "Alias for thumbnailUrl.",
+            },
+            thumbnailBase64: {
+              type: "string",
+              description:
+                "Optional base64 image bytes or data URI. Use with thumbnailMimeType unless using a data URI. Max decoded size 5MB.",
+            },
+            thumbnailMimeType: {
+              type: "string",
+              enum: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+            },
+            images: {
+              type: "array",
+              maxItems: 8,
+              items: {
+                type: "object",
+                properties: {
+                  url: { type: "string", format: "uri" },
+                  alt: { type: "string", maxLength: 160 },
+                },
+                required: ["url"],
+                additionalProperties: false,
+              },
+              description: "The first URL replaces the project thumbnail. Empty array clears it.",
+            },
+            tools: { type: "array", items: { type: "string" }, maxItems: 12 },
+            categoryTags: { type: "array", items: { type: "string" }, maxItems: 12 },
+            feedbackFocus: {
+              type: "array",
+              items: {
+                type: "string",
+                enum: [
+                  "first_impression",
+                  "ux_ui",
+                  "bug",
+                  "mobile_usability",
+                  "feature_idea",
+                  "business",
+                  "code_structure",
+                  "security_data_risk",
+                ],
+              },
+              maxItems: 8,
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      required: ["projectId", "patch"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.projects_history",
+    title: "List Vibe Project Revision History",
+    description:
+      "List owner-only saved versions for one project. Returns prior title, summary, Markdown description, links, image, category tags, tools, status, and visibility.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        projectId: { type: "string" },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 30 },
       },
       required: ["projectId"],
       additionalProperties: false,
@@ -219,44 +393,9 @@ const tools = [
     },
   },
   {
-    name: "vibe.feedback_requests_create",
-    title: "Create Vibe Feedback Request",
-    description: "Open a feedback request for an owned project. This spends feedback credits.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ...authInputProperties(),
-        projectId: { type: "string" },
-        feedbackTypes: {
-          type: "array",
-          items: {
-            type: "string",
-            enum: [
-              "first_impression",
-              "ux_ui",
-              "bug",
-              "mobile_usability",
-              "feature_idea",
-              "business",
-              "code_structure",
-              "security_data_risk",
-            ],
-          },
-          minItems: 1,
-          maxItems: 8,
-        },
-        minFeedbackCount: { type: "integer", minimum: 1, maximum: 20 },
-        creditCost: { type: "integer", minimum: 1, maximum: 20 },
-        deadlineDays: { type: "integer", minimum: 1, maximum: 30 },
-      },
-      required: ["projectId"],
-      additionalProperties: false,
-    },
-  },
-  {
     name: "vibe.feedback_list",
     title: "List Vibe Feedback",
-    description: "List feedback received on projects owned by the authenticated user.",
+    description: "List feedback comments received on owned projects. Bodies are returned directly.",
     inputSchema: {
       type: "object",
       properties: {
@@ -268,10 +407,35 @@ const tools = [
     },
   },
   {
-    name: "vibe.feedback_assigned_list",
-    title: "List Assigned Vibe Feedback Tasks",
-    description: "List feedback tasks currently claimed by the authenticated user.",
-    inputSchema: authInputSchema(),
+    name: "vibe.feedback_create",
+    title: "Create Vibe Feedback",
+    description:
+      "Post a feedback comment on a visible project. Pass parentFeedbackId to create a reply in the same thread.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        projectId: { type: "string", format: "uuid" },
+        parentFeedbackId: { type: "string", format: "uuid" },
+        body: { type: "string", minLength: 1, maxLength: 2000 },
+        feedbackType: {
+          type: "string",
+          enum: [
+            "first_impression",
+            "ux_ui",
+            "bug",
+            "mobile_usability",
+            "feature_idea",
+            "business",
+            "code_structure",
+            "security_data_risk",
+          ],
+        },
+        rating: { type: "integer", minimum: 1, maximum: 5 },
+      },
+      required: ["projectId", "body"],
+      additionalProperties: false,
+    },
   },
 ];
 
@@ -368,16 +532,16 @@ async function callTool(request: Request, params: unknown) {
         return toolSuccess(await projectsCreate(request, args));
       case "vibe.projects_get":
         return toolSuccess(await projectsGet(request, args));
+      case "vibe.projects_update":
+        return toolSuccess(await projectsUpdate(request, args));
+      case "vibe.projects_history":
+        return toolSuccess(await projectsHistory(request, args));
       case "vibe.projects_delete":
         return toolSuccess(await projectsDelete(request, args));
-      case "vibe.feedback_requests_create":
-        return toolSuccess(await feedbackRequestCreate(request, args));
       case "vibe.feedback_list":
         return toolSuccess({ feedback: await feedbackList(request, args) });
-      case "vibe.feedback_assigned_list":
-        return toolSuccess({
-          tasks: await listMcpAssignedFeedback(await requireToolUser(request, args)),
-        });
+      case "vibe.feedback_create":
+        return toolSuccess({ feedback: await feedbackCreate(request, args) });
       default:
         return toolError({
           code: "unknown_tool",
@@ -413,12 +577,13 @@ async function authCheck(request: Request, args: JsonObject) {
       "projects:list",
       "projects:create",
       "projects:delete",
+      "projects:history",
       "projects:read",
+      "projects:update",
       "auth_tokens:revoke",
       "auth_account:delete",
-      "feedback_requests:create",
       "feedback:read",
-      "feedback_assigned:read",
+      "feedback:create",
     ],
   };
 }
@@ -452,26 +617,32 @@ async function projectsGet(request: Request, args: JsonObject) {
   return getMcpProject(user, input.projectId);
 }
 
+async function projectsUpdate(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(projectUpdateSchema, args);
+
+  return {
+    project: await updateMcpProject(user, input.projectId, input.patch),
+  };
+}
+
+async function projectsHistory(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(projectHistorySchema, args);
+  const revisionInput = listMcpProjectRevisionsSchema.parse({
+    limit: input.limit,
+  });
+
+  return {
+    revisions: await listMcpProjectRevisions(user, input.projectId, revisionInput),
+  };
+}
+
 async function projectsDelete(request: Request, args: JsonObject) {
   const user = await requireToolUser(request, args);
   const input = parseToolInput(projectIdSchema, args);
 
   return deleteMcpProject(user, input.projectId);
-}
-
-async function feedbackRequestCreate(request: Request, args: JsonObject) {
-  const user = await requireToolUser(request, args);
-  const { projectId, ...feedbackArgs } = parseToolInput(
-    projectIdSchema.merge(createMcpFeedbackRequestSchema.partial()),
-    args,
-  );
-  const requestRow = await createMcpFeedbackRequest(
-    user,
-    projectId,
-    parseToolInput(createMcpFeedbackRequestSchema, feedbackArgs),
-  );
-
-  return { request: requestRow };
 }
 
 async function feedbackList(request: Request, args: JsonObject) {
@@ -488,6 +659,20 @@ async function feedbackList(request: Request, args: JsonObject) {
   }
 
   return listMcpFeedback(user, url);
+}
+
+async function feedbackCreate(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(feedbackCreateSchema, args);
+  const feedbackInput = {
+    projectId: input.projectId,
+    parentFeedbackId: input.parentFeedbackId,
+    body: input.body,
+    feedbackType: input.feedbackType,
+    rating: input.rating,
+  };
+
+  return createMcpFeedback(user, feedbackInput);
 }
 
 async function requireToolUser(request: Request, args: JsonObject) {
@@ -523,7 +708,7 @@ function initializeResult(params: unknown) {
     },
     serverInfo: {
       name: "vibe-code-workspace",
-      title: "Vibe Code Workspace",
+      title: "VibeReview",
       version: "0.1.0",
     },
     instructions:

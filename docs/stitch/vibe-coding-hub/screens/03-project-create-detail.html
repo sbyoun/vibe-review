@@ -1,0 +1,229 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Submit a Project - VibeCode</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#fcf9f8",
+                        "on-surface": "#1b1c1c",
+                        "outline-variant": "#c2c6d6",
+                        "surface-container-highest": "#e5e2e1",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "secondary-container": "#fe6500",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#424754",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#ffdbcd",
+                        "on-secondary-fixed": "#360f00",
+                        "surface-container-high": "#eae7e7",
+                        "inverse-primary": "#adc6ff",
+                        "surface-tint": "#005ac2",
+                        "primary-container": "#2170e4",
+                        "on-secondary-fixed-variant": "#7c2e00",
+                        "on-primary-fixed-variant": "#004395",
+                        "primary": "#0058be",
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-container": "#f0eded",
+                        "surface-variant": "#e5e2e1",
+                        "primary-fixed-dim": "#adc6ff",
+                        "tertiary-container": "#b75b00",
+                        "surface-container-low": "#f6f3f2",
+                        "on-background": "#1b1c1c",
+                        "secondary-fixed-dim": "#ffb596",
+                        "on-primary-container": "#fefcff",
+                        "tertiary": "#924700",
+                        "inverse-surface": "#303030",
+                        "on-secondary-container": "#541d00",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#001a42",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed": "#311400",
+                        "error": "#ba1a1a",
+                        "surface-dim": "#dcd9d9",
+                        "surface": "#fcf9f8",
+                        "outline": "#727785",
+                        "inverse-on-surface": "#f3f0ef",
+                        "on-primary": "#ffffff",
+                        "background": "#fcf9f8",
+                        "primary-fixed": "#d8e2ff",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "secondary": "#a33e00",
+                        "on-tertiary-container": "#fffbff",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-mobile": "12px",
+                        "stack-lg": "16px",
+                        "margin-desktop": "24px",
+                        "gutter": "16px",
+                        "container-max": "1100px",
+                        "stack-md": "8px",
+                        "stack-sm": "4px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "headline-md": ["16px", { "lineHeight": "22px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col antialiased selection:bg-primary selection:text-on-primary">
+<!-- TopNavBar -->
+<header class="bg-surface docked full-width top-0 border-b border-outline-variant transition-colors duration-200">
+<div class="flex justify-between items-center w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-2">
+<!-- Brand -->
+<div class="flex items-center gap-gutter">
+<a class="font-headline-md text-headline-md font-bold text-on-surface" href="#">VibeCode</a>
+<!-- Navigation Links -->
+<nav class="hidden md:flex gap-gutter items-center font-body-md text-body-md"><a class="text-on-surface-variant hover:text-primary hover:underline transition-colors duration-200" href="#">Discover</a><a class="text-on-surface-variant hover:text-primary hover:underline transition-colors duration-200" href="#">My</a></nav>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-stack-lg font-label-md text-label-md">
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-colors duration-200" href="#">Profile</a>
+<!-- We are on the Submit page, but keeping the button for structural consistency, stylized as an action -->
+<a class="text-primary font-bold hover:underline transition-colors duration-200" href="#">Submit</a>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8 md:py-16">
+<div class="max-w-2xl mx-auto">
+<!-- Page Header -->
+<div class="mb-8 border-b border-outline-variant pb-4">
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Submit Project</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">Share your work, tools, or deep-dives with the community.</p>
+</div>
+<!-- Guidelines Block -->
+<div class="bg-surface-container-low border border-outline-variant p-4 mb-8">
+<p class="font-label-md text-label-md font-bold text-on-surface mb-2">Submission Guidelines</p>
+<ul class="list-disc pl-5 font-body-md text-body-md text-on-surface-variant space-y-1">
+<li class="">Use the original source URL when possible.</li>
+<li class="">Ensure the title is descriptive and objective. Avoid sensationalism.</li>
+<li class="">If omitting a URL, provide a comprehensive text description.</li>
+</ul>
+</div>
+<!-- Registration Form -->
+<form action="#" class="flex flex-col gap-stack-lg" method="POST">
+<!-- Title Input -->
+<div class="flex flex-col gap-stack-sm">
+<label class="font-label-md text-label-md text-on-surface font-medium" for="project-title">Title</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-none px-3 py-2 font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-0 transition-colors" id="project-title" name="title" placeholder="e.g., An open-source lightweight web server" required="" type="text">
+</div>
+<!-- URL Input -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="flex flex-col gap-stack-sm">
+<div class="flex justify-between items-baseline">
+<label class="font-label-md text-label-md text-on-surface font-medium" for="demo-url">Live Demo URL</label>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Optional</span>
+</div>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-none px-3 py-2 font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-0 transition-colors" id="demo-url" name="demo_url" placeholder="https://demo.example.com" type="url">
+</div>
+<div class="flex flex-col gap-stack-sm">
+<div class="flex justify-between items-baseline">
+<label class="font-label-md text-label-md text-on-surface font-medium" for="repo-url">Git Repository URL</label>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Optional</span>
+</div>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-none px-3 py-2 font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-0 transition-colors" id="repo-url" name="repo_url" placeholder="https://github.com/..." type="url">
+</div>
+</div><div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="flex flex-col gap-stack-sm">
+<label class="font-label-md text-label-md text-on-surface font-medium" for="project-category">Category</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-none px-3 py-2 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-0 transition-colors" id="project-category" name="category">
+<option value="web">Web</option>
+<option value="mobile">Mobile</option>
+<option value="ai-ml">AI/ML</option>
+<option value="tooling">Tooling</option>
+<option value="games">Games</option>
+</select>
+</div>
+<div class="flex flex-col gap-stack-sm">
+<label class="font-label-md text-label-md text-on-surface font-medium" for="dev-stage">Development Stage</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-none px-3 py-2 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-0 transition-colors" id="dev-stage" name="stage">
+<option value="idea">Idea</option>
+<option value="prototype">Prototype</option>
+<option value="mvp">MVP</option>
+<option value="production">Production-ready</option>
+</select>
+</div>
+</div>
+<!-- Text Description -->
+<div class="flex flex-col gap-stack-sm">
+<div class="flex justify-between items-baseline">
+<label class="font-label-md text-label-md text-on-surface font-medium" for="project-text">Text Description</label>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Leave blank if URL is provided</span>
+</div>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-none px-3 py-2 font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-0 transition-colors resize-y" id="project-text" name="text" placeholder="Provide details about your project here..." rows="8"></textarea>
+</div><div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="flex flex-col gap-stack-sm">
+<label class="font-label-md text-label-md text-on-surface font-medium" for="project-license">License</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-none px-3 py-2 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-0 transition-colors" id="project-license" name="license">
+<option value="mit">MIT</option>
+<option value="apache">Apache 2.0</option>
+<option value="gpl">GPL</option>
+<option value="proprietary">Proprietary</option>
+</select>
+</div>
+<div class="flex flex-col gap-stack-sm">
+<label class="font-label-md text-label-md text-on-surface font-medium" for="tech-stack">Tech Stack</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-none px-3 py-2 font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-0 transition-colors" id="tech-stack" name="tech_stack" placeholder="e.g., React, Rust, SQLite" type="text">
+</div>
+</div>
+<!-- Actions -->
+<div class="flex justify-end items-center gap-stack-lg mt-4 pt-4">
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:underline transition-colors" href="#">Cancel</a>
+<button class="bg-primary text-on-primary font-label-md text-label-md font-medium px-6 py-2 rounded-none hover:bg-primary-container hover:text-on-primary-container transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface" type="submit">
+                        Submit
+                    </button>
+</div>
+</form>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface full-width py-8 border-t border-outline-variant mt-8">
+<div class="flex flex-col md:flex-row justify-center items-center gap-stack-lg w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop font-label-md text-label-md">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">VibeCode</span>
+<div class="flex items-center gap-stack-lg">
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-colors duration-200" href="#">Guidelines</a>
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-colors duration-200" href="#">FAQ</a>
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-colors duration-200" href="#">Support</a>
+<a class="text-on-surface-variant hover:text-primary hover:underline transition-colors duration-200" href="#">API</a>
+</div>
+<span class="text-on-surface-variant">© 2024 VibeCode</span>
+</div>
+</footer>
+
+
+</body></html>

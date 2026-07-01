@@ -21,9 +21,10 @@ const emptyState: McpTokenActionState = {
 type McpTokenPanelProps = {
   tokens: McpTokenSummary[];
   endpoint: string;
+  embedded?: boolean;
 };
 
-export function McpTokenPanel({ tokens, endpoint }: McpTokenPanelProps) {
+export function McpTokenPanel({ tokens, endpoint, embedded = false }: McpTokenPanelProps) {
   const [createState, createAction] = useActionState(createCurrentUserMcpToken, emptyState);
   const [revokeState, revokeAction] = useActionState(revokeCurrentUserMcpToken, emptyState);
   const [copied, setCopied] = useState(false);
@@ -66,7 +67,7 @@ export function McpTokenPanel({ tokens, endpoint }: McpTokenPanelProps) {
   }
 
   return (
-    <div className="rounded-md border border-border bg-card p-5">
+    <div className={embedded ? "" : "vc-panel p-5"}>
       <div className="flex items-center gap-2">
         <KeyRound className="size-5 text-primary" aria-hidden="true" />
         <h2 className="text-lg font-semibold">MCP tokens</h2>
@@ -76,7 +77,7 @@ export function McpTokenPanel({ tokens, endpoint }: McpTokenPanelProps) {
         <label className="grid gap-1.5">
           <span className="text-sm font-medium">Endpoint</span>
           <input
-            className="min-h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-xs text-muted-foreground outline-none"
+            className="vc-input bg-muted text-xs text-muted-foreground"
             value={endpoint}
             readOnly
           />
@@ -86,7 +87,7 @@ export function McpTokenPanel({ tokens, endpoint }: McpTokenPanelProps) {
       <FormMessage state={createState} />
 
       {createState.token ? (
-        <div className="mt-4 grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+        <div className="mt-4 grid gap-3 border border-emerald-200 bg-emerald-50 p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-emerald-900">New token</p>
             <Button type="button" variant="outline" size="sm" onClick={copyToken}>
@@ -99,7 +100,7 @@ export function McpTokenPanel({ tokens, endpoint }: McpTokenPanelProps) {
             </Button>
           </div>
           <textarea
-            className="min-h-24 w-full resize-none rounded-md border border-emerald-200 bg-white px-3 py-2 font-mono text-xs text-emerald-950 outline-none"
+            className="min-h-24 w-full resize-none border border-emerald-200 bg-white px-3 py-2 font-mono text-xs text-emerald-950 outline-none"
             value={createState.token}
             readOnly
           />
@@ -121,9 +122,9 @@ export function McpTokenPanel({ tokens, endpoint }: McpTokenPanelProps) {
         </div>
 
         {visibleTokens.length > 0 ? (
-          <div className="mt-3 divide-y divide-border rounded-md border border-border">
+          <div className="mt-3 divide-y divide-border border border-border">
             {visibleTokens.map((token) => (
-              <div key={token.id} className="flex items-center justify-between gap-3 p-3">
+              <div key={token.id} className="vc-row-hover flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate font-mono text-xs text-foreground">
                     {token.label}
@@ -156,8 +157,8 @@ function FormMessage({ state }: { state: McpTokenActionState }) {
 
   const className =
     state.status === "success"
-      ? "mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
-      : "mt-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive";
+      ? "mt-4 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+      : "mt-4 border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive";
 
   return (
     <p role="alert" aria-live="polite" className={className}>

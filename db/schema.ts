@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
   varchar,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const projectStatus = pgEnum("project_status", [
@@ -26,6 +27,7 @@ export const projectStatus = pgEnum("project_status", [
 ]);
 
 export const projectVisibility = pgEnum("project_visibility", ["private", "unlisted", "public"]);
+export const projectType = pgEnum("project_type", ["owned", "external"]);
 export const projectLinkKind = pgEnum("project_link_kind", [
   "demo",
   "repository",
@@ -168,6 +170,14 @@ export const projects = pgTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    submittedById: text("submitted_by_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectType: projectType("project_type").notNull().default("owned"),
+    externalOwnerName: varchar("external_owner_name", { length: 160 }),
+    externalOwnerUrl: text("external_owner_url"),
+    claimedById: text("claimed_by_id").references(() => users.id, { onDelete: "set null" }),
+    sourceUrl: text("source_url"),
     title: varchar("title", { length: 160 }).notNull(),
     slug: varchar("slug", { length: 120 }).notNull(),
     summary: text("summary").notNull(),
@@ -179,6 +189,10 @@ export const projects = pgTable(
     coverImageObjectKey: text("cover_image_object_key"),
     coverImageUrl: text("cover_image_url"),
     tools: text("tools")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    categoryTags: text("category_tags")
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
@@ -195,6 +209,9 @@ export const projects = pgTable(
   (table) => [
     uniqueIndex("projects_owner_slug_idx").on(table.ownerId, table.slug),
     index("projects_owner_status_idx").on(table.ownerId, table.status),
+    index("projects_submitted_by_idx").on(table.submittedById),
+    index("projects_project_type_idx").on(table.projectType),
+    index("projects_claimed_by_idx").on(table.claimedById),
     index("projects_visibility_idx").on(table.visibility),
     index("projects_last_activity_idx").on(table.lastActivityAt),
   ],
@@ -239,6 +256,48 @@ export const projectAssets = pgTable(
   (table) => [
     uniqueIndex("project_assets_object_key_idx").on(table.bucket, table.objectKey),
     index("project_assets_project_id_idx").on(table.projectId),
+  ],
+);
+
+export const projectRevisions = pgTable(
+  "project_revisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
+    source: varchar("source", { length: 40 }).notNull().default("web_update"),
+    title: varchar("title", { length: 160 }).notNull(),
+    summary: text("summary").notNull(),
+    description: text("description"),
+    status: projectStatus("status").notNull(),
+    visibility: projectVisibility("visibility").notNull(),
+    demoUrl: text("demo_url"),
+    repoUrl: text("repo_url"),
+    coverImageObjectKey: text("cover_image_object_key"),
+    coverImageUrl: text("cover_image_url"),
+    projectType: projectType("project_type").notNull().default("owned"),
+    externalOwnerName: varchar("external_owner_name", { length: 160 }),
+    externalOwnerUrl: text("external_owner_url"),
+    sourceUrl: text("source_url"),
+    tools: text("tools")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    categoryTags: text("category_tags")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    feedbackFocus: feedbackType("feedback_focus")
+      .array()
+      .notNull()
+      .default(sql`'{}'::feedback_type[]`),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("project_revisions_project_id_created_at_idx").on(table.projectId, table.createdAt),
+    index("project_revisions_actor_id_idx").on(table.actorId),
   ],
 );
 
@@ -298,6 +357,10 @@ export const feedback = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     requestId: uuid("request_id").references(() => feedbackRequests.id, { onDelete: "set null" }),
+    parentFeedbackId: uuid("parent_feedback_id").references(
+      (): AnyPgColumn => feedback.id,
+      { onDelete: "cascade" },
+    ),
     authorId: text("author_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -314,7 +377,26 @@ export const feedback = pgTable(
   (table) => [
     index("feedback_project_id_idx").on(table.projectId),
     index("feedback_request_id_idx").on(table.requestId),
+    index("feedback_parent_feedback_id_idx").on(table.parentFeedbackId),
     index("feedback_author_id_idx").on(table.authorId),
+  ],
+);
+
+export const projectFavorites = pgTable(
+  "project_favorites",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.userId] }),
+    index("project_favorites_user_id_idx").on(table.userId),
+    index("project_favorites_project_id_idx").on(table.projectId),
   ],
 );
 
@@ -461,6 +543,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   projects: many(projects),
   authoredFeedback: many(feedback),
+  favoriteProjects: many(projectFavorites),
   feedbackClaims: many(feedbackClaims),
   creditLedgerEntries: many(creditLedger),
   notifications: many(notifications),
@@ -471,11 +554,21 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     fields: [projects.ownerId],
     references: [users.id],
   }),
+  submittedBy: one(users, {
+    fields: [projects.submittedById],
+    references: [users.id],
+  }),
+  claimedBy: one(users, {
+    fields: [projects.claimedById],
+    references: [users.id],
+  }),
   links: many(projectLinks),
   assets: many(projectAssets),
+  revisions: many(projectRevisions),
   statusEvents: many(projectStatusEvents),
   feedbackRequests: many(feedbackRequests),
   feedback: many(feedback),
+  favorites: many(projectFavorites),
   feedbackClaims: many(feedbackClaims),
   projectToolTags: many(projectToolTags),
 }));
@@ -506,8 +599,27 @@ export const feedbackRelations = relations(feedback, ({ one, many }) => ({
     fields: [feedback.authorId],
     references: [users.id],
   }),
+  parent: one(feedback, {
+    fields: [feedback.parentFeedbackId],
+    references: [feedback.id],
+    relationName: "feedback_replies",
+  }),
+  replies: many(feedback, {
+    relationName: "feedback_replies",
+  }),
   reactions: many(feedbackReactions),
   implementationEvents: many(feedbackImplementationEvents),
+}));
+
+export const projectFavoritesRelations = relations(projectFavorites, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectFavorites.projectId],
+    references: [projects.id],
+  }),
+  user: one(users, {
+    fields: [projectFavorites.userId],
+    references: [users.id],
+  }),
 }));
 
 export const feedbackClaimsRelations = relations(feedbackClaims, ({ one }) => ({
@@ -537,6 +649,8 @@ export type FeedbackRequest = InferSelectModel<typeof feedbackRequests>;
 export type NewFeedbackRequest = InferInsertModel<typeof feedbackRequests>;
 export type Feedback = InferSelectModel<typeof feedback>;
 export type NewFeedback = InferInsertModel<typeof feedback>;
+export type ProjectFavorite = InferSelectModel<typeof projectFavorites>;
+export type NewProjectFavorite = InferInsertModel<typeof projectFavorites>;
 export type FeedbackClaim = InferSelectModel<typeof feedbackClaims>;
 export type NewFeedbackClaim = InferInsertModel<typeof feedbackClaims>;
 export type CreditLedgerEntry = InferSelectModel<typeof creditLedger>;

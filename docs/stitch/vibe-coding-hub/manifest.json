@@ -1,0 +1,110 @@
+{
+  "projectId": "128873874555802807",
+  "title": "Vibe Coding Hub",
+  "screens": [
+    {
+      "order": 1,
+      "id": "6b1f04cd8f0e47629f395f49aeed8055",
+      "slug": "project-detail-discussion",
+      "title": "프로젝트 상세 및 전문 토론",
+      "width": 2560,
+      "height": 2814,
+      "deviceType": "DESKTOP",
+      "screenshotUrl": "https://lh3.googleusercontent.com/aida/AP1WRLvSUotAUoSRT7tWNM_UHVuzQM2PCbOvMlMKQepD776H59WF76h1amDy6-0-kvLf7C83TqT7pge5XfrurQUfLhpqVd2yYQicE9UmN95JxygfVxr30gJfsPl6PaceUjPXITb1XgfsMOYlqJez_GZvzLArha0CzU3ZNpMyYZk7GiM_ElgythWbrncRDX8bjmXss_TXQkGj49wD0yZPmYLNUm26E1b5ASyjSLyzHqVIKUuv60fgtCypyOKdsQ",
+      "htmlUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ6Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpZCiVodG1sXzAwMDY1NTcwYjI5MWZlMmEwMzMyZmFhY2FlMWFkYjczEgsSBxCTseuImRkYAZIBIgoKcHJvamVjdF9pZBIUQhIxMjg4NzM4NzQ1NTU4MDI4MDc&filename=&opi=89354086",
+      "screenshotFile": "screens/01-project-detail-discussion.jpg",
+      "htmlFile": "screens/01-project-detail-discussion.html"
+    },
+    {
+      "order": 2,
+      "id": "53be07bfb47a4455a79016aa3f380f9d",
+      "slug": "my-projects-kanban",
+      "title": "내 프로젝트 관리 (칸반)",
+      "width": 2560,
+      "height": 2088,
+      "deviceType": "DESKTOP",
+      "screenshotUrl": "https://lh3.googleusercontent.com/aida/AP1WRLvFAoMQSKWTWb3L33vNNiIJarFmTrDO1wd31yt9IhR_5Dd-f6QpFITQMnmFRsn2ak5K8g-PycCY9xlLjvBLp_MWa8e3CZL3el0CNWr0ixRx1Zq8Izb6H1to6UB68jfFMVDsfmfnnA2UnI0u7uFjmY-wLFQg37RYBxgIiP0H37fu1IKYoRsI4DX-5lAxyoEDon4_Lg7PqafVMXi40qtimbRMiNHXYeS9GFpaZN5DNI0rQEHB0hTH6bR-mw",
+      "htmlUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ6Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpZCiVodG1sXzAwMDY1NTcwYjJkMGMxNWQwN2M0ZWRhMDQ4MTU5MjljEgsSBxCTseuImRkYAZIBIgoKcHJvamVjdF9pZBIUQhIxMjg4NzM4NzQ1NTU4MDI4MDc&filename=&opi=89354086",
+      "screenshotFile": "screens/02-my-projects-kanban.jpg",
+      "htmlFile": "screens/02-my-projects-kanban.html"
+    },
+    {
+      "order": 3,
+      "id": "31cffaea63254edb80818fd239aad762",
+      "slug": "project-create-detail",
+      "title": "프로젝트 상세 등록 - VibeCode",
+      "width": 2560,
+      "height": 2246,
+      "deviceType": "DESKTOP",
+      "screenshotUrl": "https://lh3.googleusercontent.com/aida/AP1WRLsgHDzbbrqD0ClwbwU73ZZ9PqBYVxA7m7Wxp2SlTypL4N7sRLqHMidsnwA21Z1PlvGpHaECb4GcrAbZ1HdysJGXpeq36ps7uturbdhwB4FXlvQUW838V53hHJsMJXdL49wFlW8DOodnt3EiETzHDWu4LmMzDdrwFXNGxVq2nOi_mcXcq0rYM_fwNLCh7S6V7j7xS81OJe55ODd7fO5c4RFoEtollpTQpwkZiHkjwFhtPCWYrpqM50GB0w",
+      "htmlUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ6Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpZCiVodG1sXzAwMDY1NTcwYjI1NjUyNmMwNjM5NTYyYzdkMmQyM2E4EgsSBxCTseuImRkYAZIBIgoKcHJvamVjdF9pZBIUQhIxMjg4NzM4NzQ1NTU4MDI4MDc&filename=&opi=89354086",
+      "screenshotFile": "screens/03-project-create-detail.jpg",
+      "htmlFile": "screens/03-project-create-detail.html"
+    },
+    {
+      "order": 4,
+      "id": "555cc0087a684037a76ddc2395b78655",
+      "slug": "feed-refined",
+      "title": "VibeCode Feed (Refined)",
+      "width": 2560,
+      "height": 2048,
+      "deviceType": "DESKTOP",
+      "screenshotUrl": "https://lh3.googleusercontent.com/aida/AP1WRLtHLb-hY_7nWYxGAknZLYrrSh1tFU-m7B5ymLXRD3PKIp_UFT-H9vhZhMzllA2Gx2bJrBLchvDWEv9D1r27xhg-Yavf6uRUx21dmDyPfuvg8_QeA0PmgkEscSb-X21OgKzs2AutsK6o8Xe6ze5v19_j8yrhjld0TOG74uE44jj48qkfbG7kgHdyVOMqX0De2AyPBU7Xjh9Mjk80tErGOxJZyHJMzxj73exe-NtVLjXYz6LUgYr58etA_g",
+      "htmlUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ6Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpZCiVodG1sXzAwMDY1NTcwYjI2NTgzM2YwNjM5NTY0NDRiMWJkYzYxEgsSBxCTseuImRkYAZIBIgoKcHJvamVjdF9pZBIUQhIxMjg4NzM4NzQ1NTU4MDI4MDc&filename=&opi=89354086",
+      "screenshotFile": "screens/04-feed-refined.jpg",
+      "htmlFile": "screens/04-feed-refined.html"
+    },
+    {
+      "order": 5,
+      "id": "0d6a38cb290b422fb423ca87217d0029",
+      "slug": "signup",
+      "title": "회원가입 - VibeCode",
+      "width": 2560,
+      "height": 2048,
+      "deviceType": "DESKTOP",
+      "screenshotUrl": "https://lh3.googleusercontent.com/aida/AP1WRLvA4zacVLIbz30bsvy9BhVun8DrUzUlxgAlvfjZBLcFgxZosHFWYIpP4SHxgxhFyPSrwY4t3BhnUmAxjphL0tktkwy74O4tf5fXNMQWNdeKRqt7IPaTzBN4AdKMkq0D9Y9tnPFwaCLk0-KxWQy1Gpc5rFGsol0HjCBexBwpIkspLz98FrZj8FrR4kqul7xRRY64ASz8gEgL4mwOMUIJOaQLCNaUbNeqZRU4DpwR_BtHhZ5cqU2cFoHY",
+      "htmlUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ6Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpZCiVodG1sXzVjM2JmZmQwNWNjMTQ0N2ZhZjNjZDE2MmUzMDUzODJjEgsSBxCTseuImRkYAZIBIgoKcHJvamVjdF9pZBIUQhIxMjg4NzM4NzQ1NTU4MDI4MDc&filename=&opi=89354086",
+      "screenshotFile": "screens/05-signup.png",
+      "htmlFile": "screens/05-signup.html"
+    },
+    {
+      "order": 6,
+      "id": "2bafbff0d5e245259bebd29a18be964a",
+      "slug": "profile-settings",
+      "title": "내 프로필 및 계정 설정",
+      "width": 2560,
+      "height": 3626,
+      "deviceType": "DESKTOP",
+      "screenshotUrl": "https://lh3.googleusercontent.com/aida/AP1WRLt_H-Zo7HpWlGxwALuNNh4uiucTxWSRAlVvn2HOWf8vrEQ2Bpp22_ArIiir6g-0TnPTa-eh5z44BrLrqoy1AFa5FCw3n_7rZW1T6IrABsXBq8d9pti0tF02zltZ9x2a__xCPSheGQ4ZuJnHpZKZ5pLTHLTGdUnZLezsMF7Oxj8uSO_y6WbBbMisR4k6_3rPS20wJpKvWJC4Q5vYYS8Ka7o4R2cIgXbkhqp1KBafk-VXz5B-wUFsnLENxw",
+      "htmlUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ6Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpZCiVodG1sXzAwMDY1NTcwYjJiNmQ0NjkwNjM5NTYyYzdkMmQyM2E4EgsSBxCTseuImRkYAZIBIgoKcHJvamVjdF9pZBIUQhIxMjg4NzM4NzQ1NTU4MDI4MDc&filename=&opi=89354086",
+      "screenshotFile": "screens/06-profile-settings.jpg",
+      "htmlFile": "screens/06-profile-settings.html"
+    },
+    {
+      "order": 7,
+      "id": "1cacd666ca214f53b770aeaa27b96f20",
+      "slug": "forgot-password",
+      "title": "비밀번호 찾기 - VibeCode",
+      "width": 2560,
+      "height": 2048,
+      "deviceType": "DESKTOP",
+      "screenshotUrl": "https://lh3.googleusercontent.com/aida/AP1WRLsS9UWyqnFn4RGbpxL5bQeFpWh2cIAQYaEDw16SvPTQfN5AZUFhFYIdNp4KqAXoDWvSDVLvrD5Nc6qMYBq47YOY02Hc9a4wFJWdfuXwSFw4bWbyMn-ZtxPnzKNdrw91O_KY8ZE4Lx60_MRUv3i6umh9_Zu-CVbxJeb-JYVx590568fPx91aS_oe43g-12zZiDjZfXGPhz_gS12VAaJxGnchtQlDjhlz-cmTBZn1qrWqouNQaJlw7-JtaA",
+      "htmlUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ6Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpZCiVodG1sXzAzN2QwZTQ4NTc4MTRjZTQ4MzcyMDYwZDAzNWI4NjVlEgsSBxCTseuImRkYAZIBIgoKcHJvamVjdF9pZBIUQhIxMjg4NzM4NzQ1NTU4MDI4MDc&filename=&opi=89354086",
+      "screenshotFile": "screens/07-forgot-password.png",
+      "htmlFile": "screens/07-forgot-password.html"
+    },
+    {
+      "order": 8,
+      "id": "700ffdaffc284fc5a9a8e9ecc5746a09",
+      "slug": "public-user-profile",
+      "title": "유저 프로필 보기 - VibeCode",
+      "width": 2560,
+      "height": 2048,
+      "deviceType": "DESKTOP",
+      "screenshotUrl": "https://lh3.googleusercontent.com/aida/AP1WRLuKt9TX5bK3X76yPK8abHbqz46aYu1N8M0AzGeJySGR-fwpUrbbLpCDU4N7gpybPMFkcB4YYtJzZvxOLbTZovsyKKuSvkyUaFbpZQ4sf9WaEKEd2Cg60Vywrx9ICTTon6kbTcZW40gW3qhCX9sBc6COJIIntcWNOh-ZvR7t-0vmgh34gqDjmReuz71s690dzGWapoT6JyooNaFOOIhJELeL0T-SAmQNRKkcfVKD3ddTFCeo3rSgQSVH",
+      "htmlUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ6Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpZCiVodG1sXzAwMDY1NTcwYjI3MTAyYmIwMzgzOWJmMjhjMTVjNTAxEgsSBxCTseuImRkYAZIBIgoKcHJvamVjdF9pZBIUQhIxMjg4NzM4NzQ1NTU4MDI4MDc&filename=&opi=89354086",
+      "screenshotFile": "screens/08-public-user-profile.jpg",
+      "htmlFile": "screens/08-public-user-profile.html"
+    }
+  ]
+}

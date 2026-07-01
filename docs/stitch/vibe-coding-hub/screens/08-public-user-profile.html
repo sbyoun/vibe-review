@@ -1,0 +1,277 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>User Profile - VibeCode</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-bright": "#fcf9f8",
+                      "on-surface": "#1b1c1c",
+                      "outline-variant": "#c2c6d6",
+                      "surface-container-highest": "#e5e2e1",
+                      "tertiary-fixed-dim": "#ffb786",
+                      "secondary-container": "#fe6500",
+                      "on-tertiary": "#ffffff",
+                      "on-surface-variant": "#424754",
+                      "surface-container-lowest": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "secondary-fixed": "#ffdbcd",
+                      "on-secondary-fixed": "#360f00",
+                      "surface-container-high": "#eae7e7",
+                      "inverse-primary": "#adc6ff",
+                      "surface-tint": "#005ac2",
+                      "primary-container": "#2170e4",
+                      "on-secondary-fixed-variant": "#7c2e00",
+                      "on-primary-fixed-variant": "#004395",
+                      "primary": "#0058be",
+                      "tertiary-fixed": "#ffdcc6",
+                      "surface-container": "#f0eded",
+                      "surface-variant": "#e5e2e1",
+                      "primary-fixed-dim": "#adc6ff",
+                      "tertiary-container": "#b75b00",
+                      "surface-container-low": "#f6f3f2",
+                      "on-background": "#1b1c1c",
+                      "secondary-fixed-dim": "#ffb596",
+                      "on-primary-container": "#fefcff",
+                      "tertiary": "#924700",
+                      "inverse-surface": "#303030",
+                      "on-secondary-container": "#541d00",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed": "#001a42",
+                      "on-error": "#ffffff",
+                      "on-tertiary-fixed": "#311400",
+                      "error": "#ba1a1a",
+                      "surface-dim": "#dcd9d9",
+                      "surface": "#fcf9f8",
+                      "outline": "#727785",
+                      "inverse-on-surface": "#f3f0ef",
+                      "on-primary": "#ffffff",
+                      "background": "#fcf9f8",
+                      "primary-fixed": "#d8e2ff",
+                      "on-tertiary-fixed-variant": "#723600",
+                      "secondary": "#a33e00",
+                      "on-tertiary-container": "#fffbff",
+                      "error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "margin-mobile": "12px",
+                      "stack-lg": "16px",
+                      "margin-desktop": "24px",
+                      "gutter": "16px",
+                      "container-max": "1100px",
+                      "stack-md": "8px",
+                      "stack-sm": "4px",
+                      "unit": "4px"
+              },
+              "fontFamily": {
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "11px",
+                              {
+                                      "lineHeight": "14px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "22px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "15px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col antialiased">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline docked full-width top-0 transition-colors duration-200">
+<div class="flex justify-between items-center w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-2">
+<div class="flex items-center gap-gutter">
+<a class="font-headline-md text-headline-md font-bold text-on-surface dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">
+                    VibeCode
+                </a>
+<nav class="hidden md:flex gap-stack-lg"><a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200 font-label-md text-label-md" href="#">Discover</a><a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200 font-label-md text-label-md" href="#">My</a></nav>
+</div>
+<div class="flex items-center gap-stack-lg">
+<button class="bg-primary text-on-primary hover:bg-primary-container hover:text-on-primary-container px-3 py-1 rounded font-label-md text-label-md transition-colors duration-200 hidden md:block">
+                    Submit
+                </button>
+<a class="text-primary dark:text-primary-fixed-dim font-bold hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200 font-label-md text-label-md" href="#">
+                    Profile
+                </a>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg md:py-margin-desktop">
+<!-- Profile Header -->
+<section class="mb-margin-desktop bg-surface-container-low p-stack-lg rounded border border-outline-variant">
+<div class="flex flex-col md:flex-row gap-stack-lg items-start md:items-center justify-between border-b border-outline-variant pb-stack-lg mb-stack-lg">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-stack-sm">johndoe</h1>
+<div class="flex flex-wrap gap-x-stack-lg gap-y-stack-sm text-on-surface-variant font-label-md text-label-md">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">calendar_today</span> Created Aug 24, 2021</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">star</span> 1,492 karma</span>
+</div>
+</div>
+</div>
+<div class="font-body-md text-body-md text-on-surface-variant">
+<p class="mb-2">Frontend developer, mostly building tools for other developers.</p>
+<p class="">Always looking for interesting problems to solve.</p>
+</div>
+</section>
+<!-- Tabs -->
+<nav class="flex gap-stack-lg border-b border-outline-variant mb-stack-lg">
+<button class="pb-2 font-headline-md text-headline-md border-b-2 border-primary text-primary">Submissions</button>
+<button class="pb-2 font-headline-md text-headline-md border-b-2 border-transparent text-on-surface-variant hover:text-primary transition-colors">Comments</button>
+<button class="pb-2 font-headline-md text-headline-md border-b-2 border-transparent text-on-surface-variant hover:text-primary transition-colors">Favorites</button>
+</nav>
+<!-- Activity List (Submissions) -->
+<section class="space-y-stack-lg">
+<!-- Item 1 -->
+<article class="flex gap-stack-md group">
+<div class="flex flex-col items-center pt-1 text-on-surface-variant">
+<button class="hover:text-secondary-container transition-colors"><span class="material-symbols-outlined text-[16px]">expand_less</span></button>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-1 group-hover:text-primary transition-colors">
+<a href="#" class="">Show VC: A minimalist habit tracker for developers</a>
+<span class="font-label-md text-label-md text-on-surface-variant font-normal ml-2">(github.com/johndoe)</span>
+</h2>
+<div class="font-label-md text-label-md text-on-surface-variant flex gap-2 items-center">
+<span class="">156 points</span>
+<span class="">•</span>
+<span class="">by <a class="hover:underline" href="#">johndoe</a></span>
+<span class="">•</span>
+<span class="">2 hours ago</span>
+<span class="">•</span>
+<a class="hover:underline" href="#">42 comments</a>
+</div>
+</div>
+</article>
+<!-- Item 2 -->
+<article class="flex gap-stack-md group">
+<div class="flex flex-col items-center pt-1 text-on-surface-variant">
+<button class="hover:text-secondary-container transition-colors"><span class="material-symbols-outlined text-[16px]">expand_less</span></button>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-1 group-hover:text-primary transition-colors">
+<a href="#" class="">Building a fast key-value store in Rust</a>
+<span class="font-label-md text-label-md text-on-surface-variant font-normal ml-2">(johndoe.dev)</span>
+</h2>
+<div class="font-label-md text-label-md text-on-surface-variant flex gap-2 items-center">
+<span class="">342 points</span>
+<span class="">•</span>
+<span class="">by <a class="hover:underline" href="#">johndoe</a></span>
+<span class="">•</span>
+<span class="">1 day ago</span>
+<span class="">•</span>
+<a class="hover:underline" href="#">108 comments</a>
+</div>
+</div>
+</article>
+<!-- Item 3 -->
+<article class="flex gap-stack-md group">
+<div class="flex flex-col items-center pt-1 text-on-surface-variant">
+<button class="hover:text-secondary-container transition-colors"><span class="material-symbols-outlined text-[16px]">expand_less</span></button>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-1 group-hover:text-primary transition-colors">
+<a href="#" class="">Ask VC: What's your go-to tech stack for 2024 side projects?</a>
+</h2>
+<div class="font-label-md text-label-md text-on-surface-variant flex gap-2 items-center">
+<span class="">89 points</span>
+<span class="">•</span>
+<span class="">by <a class="hover:underline" href="#">johndoe</a></span>
+<span class="">•</span>
+<span class="">3 days ago</span>
+<span class="">•</span>
+<a class="hover:underline" href="#">215 comments</a>
+</div>
+</div>
+</article>
+<div class="pt-stack-lg">
+<a class="font-label-md text-label-md text-primary hover:underline" href="#">More submissions...</a>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface dark:bg-surface-dim border-t border-outline-variant dark:border-outline mt-8 full-width py-8 transition-colors duration-200">
+<div class="flex flex-col md:flex-row justify-center items-center gap-stack-lg w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">© 2024 VibeCode</span>
+<div class="flex gap-stack-lg font-label-md text-label-md">
+<a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">Guidelines</a>
+<a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">FAQ</a>
+<a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">Support</a>
+<a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">API</a>
+</div>
+</div>
+</footer>
+
+
+</body></html>

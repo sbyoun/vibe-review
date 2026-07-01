@@ -15,6 +15,7 @@ import {
   serializeMcpUser,
   type McpUser,
 } from "@/server/mcp-api";
+import { issueEmailVerification } from "@/server/email-verification";
 
 export const registerMcpAccountSchema = z.object({
   email: z.string().trim().email().transform((value) => value.toLowerCase()),
@@ -94,11 +95,21 @@ export async function registerMcpAccount(input: z.output<typeof registerMcpAccou
     throw new ApiError(500, "registration_failed", "Account was created without a handle.");
   }
 
-  const apiToken = await createMcpApiToken(user.id);
+  const verification = await issueEmailVerification({
+    userId: user.id,
+    email: user.email,
+  });
 
   return {
     user: serializeMcpUser(user as McpUser),
-    apiToken,
+    emailVerification: {
+      required: true,
+      delivered: verification.delivered,
+      verificationUrl: verification.verificationUrl,
+      message: verification.delivered
+        ? "Verification email sent. Verify the email, then call vibe.auth_token."
+        : "Email verification is required. Verify the email, then call vibe.auth_token.",
+    },
   };
 }
 
@@ -124,6 +135,23 @@ export async function createMcpToken(input: z.output<typeof createMcpTokenSchema
 
   if (!passwordMatches) {
     throw new ApiError(401, "invalid_credentials", "Invalid login or password.");
+  }
+
+  if (!user.emailVerified) {
+    const verification = await issueEmailVerification({
+      userId: user.id,
+      email: user.email,
+    });
+
+    throw new ApiError(
+      409,
+      "email_not_verified",
+      "Email verification is required before issuing an MCP token.",
+      {
+        delivered: verification.delivered,
+        verificationUrl: verification.verificationUrl,
+      },
+    );
   }
 
   const apiToken = await createMcpApiToken(user.id);

@@ -14,6 +14,9 @@ export type ProjectStatus = (typeof projectStatuses)[number];
 export const projectVisibilities = ["private", "unlisted", "public"] as const;
 export type ProjectVisibility = (typeof projectVisibilities)[number];
 
+export const projectTypes = ["owned", "external"] as const;
+export type ProjectType = (typeof projectTypes)[number];
+
 export const feedbackTypes = [
   "first_impression",
   "ux_ui",
@@ -134,6 +137,10 @@ export function coerceProjectVisibility(value: FormDataEntryValue | null): Proje
   return projectVisibilities.includes(value as ProjectVisibility)
     ? (value as ProjectVisibility)
     : "private";
+}
+
+export function coerceProjectType(value: FormDataEntryValue | null): ProjectType {
+  return projectTypes.includes(value as ProjectType) ? (value as ProjectType) : "owned";
 }
 
 export function coerceFeedbackType(value: FormDataEntryValue | null): FeedbackType {

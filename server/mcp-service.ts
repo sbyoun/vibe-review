@@ -1,25 +1,43 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
 import {
-  creditLedger,
   feedback,
-  feedbackClaims,
-  feedbackRequests,
+  projectRevisions,
   projectStatusEvents,
   projects,
   users,
 } from "@/db/schema";
 import {
   feedbackTypes,
+  projectTypes,
   projectStatuses,
   projectVisibilities,
   slugifyProjectTitle,
   type FeedbackType,
+  type ProjectType,
+  type ProjectVisibility,
 } from "@/lib/domain";
 import { ApiError, type McpUser } from "@/server/mcp-api";
+import { projectRevisionValues } from "@/server/project-revisions";
+
+const maxThumbnailBytes = 5 * 1024 * 1024;
+const maxThumbnailBase64Chars = Math.ceil((maxThumbnailBytes * 4) / 3) + 128;
+const thumbnailUploadDir = path.join(process.cwd(), "public", "uploads", "project-covers");
+const thumbnailPublicPath = "/uploads/project-covers";
+const thumbnailMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+const thumbnailExtensions = new Map<(typeof thumbnailMimeTypes)[number], string>([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"],
+]);
 
 const optionalText = z
   .string()
@@ -37,23 +55,111 @@ const optionalUrl = z
   .or(z.literal(""))
   .transform((value) => (value && value.length > 0 ? value : undefined));
 
+const nullableTextPatch = z
+  .string()
+  .trim()
+  .optional()
+  .nullable()
+  .transform((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    return value && value.length > 0 ? value : null;
+  });
+
+const nullableUrlPatch = z
+  .string()
+  .trim()
+  .url()
+  .optional()
+  .nullable()
+  .or(z.literal(""))
+  .transform((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    return value && value.length > 0 ? value : null;
+  });
+
+const optionalBase64 = z
+  .string()
+  .trim()
+  .max(maxThumbnailBase64Chars)
+  .optional()
+  .nullable()
+  .transform((value) => (value && value.length > 0 ? value : undefined));
+
+const mcpImageInputSchema = z.object({
+  url: z.string().trim().url(),
+  alt: z.string().trim().max(160).optional().nullable(),
+});
+
 export const createMcpProjectSchema = z.object({
   title: z.string().trim().min(1).max(160),
   summary: z.string().trim().min(1).max(500),
   description: optionalText,
+  projectType: z.enum(projectTypes).default("owned"),
+  externalOwnerName: z.string().trim().min(1).max(160).optional().nullable(),
+  externalOwnerUrl: optionalUrl,
+  sourceUrl: optionalUrl,
   status: z.enum(projectStatuses).default("idea"),
   visibility: z.enum(projectVisibilities).default("public"),
   demoUrl: optionalUrl,
   repoUrl: optionalUrl,
+  thumbnailUrl: optionalUrl,
+  coverImageUrl: optionalUrl,
+  thumbnailBase64: optionalBase64,
+  thumbnailMimeType: z.enum(thumbnailMimeTypes).optional(),
+  images: z.array(mcpImageInputSchema).max(8).default([]),
   tools: z.array(z.string().trim().min(1).max(80)).max(12).default([]),
+  categoryTags: z.array(z.string().trim().min(1).max(80)).max(12).default([]),
   feedbackFocus: z.array(z.enum(feedbackTypes)).max(8).default(["first_impression", "ux_ui"]),
 });
 
-export const createMcpFeedbackRequestSchema = z.object({
-  feedbackTypes: z.array(z.enum(feedbackTypes)).min(1).max(8).default(["first_impression"]),
-  minFeedbackCount: z.number().int().min(1).max(20).default(1),
-  creditCost: z.number().int().min(1).max(20).optional(),
-  deadlineDays: z.number().int().min(1).max(30).default(7),
+export const updateMcpProjectSchema = z
+  .object({
+    title: z.string().trim().min(1).max(160).optional(),
+    summary: z.string().trim().min(1).max(500).optional(),
+    description: nullableTextPatch,
+    projectType: z.enum(projectTypes).optional(),
+    externalOwnerName: nullableTextPatch,
+    externalOwnerUrl: nullableUrlPatch,
+    sourceUrl: nullableUrlPatch,
+    status: z.enum(projectStatuses).optional(),
+    visibility: z.enum(projectVisibilities).optional(),
+    demoUrl: nullableUrlPatch,
+    repoUrl: nullableUrlPatch,
+    thumbnailUrl: nullableUrlPatch,
+    coverImageUrl: nullableUrlPatch,
+    thumbnailBase64: optionalBase64,
+    thumbnailMimeType: z.enum(thumbnailMimeTypes).optional(),
+    images: z.array(mcpImageInputSchema).max(8).optional(),
+    tools: z.array(z.string().trim().min(1).max(80)).max(12).optional(),
+    categoryTags: z.array(z.string().trim().min(1).max(80)).max(12).optional(),
+    feedbackFocus: z.array(z.enum(feedbackTypes)).max(8).optional(),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: "At least one project field is required.",
+  });
+
+export const createMcpFeedbackSchema = z.object({
+  projectId: z.string().trim().uuid(),
+  parentFeedbackId: z
+    .string()
+    .trim()
+    .uuid()
+    .optional()
+    .nullable()
+    .transform((value) => value ?? undefined),
+  body: z.string().trim().min(1).max(2000),
+  feedbackType: z.enum(feedbackTypes).default("first_impression"),
+  rating: z.number().int().min(1).max(5).default(4),
+});
+
+export const listMcpProjectRevisionsSchema = z.object({
+  limit: z.number().int().min(1).max(100).default(30),
 });
 
 export async function listMcpProjects(owner: McpUser) {
@@ -64,25 +170,21 @@ export async function listMcpProjects(owner: McpUser) {
     .orderBy(desc(projects.lastActivityAt), asc(projects.title));
 
   const projectIds = projectRows.map((project) => project.id);
-  const [requestRows, feedbackRows] =
+  const feedbackRows =
     projectIds.length > 0
-      ? await Promise.all([
-          db.select().from(feedbackRequests).where(inArray(feedbackRequests.projectId, projectIds)),
-          db
-            .select({
-              id: feedback.id,
-              projectId: feedback.projectId,
-              implementedStatus: feedback.implementedStatus,
-            })
-            .from(feedback)
-            .where(inArray(feedback.projectId, projectIds)),
-        ])
-      : [[], []];
+      ? await db
+          .select({
+            id: feedback.id,
+            projectId: feedback.projectId,
+            implementedStatus: feedback.implementedStatus,
+          })
+          .from(feedback)
+          .where(inArray(feedback.projectId, projectIds))
+      : [];
 
   return projectRows.map((project) =>
     serializeProject(
       project,
-      requestRows.filter((request) => request.projectId === project.id),
       feedbackRows.filter((entry) => entry.projectId === project.id),
       owner.handle,
     ),
@@ -100,38 +202,108 @@ export async function getMcpProject(owner: McpUser, projectId: string) {
     throw new ApiError(404, "project_not_found", "Project was not found for this API user.");
   }
 
-  const [requestRows, feedbackRows] = await Promise.all([
-    db
-      .select()
-      .from(feedbackRequests)
-      .where(eq(feedbackRequests.projectId, project.id))
-      .orderBy(desc(feedbackRequests.createdAt)),
-    db
-      .select({
-        id: feedback.id,
-        projectId: feedback.projectId,
-        requestId: feedback.requestId,
-        authorId: feedback.authorId,
-        feedbackType: feedback.feedbackType,
-        body: feedback.body,
-        rating: feedback.rating,
-        helpfulStatus: feedback.helpfulStatus,
-        implementedStatus: feedback.implementedStatus,
-        createdAt: feedback.createdAt,
-        authorName: users.name,
-        authorHandle: users.handle,
-      })
-      .from(feedback)
-      .innerJoin(users, eq(feedback.authorId, users.id))
-      .where(eq(feedback.projectId, project.id))
-      .orderBy(desc(feedback.createdAt)),
-  ]);
+  const feedbackRows = await db
+    .select({
+      id: feedback.id,
+      projectId: feedback.projectId,
+      requestId: feedback.requestId,
+      parentFeedbackId: feedback.parentFeedbackId,
+      authorId: feedback.authorId,
+      feedbackType: feedback.feedbackType,
+      body: feedback.body,
+      rating: feedback.rating,
+      helpfulStatus: feedback.helpfulStatus,
+      implementedStatus: feedback.implementedStatus,
+      createdAt: feedback.createdAt,
+      authorName: users.name,
+      authorHandle: users.handle,
+    })
+    .from(feedback)
+    .innerJoin(users, eq(feedback.authorId, users.id))
+    .where(eq(feedback.projectId, project.id))
+    .orderBy(desc(feedback.createdAt));
 
   return {
-    project: serializeProject(project, requestRows, feedbackRows, owner.handle),
-    requests: requestRows.map((request) => serializeFeedbackRequest(request, feedbackRows)),
+    project: serializeProject(project, feedbackRows, owner.handle),
     feedback: feedbackRows.map(serializeFeedback),
   };
+}
+
+export async function listMcpProjectRevisions(
+  owner: McpUser,
+  projectId: string,
+  input: z.output<typeof listMcpProjectRevisionsSchema> = { limit: 30 },
+) {
+  const [project] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, owner.id)))
+    .limit(1);
+
+  if (!project) {
+    throw new ApiError(404, "project_not_found", "Project was not found for this API user.");
+  }
+
+  const revisionRows = await db
+    .select({
+      id: projectRevisions.id,
+      projectId: projectRevisions.projectId,
+      actorId: projectRevisions.actorId,
+      source: projectRevisions.source,
+      title: projectRevisions.title,
+      summary: projectRevisions.summary,
+      description: projectRevisions.description,
+      status: projectRevisions.status,
+      visibility: projectRevisions.visibility,
+      demoUrl: projectRevisions.demoUrl,
+      repoUrl: projectRevisions.repoUrl,
+      coverImageUrl: projectRevisions.coverImageUrl,
+      projectType: projectRevisions.projectType,
+      externalOwnerName: projectRevisions.externalOwnerName,
+      externalOwnerUrl: projectRevisions.externalOwnerUrl,
+      sourceUrl: projectRevisions.sourceUrl,
+      tools: projectRevisions.tools,
+      categoryTags: projectRevisions.categoryTags,
+      feedbackFocus: projectRevisions.feedbackFocus,
+      createdAt: projectRevisions.createdAt,
+      actorName: users.name,
+      actorHandle: users.handle,
+    })
+    .from(projectRevisions)
+    .leftJoin(users, eq(projectRevisions.actorId, users.id))
+    .where(eq(projectRevisions.projectId, project.id))
+    .orderBy(desc(projectRevisions.createdAt))
+    .limit(input.limit);
+
+  return revisionRows.map((revision) => ({
+    id: revision.id,
+    projectId: revision.projectId,
+    source: revision.source,
+    title: revision.title,
+    summary: revision.summary,
+    description: revision.description,
+    status: revision.status,
+    visibility: revision.visibility,
+    demoUrl: revision.demoUrl,
+    repoUrl: revision.repoUrl,
+    thumbnailUrl: revision.coverImageUrl,
+    coverImageUrl: revision.coverImageUrl,
+    projectType: revision.projectType,
+    externalOwnerName: revision.externalOwnerName,
+    externalOwnerUrl: revision.externalOwnerUrl,
+    sourceUrl: revision.sourceUrl,
+    tools: revision.tools,
+    categoryTags: revision.categoryTags,
+    feedbackFocus: revision.feedbackFocus,
+    createdAt: revision.createdAt.toISOString(),
+    actor: revision.actorId
+      ? {
+          id: revision.actorId,
+          name: revision.actorName,
+          handle: revision.actorHandle,
+        }
+      : null,
+  }));
 }
 
 export async function createMcpProject(
@@ -139,20 +311,35 @@ export async function createMcpProject(
   input: z.infer<typeof createMcpProjectSchema>,
 ) {
   const slug = await createUniqueProjectSlug(input.title, owner.id);
+  const inputThumbnailUrl = resolveCreateThumbnailUrl(input);
+  const visibility = normalizeMcpVisibility(input.projectType, input.visibility);
+  const sourceUrl = normalizeMcpSourceUrl(
+    input.projectType,
+    input.sourceUrl,
+    input.demoUrl,
+    input.repoUrl,
+  );
 
-  const [project] = await db
+  let [project] = await db
     .insert(projects)
     .values({
       ownerId: owner.id,
+      submittedById: owner.id,
+      projectType: input.projectType,
+      externalOwnerName: input.projectType === "external" ? input.externalOwnerName ?? null : null,
+      externalOwnerUrl: input.projectType === "external" ? input.externalOwnerUrl ?? null : null,
+      sourceUrl,
       title: input.title,
       slug,
       summary: input.summary,
       description: input.description,
       status: input.status,
-      visibility: input.visibility,
+      visibility,
       demoUrl: input.demoUrl,
       repoUrl: input.repoUrl,
+      coverImageUrl: inputThumbnailUrl,
       tools: input.tools,
+      categoryTags: input.categoryTags,
       feedbackFocus: input.feedbackFocus,
       lastActivityAt: new Date(),
     })
@@ -165,9 +352,125 @@ export async function createMcpProject(
     note: "Project created via MCP API",
   });
 
+  const uploadedThumbnail = await saveMcpThumbnailFromInput(project.id, input);
+
+  if (uploadedThumbnail) {
+    [project] = await db
+      .update(projects)
+      .set({
+        coverImageUrl: uploadedThumbnail.publicUrl,
+        coverImageObjectKey: uploadedThumbnail.objectKey,
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.id, project.id))
+      .returning();
+  }
+
   revalidateWorkspace(owner.handle, project.slug, project.id);
 
-  return serializeProject(project, [], [], owner.handle);
+  return serializeProject(project, [], owner.handle);
+}
+
+export async function updateMcpProject(
+  owner: McpUser,
+  projectId: string,
+  input: z.output<typeof updateMcpProjectSchema>,
+) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, owner.id)))
+    .limit(1);
+
+  if (!project) {
+    throw new ApiError(404, "project_not_found", "Project was not found for this API user.");
+  }
+
+  const now = new Date();
+  const inputThumbnailUrl = resolvePatchThumbnailUrl(input);
+  const uploadedThumbnail = await saveMcpThumbnailFromInput(project.id, input);
+  const nextProjectType = input.projectType ?? project.projectType;
+  const nextSourceUrl = normalizeMcpSourceUrl(
+    nextProjectType,
+    input.sourceUrl === undefined ? project.sourceUrl ?? undefined : input.sourceUrl ?? undefined,
+    input.demoUrl === undefined ? project.demoUrl ?? undefined : input.demoUrl ?? undefined,
+    input.repoUrl === undefined ? project.repoUrl ?? undefined : input.repoUrl ?? undefined,
+  );
+  const thumbnailPatch =
+    uploadedThumbnail
+      ? {
+          coverImageUrl: uploadedThumbnail.publicUrl,
+          coverImageObjectKey: uploadedThumbnail.objectKey,
+        }
+      : inputThumbnailUrl !== undefined
+        ? {
+            coverImageUrl: inputThumbnailUrl,
+            coverImageObjectKey: null,
+          }
+        : {};
+  const patch = {
+    ...(input.title !== undefined ? { title: input.title } : {}),
+    ...(input.summary !== undefined ? { summary: input.summary } : {}),
+    ...(input.description !== undefined ? { description: input.description } : {}),
+    projectType: nextProjectType,
+    externalOwnerName: nextProjectType === "external"
+      ? input.externalOwnerName !== undefined
+        ? input.externalOwnerName
+        : project.externalOwnerName
+      : null,
+    externalOwnerUrl: nextProjectType === "external"
+      ? input.externalOwnerUrl !== undefined
+        ? input.externalOwnerUrl
+        : project.externalOwnerUrl
+      : null,
+    sourceUrl: nextSourceUrl,
+    ...(input.status !== undefined ? { status: input.status } : {}),
+    ...(input.visibility !== undefined
+      ? { visibility: normalizeMcpVisibility(input.projectType ?? project.projectType, input.visibility) }
+      : {}),
+    ...(input.demoUrl !== undefined ? { demoUrl: input.demoUrl } : {}),
+    ...(input.repoUrl !== undefined ? { repoUrl: input.repoUrl } : {}),
+    ...thumbnailPatch,
+    ...(input.tools !== undefined ? { tools: input.tools } : {}),
+    ...(input.categoryTags !== undefined ? { categoryTags: input.categoryTags } : {}),
+    ...(input.feedbackFocus !== undefined ? { feedbackFocus: input.feedbackFocus } : {}),
+    updatedAt: now,
+    lastActivityAt: now,
+  };
+
+  const [updatedProject] = await db.transaction(async (tx) => {
+    await tx.insert(projectRevisions).values(projectRevisionValues(project, owner.id, "mcp_update"));
+
+    const [row] = await tx
+      .update(projects)
+      .set(patch)
+      .where(eq(projects.id, project.id))
+      .returning();
+
+    if (input.status !== undefined && input.status !== project.status) {
+      await tx.insert(projectStatusEvents).values({
+        projectId: project.id,
+        actorId: owner.id,
+        fromStatus: project.status,
+        toStatus: input.status,
+        note: "Project status changed via MCP API",
+      });
+    }
+
+    return [row];
+  });
+
+  revalidateWorkspace(owner.handle, project.slug, project.id);
+
+  const feedbackRows = await db
+    .select({
+      projectId: feedback.projectId,
+      implementedStatus: feedback.implementedStatus,
+    })
+    .from(feedback)
+    .where(eq(feedback.projectId, updatedProject.id));
+
+  return serializeProject(updatedProject, feedbackRows, owner.handle);
 }
 
 export async function deleteMcpProject(owner: McpUser, projectId: string) {
@@ -186,86 +489,75 @@ export async function deleteMcpProject(owner: McpUser, projectId: string) {
 
   return {
     deleted: true,
-    project: serializeProject(project, [], [], owner.handle),
+    project: serializeProject(project, [], owner.handle),
   };
 }
 
-export async function createMcpFeedbackRequest(
-  owner: McpUser,
-  projectId: string,
-  input: z.infer<typeof createMcpFeedbackRequestSchema>,
+export async function createMcpFeedback(
+  author: McpUser,
+  input: z.output<typeof createMcpFeedbackSchema>,
 ) {
-  const [project] = await db
-    .select()
+  const [row] = await db
+    .select({
+      project: projects,
+      ownerHandle: users.handle,
+    })
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.ownerId, owner.id)))
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(eq(projects.id, input.projectId))
     .limit(1);
 
-  if (!project) {
-    throw new ApiError(404, "project_not_found", "Project was not found for this API user.");
+  if (!row || (row.project.visibility === "private" && row.project.ownerId !== author.id)) {
+    throw new ApiError(404, "project_not_found", "Project was not found or is private.");
   }
 
-  const creditCost = input.creditCost ?? input.minFeedbackCount;
-  const result = await db.transaction(async (tx) => {
-    const [ownerRow] = await tx.select().from(users).where(eq(users.id, owner.id)).limit(1);
+  if (input.parentFeedbackId) {
+    const [parent] = await db
+      .select({ id: feedback.id, projectId: feedback.projectId })
+      .from(feedback)
+      .where(eq(feedback.id, input.parentFeedbackId))
+      .limit(1);
 
-    if (!ownerRow) {
-      throw new ApiError(404, "owner_not_found", "API user was not found.");
+    if (!parent || parent.projectId !== row.project.id) {
+      throw new ApiError(404, "parent_feedback_not_found", "Parent feedback was not found for this project.");
     }
+  }
 
-    if (ownerRow.feedbackCredits < creditCost) {
-      throw new ApiError(409, "not_enough_credits", "Not enough feedback credits.");
-    }
-
-    const [request] = await tx
-      .insert(feedbackRequests)
+  const [entry] = await db.transaction(async (tx) => {
+    const now = new Date();
+    const [createdFeedback] = await tx
+      .insert(feedback)
       .values({
-        projectId: project.id,
-        requestedById: owner.id,
-        feedbackTypes: input.feedbackTypes,
-        creditCost,
-        minFeedbackCount: input.minFeedbackCount,
-        deadlineAt: new Date(Date.now() + input.deadlineDays * 24 * 60 * 60 * 1000),
-        status: "open",
+        projectId: row.project.id,
+        requestId: null,
+        parentFeedbackId: input.parentFeedbackId ?? null,
+        authorId: author.id,
+        feedbackType: input.feedbackType,
+        body: input.body,
+        rating: input.rating,
+        helpfulStatus: "unreviewed",
+        implementedStatus: "unreviewed",
       })
       .returning();
 
-    const nextBalance = ownerRow.feedbackCredits - creditCost;
-
-    await tx
-      .update(users)
-      .set({ feedbackCredits: nextBalance, updatedAt: new Date() })
-      .where(eq(users.id, owner.id));
-
-    await tx.insert(creditLedger).values({
-      userId: owner.id,
-      actorId: owner.id,
-      amount: -creditCost,
-      reason: "spent_feedback_request",
-      relatedRequestId: request.id,
-      idempotencyKey: `request:${request.id}:spend`,
-      balanceAfter: nextBalance,
-    });
-
     await tx
       .update(projects)
-      .set({ status: "needs_feedback", updatedAt: new Date(), lastActivityAt: new Date() })
-      .where(eq(projects.id, project.id));
+      .set({ updatedAt: now, lastActivityAt: now })
+      .where(eq(projects.id, row.project.id));
 
-    await tx.insert(projectStatusEvents).values({
-      projectId: project.id,
-      actorId: owner.id,
-      fromStatus: project.status,
-      toStatus: "needs_feedback",
-      note: "Feedback request opened via MCP API",
-    });
-
-    return request;
+    return [createdFeedback];
   });
 
-  revalidateWorkspace(owner.handle, project.slug, project.id);
+  revalidateWorkspace(row.ownerHandle, row.project.slug, row.project.id);
+  revalidatePath(`/p/${author.handle}`);
 
-  return serializeFeedbackRequest(result, []);
+  return serializeFeedback({
+    ...entry,
+    authorName: author.name,
+    authorHandle: author.handle,
+    projectTitle: row.project.title,
+    projectSlug: row.project.slug,
+  });
 }
 
 export async function listMcpFeedback(owner: McpUser, url: URL) {
@@ -290,6 +582,7 @@ export async function listMcpFeedback(owner: McpUser, url: URL) {
       id: feedback.id,
       projectId: feedback.projectId,
       requestId: feedback.requestId,
+      parentFeedbackId: feedback.parentFeedbackId,
       authorId: feedback.authorId,
       feedbackType: feedback.feedbackType,
       body: feedback.body,
@@ -312,37 +605,6 @@ export async function listMcpFeedback(owner: McpUser, url: URL) {
   return rows.map(serializeFeedback);
 }
 
-export async function listMcpAssignedFeedback(owner: McpUser) {
-  const rows = await db
-    .select({
-      claim: feedbackClaims,
-      request: feedbackRequests,
-      project: projects,
-      owner: users,
-    })
-    .from(feedbackClaims)
-    .innerJoin(feedbackRequests, eq(feedbackClaims.requestId, feedbackRequests.id))
-    .innerJoin(projects, eq(feedbackClaims.projectId, projects.id))
-    .innerJoin(users, eq(projects.ownerId, users.id))
-    .where(and(eq(feedbackClaims.reviewerId, owner.id), eq(feedbackClaims.status, "claimed")))
-    .orderBy(asc(feedbackClaims.dueAt), desc(feedbackClaims.createdAt));
-
-  return rows.map((row) => ({
-    id: row.claim.id,
-    status: row.claim.status,
-    dueAt: row.claim.dueAt,
-    createdAt: row.claim.createdAt,
-    request: serializeFeedbackRequest(row.request, []),
-    project: {
-      id: row.project.id,
-      title: row.project.title,
-      slug: row.project.slug,
-      summary: row.project.summary,
-      ownerHandle: row.owner.handle,
-      publicUrl: row.owner.handle ? `/p/${row.owner.handle}/${row.project.slug}` : null,
-    },
-  }));
-}
 
 function serializeProject<
   TProject extends {
@@ -355,68 +617,56 @@ function serializeProject<
     visibility: string;
     demoUrl?: string | null;
     repoUrl?: string | null;
+    coverImageUrl?: string | null;
+    projectType: string;
+    externalOwnerName?: string | null;
+    externalOwnerUrl?: string | null;
+    claimedById?: string | null;
+    sourceUrl?: string | null;
     tools: string[];
+    categoryTags: string[];
     feedbackFocus: FeedbackType[];
     createdAt: Date;
     updatedAt: Date;
     lastActivityAt: Date;
   },
-  TRequest extends { projectId: string },
   TFeedback extends { projectId: string; implementedStatus?: string | null },
->(project: TProject, requestRows: TRequest[], feedbackRows: TFeedback[], ownerHandle: string) {
+>(project: TProject, feedbackRows: TFeedback[], ownerHandle: string) {
   return {
     id: project.id,
     title: project.title,
     slug: project.slug,
     summary: project.summary,
     description: project.description ?? null,
+    projectType: project.projectType,
+    externalOwnerName: project.externalOwnerName ?? null,
+    externalOwnerUrl: project.externalOwnerUrl ?? null,
+    claimedById: project.claimedById ?? null,
+    sourceUrl: project.sourceUrl ?? null,
     status: project.status,
     visibility: project.visibility,
     demoUrl: project.demoUrl ?? null,
     repoUrl: project.repoUrl ?? null,
+    thumbnailUrl: project.coverImageUrl ?? null,
+    coverImageUrl: project.coverImageUrl ?? null,
+    images: project.coverImageUrl
+      ? [
+          {
+            url: project.coverImageUrl,
+            kind: "thumbnail",
+          },
+        ]
+      : [],
     tools: project.tools,
+    categoryTags: project.categoryTags,
     feedbackFocus: project.feedbackFocus,
     feedbackCount: feedbackRows.length,
     implementedCount: feedbackRows.filter((entry) => entry.implementedStatus === "implemented")
       .length,
-    requestCount: requestRows.length,
     publicUrl: `/p/${ownerHandle}/${project.slug}`,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
     lastActivityAt: project.lastActivityAt,
-  };
-}
-
-function serializeFeedbackRequest<
-  TRequest extends {
-    id: string;
-    projectId: string;
-    feedbackTypes: FeedbackType[];
-    creditCost: number;
-    minFeedbackCount: number;
-    deadlineAt: Date;
-    status: string;
-    fulfilledAt?: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  },
-  TFeedback extends { requestId?: string | null },
->(request: TRequest, feedbackRows: TFeedback[]) {
-  const receivedCount = feedbackRows.filter((entry) => entry.requestId === request.id).length;
-
-  return {
-    id: request.id,
-    projectId: request.projectId,
-    feedbackTypes: request.feedbackTypes,
-    creditCost: request.creditCost,
-    minFeedbackCount: request.minFeedbackCount,
-    receivedCount,
-    missingCount: Math.max(0, request.minFeedbackCount - receivedCount),
-    status: request.status,
-    deadlineAt: request.deadlineAt,
-    fulfilledAt: request.fulfilledAt ?? null,
-    createdAt: request.createdAt,
-    updatedAt: request.updatedAt,
   };
 }
 
@@ -425,6 +675,7 @@ function serializeFeedback<
     id: string;
     projectId: string;
     requestId?: string | null;
+    parentFeedbackId?: string | null;
     authorId: string;
     authorName?: string | null;
     authorHandle?: string | null;
@@ -444,6 +695,7 @@ function serializeFeedback<
     projectTitle: entry.projectTitle,
     projectSlug: entry.projectSlug,
     requestId: entry.requestId ?? null,
+    parentFeedbackId: entry.parentFeedbackId ?? null,
     author: {
       id: entry.authorId,
       name: entry.authorName ?? null,
@@ -456,6 +708,130 @@ function serializeFeedback<
     implementedStatus: entry.implementedStatus,
     createdAt: entry.createdAt,
   };
+}
+
+function resolveCreateThumbnailUrl(input: z.output<typeof createMcpProjectSchema>) {
+  return (
+    input.thumbnailUrl ??
+    input.coverImageUrl ??
+    input.images.find((image) => image.url.trim().length > 0)?.url ??
+    undefined
+  );
+}
+
+function normalizeMcpVisibility(
+  projectType: ProjectType,
+  visibility: ProjectVisibility,
+): ProjectVisibility {
+  return projectType === "external" && visibility === "private" ? "unlisted" : visibility;
+}
+
+function normalizeMcpSourceUrl(
+  projectType: ProjectType,
+  sourceUrl: string | undefined,
+  demoUrl: string | undefined,
+  repoUrl: string | undefined,
+) {
+  if (projectType !== "external") {
+    return sourceUrl ?? null;
+  }
+
+  const url = sourceUrl ?? demoUrl ?? repoUrl;
+
+  if (!url) {
+    throw new ApiError(422, "source_url_required", "sourceUrl is required for external projects.");
+  }
+
+  return url;
+}
+
+function resolvePatchThumbnailUrl(input: z.output<typeof updateMcpProjectSchema>) {
+  if (input.thumbnailUrl !== undefined) {
+    return input.thumbnailUrl;
+  }
+
+  if (input.coverImageUrl !== undefined) {
+    return input.coverImageUrl;
+  }
+
+  if (input.images !== undefined) {
+    return input.images.find((image) => image.url.trim().length > 0)?.url ?? null;
+  }
+
+  return undefined;
+}
+
+async function saveMcpThumbnailFromInput(
+  projectId: string,
+  input: {
+    thumbnailBase64?: string;
+    thumbnailMimeType?: (typeof thumbnailMimeTypes)[number];
+  },
+) {
+  if (!input.thumbnailBase64) {
+    return null;
+  }
+
+  const parsed = parseThumbnailBase64(input.thumbnailBase64, input.thumbnailMimeType);
+  const extension = thumbnailExtensions.get(parsed.mimeType);
+
+  if (!extension) {
+    throw new ApiError(
+      422,
+      "invalid_thumbnail_mime_type",
+      "thumbnailMimeType must be image/jpeg, image/png, image/webp, or image/gif.",
+    );
+  }
+
+  if (parsed.bytes.length === 0) {
+    throw new ApiError(422, "invalid_thumbnail_base64", "thumbnailBase64 decoded to an empty file.");
+  }
+
+  if (parsed.bytes.length > maxThumbnailBytes) {
+    throw new ApiError(422, "thumbnail_too_large", "thumbnailBase64 must decode to 5MB or less.");
+  }
+
+  await mkdir(thumbnailUploadDir, { recursive: true });
+
+  const objectKey = `${projectId}-${randomUUID()}.${extension}`;
+  const absolutePath = path.join(thumbnailUploadDir, objectKey);
+
+  await writeFile(absolutePath, parsed.bytes);
+
+  return {
+    objectKey,
+    publicUrl: `${thumbnailPublicPath}/${objectKey}`,
+  };
+}
+
+function parseThumbnailBase64(
+  rawValue: string,
+  explicitMimeType?: (typeof thumbnailMimeTypes)[number],
+) {
+  const dataUriMatch = rawValue.match(/^data:([^;]+);base64,([\s\S]*)$/);
+  const mimeType = explicitMimeType ?? parseThumbnailMimeType(dataUriMatch?.[1]);
+  const base64 = (dataUriMatch?.[2] ?? rawValue).replace(/\s/g, "");
+
+  if (!mimeType) {
+    throw new ApiError(
+      422,
+      "thumbnail_mime_type_required",
+      "thumbnailMimeType is required unless thumbnailBase64 is a data URI.",
+    );
+  }
+
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+    throw new ApiError(422, "invalid_thumbnail_base64", "thumbnailBase64 must be valid base64.");
+  }
+
+  return {
+    mimeType,
+    bytes: Buffer.from(base64, "base64"),
+  };
+}
+
+function parseThumbnailMimeType(value: string | undefined) {
+  return thumbnailMimeTypes.find((mimeType) => mimeType === value);
 }
 
 async function createUniqueProjectSlug(title: string, ownerId: string) {
@@ -490,12 +866,20 @@ function revalidateWorkspace(ownerHandle?: string | null, projectSlug?: string, 
   }
 
   if (ownerHandle) {
-    revalidatePath(`/p/${ownerHandle}`);
+    revalidatePath(profilePath(ownerHandle));
 
     if (projectSlug) {
-      revalidatePath(`/p/${ownerHandle}/${projectSlug}`);
+      revalidatePath(projectPublicPath(ownerHandle, projectSlug));
     }
   }
+}
+
+function profilePath(ownerHandle: string) {
+  return `/p/${encodeURIComponent(ownerHandle)}`;
+}
+
+function projectPublicPath(ownerHandle: string, projectSlug: string) {
+  return `${profilePath(ownerHandle)}/${encodeURIComponent(projectSlug)}`;
 }
 
 function clampNumber(value: string | null, min: number, max: number, fallback: number) {

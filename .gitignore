@@ -4,6 +4,7 @@ out
 dist
 coverage
 *.tsbuildinfo
+public/uploads
 
 .env
 .env*.local

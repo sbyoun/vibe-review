@@ -68,8 +68,7 @@ export function serializeMcpUser(user: McpUser) {
     handle: user.handle,
     name: user.name,
     email: user.email,
-    feedbackCredits: user.feedbackCredits,
-    reputationScore: user.reputationScore,
+    emailVerified: Boolean(user.emailVerified),
   };
 }
 

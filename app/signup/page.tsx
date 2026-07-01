@@ -9,24 +9,17 @@ export default async function SignupPage() {
   const user = await getOptionalCurrentUser();
 
   if (user) {
-    redirect("/dashboard");
+    redirect(user.handle ? `/p/${user.handle}` : "/discover");
   }
 
   return (
-    <main className="min-h-screen px-6 py-10 lg:px-10">
-      <section className="mx-auto grid w-full max-w-5xl gap-6">
-        <header className="border-b border-border pb-6">
-          <p className="text-sm font-medium uppercase tracking-normal text-muted-foreground">
-            Account
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-normal text-foreground">
-            Create account
-          </h1>
+    <main className="flex min-h-screen items-center justify-center px-3 py-6">
+      <section className="w-full max-w-[400px]">
+        <header className="mb-4 text-center">
+          <h1 className="mb-1 text-xl font-bold leading-7 text-foreground">VibeReview</h1>
+          <p className="text-sm leading-5 text-muted-foreground">Join the community</p>
         </header>
-
-        <div className="max-w-md">
-          <SignupForm />
-        </div>
+        <SignupForm />
       </section>
     </main>
   );

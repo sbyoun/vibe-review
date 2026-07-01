@@ -13,20 +13,15 @@ export default async function ForgotPasswordPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-10 lg:px-10">
-      <section className="mx-auto grid w-full max-w-5xl gap-6">
-        <header className="border-b border-border pb-6">
-          <p className="text-sm font-medium uppercase tracking-normal text-muted-foreground">
-            Account
+    <main className="flex min-h-screen justify-center px-3 pt-[102px]">
+      <section className="w-full max-w-[400px]">
+        <header className="mb-6 flex flex-col gap-1">
+          <h1 className="text-xl font-semibold leading-7 text-foreground">Forgot Password</h1>
+          <p className="text-sm leading-5 text-muted-foreground">
+            Enter your email address and we&apos;ll send you a link to reset your password.
           </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-normal text-foreground">
-            Forgot password
-          </h1>
         </header>
-
-        <div className="max-w-md">
-          <ForgotPasswordForm />
-        </div>
+        <ForgotPasswordForm />
       </section>
     </main>
   );

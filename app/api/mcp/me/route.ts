@@ -10,8 +10,7 @@ export async function GET(request: Request) {
         handle: user.handle,
         name: user.name,
         email: user.email,
-        feedbackCredits: user.feedbackCredits,
-        reputationScore: user.reputationScore,
+        emailVerified: Boolean(user.emailVerified),
       },
     });
   } catch (error) {

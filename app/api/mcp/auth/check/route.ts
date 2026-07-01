@@ -11,16 +11,19 @@ export async function GET(request: Request) {
         handle: user.handle,
         name: user.name,
         email: user.email,
-        feedbackCredits: user.feedbackCredits,
-        reputationScore: user.reputationScore,
+        emailVerified: Boolean(user.emailVerified),
       },
       capabilities: [
         "projects:list",
         "projects:create",
         "projects:read",
-        "feedback_requests:create",
+        "projects:update",
+        "projects:history",
+        "projects:delete",
         "feedback:read",
-        "feedback_assigned:read",
+        "feedback:create",
+        "auth_tokens:revoke",
+        "auth_account:delete",
       ],
     });
   } catch (error) {

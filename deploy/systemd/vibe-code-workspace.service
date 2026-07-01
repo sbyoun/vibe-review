@@ -1,0 +1,27 @@
+[Unit]
+Description=VibeReview Next.js app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/vibe-code-workspace
+Environment=NODE_ENV=production
+Environment=PORT=3003
+Environment=HOSTNAME=0.0.0.0
+Environment=AUTH_URL=https://vibe.foldalpha.com
+Environment=NEXTAUTH_URL=https://vibe.foldalpha.com
+Environment=AUTH_TRUST_HOST=true
+EnvironmentFile=-/home/ubuntu/vibe-code-workspace/.env.production.local
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/ubuntu/vibe-code-workspace/node_modules/.bin/next start --hostname 0.0.0.0 --port 3003
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+SyslogIdentifier=vibe-code-workspace
+
+[Install]
+WantedBy=multi-user.target

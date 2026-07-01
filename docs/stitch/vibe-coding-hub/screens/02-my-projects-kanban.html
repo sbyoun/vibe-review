@@ -1,0 +1,277 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>VibeCode - Kanban Board</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#424754",
+                        "inverse-surface": "#303030",
+                        "inverse-on-surface": "#f3f0ef",
+                        "secondary-fixed": "#ffdbcd",
+                        "background": "#fcf9f8",
+                        "tertiary-fixed": "#ffdcc6",
+                        "on-secondary-fixed-variant": "#7c2e00",
+                        "on-secondary-fixed": "#360f00",
+                        "outline": "#727785",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "surface-container-highest": "#e5e2e1",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#adc6ff",
+                        "tertiary-container": "#b75b00",
+                        "primary-fixed": "#d8e2ff",
+                        "on-background": "#1b1c1c",
+                        "on-tertiary-container": "#fffbff",
+                        "on-primary-container": "#fefcff",
+                        "surface-container-high": "#eae7e7",
+                        "surface": "#fcf9f8",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-primary-fixed-variant": "#004395",
+                        "on-secondary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#fe6500",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#e5e2e1",
+                        "tertiary": "#924700",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "surface-bright": "#fcf9f8",
+                        "surface-dim": "#dcd9d9",
+                        "surface-tint": "#005ac2",
+                        "secondary-fixed-dim": "#ffb596",
+                        "primary": "#0058be",
+                        "secondary": "#a33e00",
+                        "on-tertiary-fixed": "#311400",
+                        "primary-container": "#2170e4",
+                        "outline-variant": "#c2c6d6",
+                        "surface-container-low": "#f6f3f2",
+                        "on-surface": "#1b1c1c",
+                        "on-error": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#001a42",
+                        "surface-container": "#f0eded",
+                        "on-secondary-container": "#541d00",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "margin-desktop": "24px",
+                        "gutter": "16px",
+                        "container-max": "1100px",
+                        "stack-sm": "4px",
+                        "stack-lg": "16px",
+                        "margin-mobile": "12px",
+                        "stack-md": "8px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-md": ["16px", { "lineHeight": "22px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "headline-lg": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Minimalist Scrollbar for Kanban columns */
+        .kanban-col::-webkit-scrollbar {
+            width: 4px;
+        }
+        .kanban-col::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .kanban-col::-webkit-scrollbar-thumb {
+            background-color: theme('colors.outline-variant');
+            border-radius: theme('borderRadius.full');
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md">
+<!-- TopNavBar -->
+<nav class="bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline full-width top-0 docked transition-colors duration-200">
+<div class="flex items-center w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-2 gap-gutter">
+<!-- Brand -->
+<div class="font-headline-md text-headline-md font-bold text-on-surface dark:text-on-surface-variant">
+                VibeCode
+            </div>
+<!-- Navigation Links -->
+<div class="hidden md:flex gap-gutter items-center"><a class="font-body-md text-body-md text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">Discover</a><a class="font-body-md text-body-md text-primary dark:text-primary-fixed-dim font-bold hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">My</a></div><div class="flex-grow"></div>
+<!-- Actions -->
+<div class="flex items-center gap-stack-md">
+<button class="font-label-md text-label-md text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200">
+                    Profile
+                </button>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-4 py-1 rounded hover:opacity-90 transition-opacity">
+                    Submit
+                </button>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col w-full max-w-[1400px] mx-auto px-margin-mobile md:px-margin-desktop py-8 h-[calc(100vh-140px)] overflow-hidden">
+<!-- Header -->
+<header class="mb-8 flex justify-between items-end">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-stack-sm">My Projects</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage your pipeline.</p>
+</div>
+<div>
+<button class="flex items-center gap-1 font-label-md text-label-md text-on-surface hover:text-primary transition-colors border border-outline-variant px-3 py-1 rounded">
+<span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+                    New Project
+                </button>
+</div>
+</header>
+<!-- Kanban Board Area -->
+<div class="flex-grow flex gap-gutter overflow-x-auto pb-4 items-start">
+<!-- Column: Ideation -->
+<section class="flex flex-col min-w-[300px] w-[300px] bg-surface-container-lowest border border-outline-variant rounded p-stack-md h-full">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-lg border-b border-outline-variant pb-2 flex justify-between items-center">
+                    Ideation
+                    <span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">2</span>
+</h2>
+<div class="kanban-col flex flex-col gap-stack-md overflow-y-auto pr-1">
+<!-- Card 1 -->
+<article class="bg-surface border border-outline-variant rounded p-stack-md hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="w-full h-24 bg-cover bg-center rounded-sm mb-stack-md border border-outline-variant" data-alt="A clean, minimalist workspace scene featuring a glowing digital tablet on a pristine white desk, surrounded by organized sketches and notes. The lighting is soft and bright, creating a focused, ideation mood. Low chrome, flat aesthetic with very subtle tones." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDiyDaCBnwVcoCQe_X7Y3jHVNBga5T9AGDv2nAy8D2zsrTNktkyoQ8HltggG3z0xqSqUrKF0Q5K99k2VdOQJH_JJTZ8_YhqyXSnH82dUXFluS97p6XkQWgEPsVIWfGTOWr3fUFdHZZYKMqZEGK62Btowj9nnRVdsja2FMkBnz8qTMMHyxGPemmef_cBWb6pxAdvUi7UiD9GJ7ZvVlzcF1n5RfxgEUHkNORLisCt5Qel53WPK7it1E3Rx_nFJhZG09juF5sKt-YSKQ')"></div>
+<h3 class="font-label-md text-label-md font-semibold text-on-surface mb-1 group-hover:text-primary transition-colors">Neo-Brutalism App</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-stack-sm">Exploring raw UI patterns.</p>
+<div class="flex justify-between items-center font-label-sm text-label-sm text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 12px;">update</span> 2h ago</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">more_horiz</span>
+</div>
+</article>
+<!-- Card 2 -->
+<article class="bg-surface border border-outline-variant rounded p-stack-md hover:bg-surface-container-low transition-colors cursor-pointer group">
+<h3 class="font-label-md text-label-md font-semibold text-on-surface mb-1 group-hover:text-primary transition-colors">Data Viz Tool</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-stack-sm">Drafting core requirements.</p>
+<div class="flex justify-between items-center font-label-sm text-label-sm text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 12px;">update</span> 1d ago</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">more_horiz</span>
+</div>
+</article>
+</div>
+</section>
+<!-- Column: In Progress -->
+<section class="flex flex-col min-w-[300px] w-[300px] bg-surface-container-lowest border border-outline-variant rounded p-stack-md h-full">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-lg border-b border-outline-variant pb-2 flex justify-between items-center">
+                    In Progress
+                    <span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">1</span>
+</h2>
+<div class="kanban-col flex flex-col gap-stack-md overflow-y-auto pr-1">
+<!-- Card 3 -->
+<article class="bg-surface border border-outline-variant rounded p-stack-md hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="w-full h-24 bg-cover bg-center rounded-sm mb-stack-md border border-outline-variant" data-alt="A macro shot of a sleek computer monitor displaying lines of elegant, dark-themed code. The environment is a professional, modern development studio with subtle blue ambient light. The focus is sharp, highlighting productivity and active creation." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBw9KTaazmKAjTTjEaVMBsEaHiiQcfaRaJtrPJZXLAma3o8BPKOFdynyP814MR8rak474tLF6lbhdPvDnVnWQcepQYa4kwnwjgzt0WyF1mTm0mpR6uw4LyOSflq_LwuLThjNhDC9g7RiVMXW0o2ZRWWFpwlVYgViUBe-BeY4pdMokvtT5tc03GfMWiqkHi11faRUNpYkHrJsmjsiGmj8izV2Y-VPQ84xY8FWRMLdrbsvx3eq0BkVMPpyoeCntZpspqJaAwTecw5-Q')"></div>
+<div class="flex items-center gap-2 mb-1">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<h3 class="font-label-md text-label-md font-semibold text-on-surface group-hover:text-primary transition-colors">VibeCode Refactor</h3>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-stack-sm">Migrating to the new design system.</p>
+<div class="w-full bg-surface-container h-1 rounded-full mb-2 overflow-hidden">
+<div class="bg-primary h-full w-[60%]"></div>
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 12px;">update</span> 5m ago</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">more_horiz</span>
+</div>
+</article>
+</div>
+</section>
+<!-- Column: Vibe Check -->
+<section class="flex flex-col min-w-[300px] w-[300px] bg-surface-container-lowest border border-outline-variant rounded p-stack-md h-full">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-lg border-b border-outline-variant pb-2 flex justify-between items-center">
+                    Vibe Check
+                    <span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">1</span>
+</h2>
+<div class="kanban-col flex flex-col gap-stack-md overflow-y-auto pr-1">
+<!-- Card 4 -->
+<article class="bg-surface border border-outline-variant rounded p-stack-md hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-tertiary-container" style="font-size: 14px;">visibility</span>
+<h3 class="font-label-md text-label-md font-semibold text-on-surface group-hover:text-primary transition-colors">Alpha Release Docs</h3>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-stack-sm">Pending peer review.</p>
+<div class="flex justify-between items-center font-label-sm text-label-sm text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 12px;">update</span> 4h ago</span>
+<span class="material-symbols-outlined" style="font-size: 14px;">more_horiz</span>
+</div>
+</article>
+</div>
+</section>
+<!-- Column: Shipped -->
+<section class="flex flex-col min-w-[300px] w-[300px] bg-surface-container-lowest border border-outline-variant rounded p-stack-md h-full opacity-70 hover:opacity-100 transition-opacity">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-lg border-b border-outline-variant pb-2 flex justify-between items-center">
+                    Shipped
+                    <span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">3</span>
+</h2>
+<div class="kanban-col flex flex-col gap-stack-md overflow-y-auto pr-1">
+<!-- Card 5 -->
+<article class="bg-surface border border-outline-variant rounded p-stack-md hover:bg-surface-container-low transition-colors cursor-pointer">
+<h3 class="font-label-md text-label-md font-semibold text-on-surface mb-1 line-through text-outline">Legacy Migration</h3>
+<div class="flex justify-between items-center font-label-sm text-label-sm text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 12px;">check_circle</span> Oct 12</span>
+</div>
+</article>
+<!-- Card 6 -->
+<article class="bg-surface border border-outline-variant rounded p-stack-md hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-full h-16 bg-cover bg-center rounded-sm mb-stack-sm border border-outline-variant grayscale" data-alt="A minimalist architectural photograph showing a completed, modern building structure with sharp, clean lines against a clear sky. Monochromatic styling with subtle contrast, indicating a finished, solid product." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCOh8-sjQcWmRUm-5FXeYWjE_Ov5Vwr76q3kTHqYFXdBQu71lau2p48Ei6kgla25Y7E7nG53qbCctUFu-L7LXIp1FsPxJtmhHk4Yz7jwZskvR5EZbPZKler7yfVLm5ZHzFrdRqe_O-VMBIe8gJ3Mqz2Kw-6D672R96GFJKaKNDLtyqjaZAqweZmmAZ7d8AxNI8VB-OiAo_fdvN0a9aBfatQfB5gDW9ZhUNXxoZT3lK-ecCoRo5_JZXeb9YkbMN1MVZTkf5qr5PJsw')"></div>
+<h3 class="font-label-md text-label-md font-semibold text-on-surface mb-1 line-through text-outline">Core Architecture</h3>
+<div class="flex justify-between items-center font-label-sm text-label-sm text-outline">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 12px;">check_circle</span> Sep 28</span>
+</div>
+</article>
+</div>
+</section>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface dark:bg-surface-dim full-width py-8 border-t border-outline-variant dark:border-outline mt-8 transition-colors duration-200">
+<div class="flex flex-col md:flex-row justify-center items-center gap-stack-lg w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">VibeCode</span>
+<div class="flex gap-stack-lg">
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">Guidelines</a>
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">FAQ</a>
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">Support</a>
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">API</a>
+</div>
+<span class="font-label-md text-label-md text-secondary dark:text-secondary-fixed-dim">© 2024 VibeCode</span>
+</div>
+</footer>
+
+
+</body></html>

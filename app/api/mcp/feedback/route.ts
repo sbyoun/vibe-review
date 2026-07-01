@@ -1,5 +1,9 @@
-import { apiErrorResponse, apiJson, requireMcpUser } from "@/server/mcp-api";
-import { listMcpFeedback } from "@/server/mcp-service";
+import { apiErrorResponse, apiJson, readJson, requireMcpUser } from "@/server/mcp-api";
+import {
+  createMcpFeedback,
+  createMcpFeedbackSchema,
+  listMcpFeedback,
+} from "@/server/mcp-service";
 
 export async function GET(request: Request) {
   try {
@@ -7,6 +11,18 @@ export async function GET(request: Request) {
     const feedback = await listMcpFeedback(user, new URL(request.url));
 
     return apiJson({ feedback });
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const user = await requireMcpUser(request);
+    const input = await readJson(request, createMcpFeedbackSchema);
+    const feedback = await createMcpFeedback(user, input);
+
+    return apiJson({ feedback }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error);
   }

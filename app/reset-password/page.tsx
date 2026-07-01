@@ -16,22 +16,22 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
   const hasResetLink = Boolean(resetId && token);
 
   return (
-    <main className="min-h-screen px-6 py-10 lg:px-10">
-      <section className="mx-auto grid w-full max-w-5xl gap-6">
-        <header className="border-b border-border pb-6">
-          <p className="text-sm font-medium uppercase tracking-normal text-muted-foreground">
+    <main className="min-h-screen">
+      <section className="vc-container grid gap-6">
+        <header className="vc-page-header">
+          <p className="vc-kicker">
             Account
           </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-normal text-foreground">
+          <h1 className="mt-3 vc-title">
             Reset password
           </h1>
         </header>
 
-        <div className="max-w-md">
+        <div className="mx-auto w-full max-w-md">
           {hasResetLink ? (
             <ResetPasswordForm resetId={resetId} token={token} />
           ) : (
-            <div className="grid gap-4 rounded-md border border-border bg-card p-6">
+            <div className="vc-panel grid gap-4 p-6">
               <p role="alert" className="text-sm text-muted-foreground">
                 Reset link is invalid.
               </p>

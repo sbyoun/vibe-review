@@ -11,11 +11,14 @@ import { and, eq, lt } from "drizzle-orm";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/server/current-user";
+import { absoluteUrl, sendPasswordResetMail } from "@/server/email";
+import { issueEmailVerification, type EmailVerificationDelivery } from "@/server/email-verification";
 
 export type AuthFormState = {
   status: "idle" | "error" | "success";
   message: string | null;
   resetUrl?: string;
+  verificationUrl?: string;
   fields?: {
     email?: string;
     handle?: string;
@@ -49,6 +52,23 @@ export async function loginWithPassword(
     };
   }
 
+  const localUser = await findLocalAuthUserForLogin(loginResult.login);
+  const passwordMatches = await verifyPassword(password, localUser?.passwordHash);
+
+  if (localUser && passwordMatches && !localUser.emailVerified) {
+    const verification = await issueEmailVerification({
+      userId: localUser.id,
+      email: localUser.email,
+    });
+
+    return {
+      status: "error",
+      message: emailVerificationRequiredMessage(verification),
+      verificationUrl: verification.verificationUrl,
+      fields: { handle: loginResult.login },
+    };
+  }
+
   const signInResult = await signInWithLocalPassword(loginResult.login, password);
 
   if (signInResult === "invalid") {
@@ -59,7 +79,9 @@ export async function loginWithPassword(
     };
   }
 
-  redirect("/dashboard");
+  const handle = await findHandleForLogin(loginResult.login);
+
+  redirect(handle ? `/p/${handle}` : "/discover");
 }
 
 export async function registerWithPassword(
@@ -121,12 +143,25 @@ export async function registerWithPassword(
   }
 
   const [existingEmail] = await db
-    .select({ id: users.id })
+    .select({
+      id: users.id,
+      email: users.email,
+      emailVerified: users.emailVerified,
+      passwordHash: users.passwordHash,
+    })
     .from(users)
     .where(eq(users.email, emailResult.email))
     .limit(1);
 
   if (existingEmail) {
+    if (!existingEmail.emailVerified && existingEmail.passwordHash) {
+      return {
+        status: "error",
+        message: "This email is already waiting for verification. Log in to resend the link.",
+        fields: { email: emailResult.email, handle: handleResult.handle, name },
+      };
+    }
+
     return {
       status: "error",
       message: "Email is already in use.",
@@ -135,20 +170,24 @@ export async function registerWithPassword(
   }
 
   const passwordHash = await hashPassword(password);
+  let createdUser: { id: string; email: string | null } | undefined;
 
   try {
-    await db.insert(users).values({
-      id: `local-${crypto.randomUUID()}`,
-      name: name ?? handleResult.handle,
-      email: emailResult.email,
-      handle: handleResult.handle,
-      passwordHash,
-      bio: "Building and reviewing vibe-coded projects.",
-      primaryRoles: ["Builder"],
-      toolsUsed: ["Codex"],
-      feedbackCredits: 10,
-      reputationScore: 0,
-    });
+    [createdUser] = await db
+      .insert(users)
+      .values({
+        id: `local-${crypto.randomUUID()}`,
+        name: name ?? handleResult.handle,
+        email: emailResult.email,
+        handle: handleResult.handle,
+        passwordHash,
+        bio: "Building and reviewing vibe-coded projects.",
+        primaryRoles: ["Builder"],
+        toolsUsed: ["Codex"],
+        feedbackCredits: 10,
+        reputationScore: 0,
+      })
+      .returning({ id: users.id, email: users.email });
   } catch (error) {
     if (isUniqueViolation(error)) {
       return {
@@ -161,17 +200,21 @@ export async function registerWithPassword(
     throw error;
   }
 
-  const signInResult = await signInWithLocalPassword(handleResult.handle, password);
-
-  if (signInResult === "invalid") {
-    return {
-      status: "error",
-      message: "Account was created, but sign-in failed. Try logging in.",
-      fields: { email: emailResult.email, handle: handleResult.handle, name },
-    };
+  if (!createdUser) {
+    throw new Error("Account creation failed.");
   }
 
-  redirect("/dashboard");
+  const verification = await issueEmailVerification({
+    userId: createdUser.id,
+    email: createdUser.email,
+  });
+
+  return {
+    status: "success",
+    message: accountCreatedMessage(verification),
+    verificationUrl: verification.verificationUrl,
+    fields: { email: emailResult.email, handle: handleResult.handle, name },
+  };
 }
 
 export async function requestPasswordReset(
@@ -190,7 +233,7 @@ export async function requestPasswordReset(
   await deleteExpiredResetTokens();
 
   const [user] = await db
-    .select({ id: users.id })
+    .select({ id: users.id, email: users.email })
     .from(users)
     .where(eq(users.email, emailResult.email))
     .limit(1);
@@ -198,7 +241,7 @@ export async function requestPasswordReset(
   if (!user) {
     return {
       status: "success",
-      message: "If the email exists, a reset link is available.",
+      message: "If the email exists, a reset link has been sent.",
       fields: { email: emailResult.email },
     };
   }
@@ -212,11 +255,15 @@ export async function requestPasswordReset(
     expires: new Date(Date.now() + resetTokenTtlMs),
   });
 
+  const resetPath = createResetUrl(resetId, token);
+  const delivery = user.email
+    ? await sendPasswordResetMail(user.email, absoluteUrl(resetPath))
+    : { delivered: false };
+
   return {
     status: "success",
-    message: "If the email exists, a reset link is available.",
-    resetUrl:
-      process.env.NODE_ENV === "production" ? undefined : createResetUrl(resetId, token),
+    message: "If the email exists, a reset link has been sent.",
+    resetUrl: delivery.delivered || process.env.NODE_ENV === "production" ? undefined : resetPath,
     fields: { email: emailResult.email },
   };
 }
@@ -415,7 +462,7 @@ async function signInWithLocalPassword(login: string, password: string) {
       handle: login,
       password,
       redirect: false,
-      redirectTo: "/dashboard",
+      redirectTo: "/discover",
     });
 
     return isCredentialsErrorUrl(signInUrl) ? "invalid" : "success";
@@ -426,6 +473,56 @@ async function signInWithLocalPassword(login: string, password: string) {
 
     throw error;
   }
+}
+
+async function findHandleForLogin(login: string) {
+  const [user] = await db
+    .select({ handle: users.handle })
+    .from(users)
+    .where(login.includes("@") ? eq(users.email, login) : eq(users.handle, login))
+    .limit(1);
+
+  return user?.handle ?? null;
+}
+
+async function findLocalAuthUserForLogin(login: string) {
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      emailVerified: users.emailVerified,
+      handle: users.handle,
+      passwordHash: users.passwordHash,
+    })
+    .from(users)
+    .where(login.includes("@") ? eq(users.email, login) : eq(users.handle, login))
+    .limit(1);
+
+  return user ?? null;
+}
+
+function accountCreatedMessage(verification: EmailVerificationDelivery) {
+  if (verification.delivered) {
+    return "Account created. Check your email to verify it before logging in.";
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "Account created, but the verification email could not be sent. Try logging in later to resend it.";
+  }
+
+  return "Account created. Development verification link is available below.";
+}
+
+function emailVerificationRequiredMessage(verification: EmailVerificationDelivery) {
+  if (verification.delivered) {
+    return "Email verification is required before login. We sent a new verification link.";
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "Email verification is required before login. The verification email could not be sent right now.";
+  }
+
+  return "Email verification is required before login. Development verification link is available below.";
 }
 
 function isUniqueViolation(error: unknown) {

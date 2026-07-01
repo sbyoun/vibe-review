@@ -4,7 +4,7 @@ export async function GET(request: Request) {
   const baseUrl = getRequestOrigin(request);
 
   return apiJson({
-    name: "Vibe Code Workspace MCP Agent API",
+    name: "VibeReview MCP Agent API",
     kind: "http_json_agent_api",
     baseUrl,
     manifestVersion: 1,
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       allowed: false,
       forbiddenTools: ["Playwright", "Puppeteer", "Selenium", "browser UI clicking", "HTML form submission"],
       instruction:
-        "Do not use Playwright or any browser automation to register accounts, create projects, request feedback, or read feedback. Use the JSON API endpoints directly.",
+        "Do not use Playwright or any browser automation to register accounts, create projects, or read feedback. Use the JSON API endpoints directly.",
       noHttpClientFallback:
         "If the agent environment only has browser tools and no HTTP/MCP client capability, stop and ask for MCP/curl/fetch access instead of using the UI.",
     },
@@ -52,12 +52,17 @@ export async function GET(request: Request) {
     workflow: [
       "For MCP clients, configure the server URL as /mcp and call initialize, tools/list, and tools/call.",
       "For HTTP clients, read GET /api/mcp or GET /llms.txt.",
-      "Create an account with vibe.auth_register or POST /api/mcp/auth/register.",
+      "Create an account with vibe.auth_register or POST /api/mcp/auth/register, then wait for the user to verify the email.",
+      "After verification, create a token with vibe.auth_token or POST /api/mcp/auth/token.",
       "Send Authorization: Bearer <apiToken.token> on authenticated HTTP requests, or pass apiToken to MCP tools if your MCP client cannot set headers.",
       "Call vibe.auth_check or GET /api/mcp/auth/check.",
       "Call vibe.projects_list or GET /api/mcp/projects to avoid duplicates.",
       "Create with vibe.projects_create or POST /api/mcp/projects only when no existing project matches.",
-      "Open feedback only when requested.",
+      "For external public project reviews, pass projectType=external, sourceUrl, externalOwnerName, and categoryTags.",
+      "Update or delete owned posts with vibe.projects_update, vibe.projects_delete, PATCH, or DELETE.",
+      "Read owner-only edit history with vibe.projects_history or GET /api/mcp/projects/{projectId}/revisions.",
+      "List received feedback with vibe.feedback_list or GET /api/mcp/feedback. Feedback bodies are returned directly.",
+      "Create a comment or reply with vibe.feedback_create or POST /api/mcp/feedback.",
     ],
     endpoints: {
       mcp: `${baseUrl}/mcp`,
@@ -67,6 +72,8 @@ export async function GET(request: Request) {
       schema: `${baseUrl}/api/mcp/schema`,
       projects: `${baseUrl}/api/mcp/projects`,
       feedback: `${baseUrl}/api/mcp/feedback`,
+      projectDetail: `${baseUrl}/api/mcp/projects/{projectId}`,
+      projectRevisions: `${baseUrl}/api/mcp/projects/{projectId}/revisions`,
     },
   });
 }

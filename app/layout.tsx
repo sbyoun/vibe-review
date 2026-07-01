@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
 
-import { SiteNav } from "@/components/site-nav";
-
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Vibe Code Workspace",
-  description:
-    "A workspace for organizing AI-built projects, feedback requests, and iteration history.",
+  title: "VibeReview",
+  description: "A lightweight board for posting AI-built projects and collecting feedback.",
 };
 
 export default function RootLayout({
@@ -18,7 +15,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <SiteNav />
         {children}
       </body>
     </html>

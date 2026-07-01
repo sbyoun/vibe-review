@@ -1,32 +1,50 @@
 "use server";
 
-import { and, count, eq } from "drizzle-orm";
+import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { promisify } from "node:util";
+
+import type { Route } from "next";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
 import {
-  creditLedger,
-  feedbackClaims,
   feedback,
   feedbackImplementationEvents,
-  feedbackRequests,
+  projectFavorites,
+  projectRevisions,
   projectStatusEvents,
   projects,
   users,
 } from "@/db/schema";
 import {
   coerceFeedbackType,
-  coerceFeedbackTypes,
   coerceImplementationStatus,
   coerceInt,
   coerceProjectStatus,
+  coerceProjectType,
   coerceProjectVisibility,
   parseCommaList,
   slugifyProjectTitle,
 } from "@/lib/domain";
 import { ensureDemoData } from "@/server/data";
 import { requireCurrentUser } from "@/server/current-user";
+import { projectRevisionValues } from "@/server/project-revisions";
+
+const execFileAsync = promisify(execFile);
+const maxCoverImageBytes = 5 * 1024 * 1024;
+const coverImageTypes = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"],
+]);
+const coverUploadDir = path.join(process.cwd(), "public", "uploads", "project-covers");
+const coverPublicPath = "/uploads/project-covers";
 
 export async function updateCurrentUserProfile(formData: FormData) {
   await ensureDemoData();
@@ -69,15 +87,15 @@ export async function updateCurrentUserProfile(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/feedback");
   revalidatePath("/discover");
-  revalidatePath(`/p/${currentUser.handle}`);
-  revalidatePath(`/p/${handle}`);
+  revalidatePath(profilePath(currentUser.handle));
+  revalidatePath(profilePath(handle));
 
   for (const project of projectRows) {
-    revalidatePath(`/p/${currentUser.handle}/${project.slug}`);
-    revalidatePath(`/p/${handle}/${project.slug}`);
+    revalidatePath(projectPublicPath(currentUser.handle, project.slug));
+    revalidatePath(projectPublicPath(handle, project.slug));
   }
 
-  redirect("/settings?profile=updated");
+  redirect(`${profilePath(handle)}?profile=updated` as Route);
 }
 
 export async function createProject(formData: FormData) {
@@ -87,17 +105,28 @@ export async function createProject(formData: FormData) {
   const title = readRequiredString(formData, "title").slice(0, 160);
   const summary = readRequiredString(formData, "summary").slice(0, 500);
   const description = readOptionalString(formData, "description");
+  const projectType = coerceProjectType(formData.get("projectType"));
   const status = coerceProjectStatus(formData.get("status"));
-  const visibility = coerceProjectVisibility(formData.get("visibility"));
+  const visibility = normalizeProjectVisibility(projectType, coerceProjectVisibility(formData.get("visibility")));
   const demoUrl = readOptionalString(formData, "demoUrl");
   const repoUrl = readOptionalString(formData, "repoUrl");
+  const sourceUrl = readOptionalString(formData, "sourceUrl");
+  const externalOwnerName = readOptionalString(formData, "externalOwnerName")?.slice(0, 160);
+  const externalOwnerUrl = readOptionalString(formData, "externalOwnerUrl");
   const tools = parseCommaList(formData.get("tools"));
+  const categoryTags = parseCommaList(formData.get("categoryTags"));
   const slug = await createUniqueProjectSlug(title, owner.id);
+  const normalizedSourceUrl = normalizeSourceUrl(projectType, sourceUrl, demoUrl, repoUrl);
 
   const [project] = await db
     .insert(projects)
     .values({
       ownerId: owner.id,
+      submittedById: owner.id,
+      projectType,
+      externalOwnerName: projectType === "external" ? externalOwnerName ?? null : null,
+      externalOwnerUrl: projectType === "external" ? externalOwnerUrl ?? null : null,
+      sourceUrl: normalizedSourceUrl,
       title,
       slug,
       summary,
@@ -107,10 +136,32 @@ export async function createProject(formData: FormData) {
       demoUrl,
       repoUrl,
       tools,
+      categoryTags,
       feedbackFocus: ["first_impression", "ux_ui"],
       lastActivityAt: new Date(),
     })
     .returning();
+
+  let cover = await saveUploadedProjectCover(formData.get("coverImage"), project.id);
+
+  if (!cover && demoUrl) {
+    try {
+      cover = await captureProjectCoverFromUrl(project.id, demoUrl);
+    } catch {
+      cover = null;
+    }
+  }
+
+  if (cover) {
+    await db
+      .update(projects)
+      .set({
+        coverImageUrl: cover.publicUrl,
+        coverImageObjectKey: cover.objectKey,
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.id, project.id));
+  }
 
   await db.insert(projectStatusEvents).values({
     projectId: project.id,
@@ -120,7 +171,7 @@ export async function createProject(formData: FormData) {
   });
 
   revalidateWorkspace(owner.handle, project.slug, project.id);
-  redirect(`/dashboard/projects/${project.id}`);
+  redirect(projectPublicPath(owner.handle, project.slug));
 }
 
 export async function updateProjectStatus(formData: FormData) {
@@ -141,6 +192,8 @@ export async function updateProjectStatus(formData: FormData) {
   }
 
   await db.transaction(async (tx) => {
+    await tx.insert(projectRevisions).values(projectRevisionValues(project, owner.id, "web_status"));
+
     await tx
       .update(projects)
       .set({ status: toStatus, updatedAt: new Date(), lastActivityAt: new Date() })
@@ -156,6 +209,7 @@ export async function updateProjectStatus(formData: FormData) {
   });
 
   revalidateWorkspace(owner.handle, project.slug, project.id);
+  redirect(projectPublicPath(owner.handle, project.slug));
 }
 
 export async function updateProjectDetails(formData: FormData) {
@@ -165,11 +219,18 @@ export async function updateProjectDetails(formData: FormData) {
   const projectId = readRequiredString(formData, "projectId");
   const title = readRequiredString(formData, "title").slice(0, 160);
   const summary = readRequiredString(formData, "summary").slice(0, 500);
-  const description = readOptionalString(formData, "description");
-  const visibility = coerceProjectVisibility(formData.get("visibility"));
-  const demoUrl = readOptionalString(formData, "demoUrl");
-  const repoUrl = readOptionalString(formData, "repoUrl");
+  const description = readNullableString(formData, "description");
+  const projectType = coerceProjectType(formData.get("projectType"));
+  const status = coerceProjectStatus(formData.get("status"));
+  const visibility = normalizeProjectVisibility(projectType, coerceProjectVisibility(formData.get("visibility")));
+  const demoUrl = readNullableString(formData, "demoUrl");
+  const repoUrl = readNullableString(formData, "repoUrl");
+  const sourceUrl = readNullableString(formData, "sourceUrl");
+  const externalOwnerName = readNullableString(formData, "externalOwnerName")?.slice(0, 160) ?? null;
+  const externalOwnerUrl = readNullableString(formData, "externalOwnerUrl");
   const tools = parseCommaList(formData.get("tools"));
+  const categoryTags = parseCommaList(formData.get("categoryTags"));
+  const normalizedSourceUrl = normalizeSourceUrl(projectType, sourceUrl ?? undefined, demoUrl ?? undefined, repoUrl ?? undefined);
 
   const [project] = await db
     .select()
@@ -181,33 +242,122 @@ export async function updateProjectDetails(formData: FormData) {
     throw new Error("Project not found");
   }
 
-  await db
-    .update(projects)
-    .set({
-      title,
-      summary,
-      description,
-      visibility,
-      demoUrl,
-      repoUrl,
-      tools,
-      updatedAt: new Date(),
-      lastActivityAt: new Date(),
-    })
-    .where(eq(projects.id, project.id));
+  const cover = await saveUploadedProjectCover(formData.get("coverImage"), projectId);
+
+  await db.transaction(async (tx) => {
+    const now = new Date();
+
+    await tx.insert(projectRevisions).values(projectRevisionValues(project, owner.id, "web_update"));
+
+    await tx
+      .update(projects)
+      .set({
+        title,
+        summary,
+        description,
+        projectType,
+        externalOwnerName: projectType === "external" ? externalOwnerName : null,
+        externalOwnerUrl: projectType === "external" ? externalOwnerUrl : null,
+        sourceUrl: normalizedSourceUrl,
+        status,
+        visibility,
+        demoUrl,
+        repoUrl,
+        tools,
+        categoryTags,
+        coverImageUrl: cover?.publicUrl ?? project.coverImageUrl,
+        coverImageObjectKey: cover?.objectKey ?? project.coverImageObjectKey,
+        updatedAt: now,
+        lastActivityAt: now,
+      })
+      .where(eq(projects.id, project.id));
+
+    if (status !== project.status) {
+      await tx.insert(projectStatusEvents).values({
+        projectId: project.id,
+        actorId: owner.id,
+        fromStatus: project.status,
+        toStatus: status,
+        note: "Status changed from project edit form",
+      });
+    }
+  });
 
   revalidateWorkspace(owner.handle, project.slug, project.id);
+  redirect(projectPublicPath(owner.handle, project.slug));
 }
 
-export async function createFeedbackRequest(formData: FormData) {
+export async function restoreProjectRevision(formData: FormData) {
+  await ensureDemoData();
+  const owner = await requireCurrentUser();
+
+  const revisionId = readRequiredString(formData, "revisionId");
+
+  const [row] = await db
+    .select({
+      project: projects,
+      revision: projectRevisions,
+    })
+    .from(projectRevisions)
+    .innerJoin(projects, eq(projectRevisions.projectId, projects.id))
+    .where(and(eq(projectRevisions.id, revisionId), eq(projects.ownerId, owner.id)))
+    .limit(1);
+
+  if (!row) {
+    throw new Error("Revision not found");
+  }
+
+  await db.transaction(async (tx) => {
+    const now = new Date();
+
+    await tx
+      .insert(projectRevisions)
+      .values(projectRevisionValues(row.project, owner.id, "web_restore"));
+
+    await tx
+      .update(projects)
+      .set({
+        title: row.revision.title,
+        summary: row.revision.summary,
+        description: row.revision.description,
+        status: row.revision.status,
+        visibility: row.revision.visibility,
+        demoUrl: row.revision.demoUrl,
+        repoUrl: row.revision.repoUrl,
+        coverImageObjectKey: row.revision.coverImageObjectKey,
+        coverImageUrl: row.revision.coverImageUrl,
+        projectType: row.revision.projectType,
+        externalOwnerName: row.revision.externalOwnerName,
+        externalOwnerUrl: row.revision.externalOwnerUrl,
+        sourceUrl: row.revision.sourceUrl,
+        tools: row.revision.tools,
+        categoryTags: row.revision.categoryTags,
+        feedbackFocus: row.revision.feedbackFocus,
+        updatedAt: now,
+        lastActivityAt: now,
+      })
+      .where(eq(projects.id, row.project.id));
+
+    if (row.revision.status !== row.project.status) {
+      await tx.insert(projectStatusEvents).values({
+        projectId: row.project.id,
+        actorId: owner.id,
+        fromStatus: row.project.status,
+        toStatus: row.revision.status,
+        note: "Project restored from revision history",
+      });
+    }
+  });
+
+  revalidateWorkspace(owner.handle, row.project.slug, row.project.id);
+  redirect(`/dashboard/projects/${row.project.id}?revision=restored` as Route);
+}
+
+export async function deleteProject(formData: FormData) {
   await ensureDemoData();
   const owner = await requireCurrentUser();
 
   const projectId = readRequiredString(formData, "projectId");
-  const feedbackTypes = coerceFeedbackTypes(formData.getAll("feedbackTypes"));
-  const minFeedbackCount = coerceInt(formData.get("minFeedbackCount"), 3, 1, 20);
-  const creditCost = coerceInt(formData.get("creditCost"), minFeedbackCount, 1, 20);
-  const deadlineDays = coerceInt(formData.get("deadlineDays"), 2, 1, 30);
 
   const [project] = await db
     .select()
@@ -219,195 +369,48 @@ export async function createFeedbackRequest(formData: FormData) {
     throw new Error("Project not found");
   }
 
+  await db.delete(projects).where(eq(projects.id, project.id));
+
+  revalidateWorkspace(owner.handle, project.slug, project.id);
+  redirect(`${profilePath(owner.handle)}?project=deleted` as Route);
+}
+
+export async function captureProjectCover(formData: FormData) {
+  await ensureDemoData();
+  const owner = await requireCurrentUser();
+
+  const projectId = readRequiredString(formData, "projectId");
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, owner.id)))
+    .limit(1);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (!project.demoUrl) {
+    throw new Error("Demo URL is required before capturing a cover image");
+  }
+
+  const cover = await captureProjectCoverFromUrl(project.id, project.demoUrl);
+
   await db.transaction(async (tx) => {
-    const [ownerRow] = await tx.select().from(users).where(eq(users.id, owner.id)).limit(1);
-
-    if (!ownerRow) {
-      throw new Error("Owner not found");
-    }
-
-    if (ownerRow.feedbackCredits < creditCost) {
-      throw new Error("Not enough feedback credits");
-    }
-
-    const [request] = await tx
-      .insert(feedbackRequests)
-      .values({
-        projectId: project.id,
-        requestedById: owner.id,
-        feedbackTypes,
-        creditCost,
-        minFeedbackCount,
-        deadlineAt: new Date(Date.now() + deadlineDays * 24 * 60 * 60 * 1000),
-        status: "open",
-      })
-      .returning();
-
-    const nextBalance = ownerRow.feedbackCredits - creditCost;
-
-    await tx
-      .update(users)
-      .set({ feedbackCredits: nextBalance, updatedAt: new Date() })
-      .where(eq(users.id, owner.id));
-
-    await tx.insert(creditLedger).values({
-      userId: owner.id,
-      actorId: owner.id,
-      amount: -creditCost,
-      reason: "spent_feedback_request",
-      relatedRequestId: request.id,
-      idempotencyKey: `request:${request.id}:spend`,
-      balanceAfter: nextBalance,
-    });
+    await tx.insert(projectRevisions).values(projectRevisionValues(project, owner.id, "web_update"));
 
     await tx
       .update(projects)
-      .set({ status: "needs_feedback", updatedAt: new Date(), lastActivityAt: new Date() })
+      .set({
+        coverImageUrl: cover.publicUrl,
+        coverImageObjectKey: cover.objectKey,
+        updatedAt: new Date(),
+        lastActivityAt: new Date(),
+      })
       .where(eq(projects.id, project.id));
-
-    await tx.insert(projectStatusEvents).values({
-      projectId: project.id,
-      actorId: owner.id,
-      fromStatus: project.status,
-      toStatus: "needs_feedback",
-      note: "Feedback request opened",
-    });
   });
 
   revalidateWorkspace(owner.handle, project.slug, project.id);
-}
-
-export async function claimFeedbackRequest(formData: FormData) {
-  await ensureDemoData();
-  const reviewer = await requireCurrentUser();
-
-  const requestId = readRequiredString(formData, "requestId");
-
-  const result = await db.transaction(async (tx) => {
-    const [request] = await tx
-      .select()
-      .from(feedbackRequests)
-      .where(and(eq(feedbackRequests.id, requestId), eq(feedbackRequests.status, "open")))
-      .limit(1);
-
-    if (!request) {
-      throw new Error("Open feedback request not found");
-    }
-
-    const [project] = await tx
-      .select()
-      .from(projects)
-      .where(and(eq(projects.id, request.projectId), eq(projects.visibility, "public")))
-      .limit(1);
-
-    if (!project) {
-      throw new Error("Public project not found");
-    }
-
-    if (project.ownerId === reviewer.id) {
-      throw new Error("You cannot claim feedback for your own project");
-    }
-
-    const [owner] = await tx
-      .select({ handle: users.handle })
-      .from(users)
-      .where(eq(users.id, project.ownerId))
-      .limit(1);
-
-    const now = new Date();
-
-    if (request.deadlineAt.getTime() <= now.getTime()) {
-      await tx
-        .update(feedbackRequests)
-        .set({ status: "expired", updatedAt: now })
-        .where(eq(feedbackRequests.id, request.id));
-      throw new Error("Feedback request has expired");
-    }
-
-    const [existingClaim] = await tx
-      .select()
-      .from(feedbackClaims)
-      .where(
-        and(
-          eq(feedbackClaims.requestId, request.id),
-          eq(feedbackClaims.reviewerId, reviewer.id),
-          eq(feedbackClaims.status, "claimed"),
-        ),
-      )
-      .limit(1);
-
-    if (existingClaim) {
-      return { claim: existingClaim, ownerHandle: owner?.handle ?? null, projectSlug: project.slug };
-    }
-
-    const dueAt = new Date(
-      Math.min(request.deadlineAt.getTime(), now.getTime() + 24 * 60 * 60 * 1000),
-    );
-
-    const [claim] = await tx
-      .insert(feedbackClaims)
-      .values({
-        requestId: request.id,
-        projectId: project.id,
-        reviewerId: reviewer.id,
-        dueAt,
-        status: "claimed",
-      })
-      .returning();
-
-    return {
-      claim,
-      ownerHandle: owner?.handle ?? null,
-      projectSlug: project.slug,
-    };
-  });
-
-  revalidateWorkspace(result.ownerHandle, result.projectSlug);
-
-  if (result.claim) {
-    redirect("/feedback");
-  }
-}
-
-export async function cancelFeedbackClaim(formData: FormData) {
-  await ensureDemoData();
-  const reviewer = await requireCurrentUser();
-
-  const claimId = readRequiredString(formData, "claimId");
-  const [claim] = await db
-    .select()
-    .from(feedbackClaims)
-    .where(
-      and(
-        eq(feedbackClaims.id, claimId),
-        eq(feedbackClaims.reviewerId, reviewer.id),
-        eq(feedbackClaims.status, "claimed"),
-      ),
-    )
-    .limit(1);
-
-  if (claim) {
-    await db
-      .update(feedbackClaims)
-      .set({ status: "cancelled", updatedAt: new Date() })
-      .where(eq(feedbackClaims.id, claim.id));
-
-    const [project] = await db
-      .select({
-        slug: projects.slug,
-        ownerHandle: users.handle,
-      })
-      .from(projects)
-      .innerJoin(users, eq(projects.ownerId, users.id))
-      .where(eq(projects.id, claim.projectId))
-      .limit(1);
-
-    revalidateWorkspace(project?.ownerHandle, project?.slug);
-    return;
-  }
-
-  revalidatePath("/discover");
-  revalidatePath("/feedback");
 }
 
 export async function createFeedback(formData: FormData) {
@@ -415,8 +418,7 @@ export async function createFeedback(formData: FormData) {
   const reviewer = await requireCurrentUser();
 
   const projectId = readRequiredString(formData, "projectId");
-  const requestId = readOptionalString(formData, "requestId");
-  const claimId = readOptionalString(formData, "claimId");
+  const parentFeedbackId = readOptionalString(formData, "parentFeedbackId");
   const authorName = readOptionalString(formData, "authorName")?.slice(0, 120);
   const body = readRequiredString(formData, "body").slice(0, 2000);
   const feedbackType = coerceFeedbackType(formData.get("feedbackType"));
@@ -424,12 +426,24 @@ export async function createFeedback(formData: FormData) {
 
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
 
-  if (!project || project.visibility === "private") {
+  if (!project) {
     throw new Error("Project not found");
   }
 
-  if (project.ownerId === reviewer.id) {
-    throw new Error("You cannot leave feedback on your own project");
+  if (project.visibility === "private" && project.ownerId !== reviewer.id) {
+    throw new Error("Project not found");
+  }
+
+  if (parentFeedbackId) {
+    const [parent] = await db
+      .select({ id: feedback.id, projectId: feedback.projectId })
+      .from(feedback)
+      .where(eq(feedback.id, parentFeedbackId))
+      .limit(1);
+
+    if (!parent || parent.projectId !== project.id) {
+      throw new Error("Parent feedback not found");
+    }
   }
 
   const [owner] = await db
@@ -440,70 +454,9 @@ export async function createFeedback(formData: FormData) {
 
   await db.transaction(async (tx) => {
     const now = new Date();
-    const [claim] = claimId
-      ? await tx
-          .select()
-          .from(feedbackClaims)
-          .where(
-            and(
-              eq(feedbackClaims.id, claimId),
-              eq(feedbackClaims.reviewerId, reviewer.id),
-              eq(feedbackClaims.projectId, project.id),
-              eq(feedbackClaims.status, "claimed"),
-            ),
-          )
-          .limit(1)
-      : [];
-
-    if (claimId && !claim) {
-      throw new Error("Feedback claim not found");
-    }
-
-    if (claim && claim.dueAt.getTime() <= now.getTime()) {
-      await tx
-        .update(feedbackClaims)
-        .set({ status: "expired", updatedAt: now })
-        .where(eq(feedbackClaims.id, claim.id));
-      throw new Error("Feedback claim has expired");
-    }
-
-    const [request] = requestId
-      ? await tx
-          .select()
-          .from(feedbackRequests)
-          .where(and(eq(feedbackRequests.id, requestId), eq(feedbackRequests.projectId, project.id)))
-          .limit(1)
-      : [];
-
-    if (requestId && !request) {
-      throw new Error("Feedback request not found");
-    }
-
-    if (claim && request && claim.requestId !== request.id) {
-      throw new Error("Feedback claim does not match this request");
-    }
-
-    const [activeRequest] = !claim
-      ? await tx
-          .select({ id: feedbackRequests.id })
-          .from(feedbackRequests)
-          .where(
-            and(eq(feedbackRequests.projectId, project.id), eq(feedbackRequests.status, "open")),
-          )
-          .limit(1)
-      : [];
-
-    if (!claim && activeRequest) {
-      throw new Error("Claim this feedback request before submitting feedback");
-    }
-
-    const effectiveRequestId = claim?.requestId ?? request?.id;
-
     const [reviewerRow] = await tx
       .select({
         name: users.name,
-        feedbackCredits: users.feedbackCredits,
-        reputationScore: users.reputationScore,
       })
       .from(users)
       .where(eq(users.id, reviewer.id))
@@ -513,72 +466,100 @@ export async function createFeedback(formData: FormData) {
       throw new Error("Reviewer not found");
     }
 
-    const [entry] = await tx
+    await tx
       .insert(feedback)
       .values({
         projectId: project.id,
-        requestId: effectiveRequestId,
+        requestId: null,
+        parentFeedbackId: parentFeedbackId ?? null,
         authorId: reviewer.id,
         feedbackType,
         body,
         rating,
         helpfulStatus: "unreviewed",
         implementedStatus: "unreviewed",
-      })
-      .returning();
-
-    if (claim) {
-      await tx
-        .update(feedbackClaims)
-        .set({ status: "submitted", submittedFeedbackId: entry.id, updatedAt: now })
-        .where(eq(feedbackClaims.id, claim.id));
-    }
-
-    const nextBalance = reviewerRow.feedbackCredits + 1;
+      });
 
     await tx
       .update(users)
       .set({
         name: reviewerRow.name ?? authorName ?? reviewer.handle,
-        feedbackCredits: nextBalance,
-        reputationScore: reviewerRow.reputationScore + 1,
         updatedAt: now,
       })
       .where(eq(users.id, reviewer.id));
 
-    await tx.insert(creditLedger).values({
-      userId: reviewer.id,
-      actorId: reviewer.id,
-      amount: 1,
-      reason: "earned_feedback",
-      relatedRequestId: effectiveRequestId,
-      relatedFeedbackId: entry.id,
-      idempotencyKey: `feedback:${entry.id}:earn`,
-      balanceAfter: nextBalance,
-    });
-
-    if (effectiveRequestId) {
-      const [requestToCount] = await tx
-        .select({ minFeedbackCount: feedbackRequests.minFeedbackCount })
-        .from(feedbackRequests)
-        .where(eq(feedbackRequests.id, effectiveRequestId))
-        .limit(1);
-
-      const [{ value: receivedCount }] = await tx
-        .select({ value: count() })
-        .from(feedback)
-        .where(eq(feedback.requestId, effectiveRequestId));
-
-      if (requestToCount && receivedCount >= requestToCount.minFeedbackCount) {
-        await tx
-          .update(feedbackRequests)
-          .set({ status: "fulfilled", fulfilledAt: new Date(), updatedAt: new Date() })
-          .where(eq(feedbackRequests.id, effectiveRequestId));
-      }
-    }
+    await tx
+      .update(projects)
+      .set({
+        lastActivityAt: now,
+        updatedAt: now,
+      })
+      .where(eq(projects.id, project.id));
   });
 
   revalidateWorkspace(owner?.handle, project.slug, project.id);
+  revalidatePath(`/p/${reviewer.handle}`);
+}
+
+export async function updateFeedbackDetails(formData: FormData) {
+  await ensureDemoData();
+  const author = await requireCurrentUser();
+
+  const feedbackId = readRequiredString(formData, "feedbackId");
+  const body = readRequiredString(formData, "body").slice(0, 2000);
+  const feedbackType = coerceFeedbackType(formData.get("feedbackType"));
+  const rating = coerceInt(formData.get("rating"), 4, 1, 5);
+
+  const [entry] = await db
+    .select()
+    .from(feedback)
+    .where(and(eq(feedback.id, feedbackId), eq(feedback.authorId, author.id)))
+    .limit(1);
+
+  if (!entry) {
+    throw new Error("Feedback not found");
+  }
+
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, entry.projectId))
+    .limit(1);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const [owner] = await db
+    .select({ handle: users.handle })
+    .from(users)
+    .where(eq(users.id, project.ownerId))
+    .limit(1);
+
+  await db.transaction(async (tx) => {
+    const now = new Date();
+
+    await tx
+      .update(feedback)
+      .set({
+        body,
+        feedbackType,
+        rating,
+        updatedAt: now,
+      })
+      .where(eq(feedback.id, entry.id));
+
+    await tx
+      .update(projects)
+      .set({
+        lastActivityAt: now,
+        updatedAt: now,
+      })
+      .where(eq(projects.id, project.id));
+  });
+
+  revalidateWorkspace(owner?.handle, project.slug, project.id);
+  revalidatePath(`/p/${author.handle}`);
 }
 
 export async function updateFeedbackImplementation(formData: FormData) {
@@ -621,6 +602,46 @@ export async function updateFeedbackImplementation(formData: FormData) {
   revalidateWorkspace(owner.handle, project.slug, project.id);
 }
 
+export async function toggleProjectFavorite(formData: FormData) {
+  await ensureDemoData();
+  const user = await requireCurrentUser();
+  const projectId = readRequiredString(formData, "projectId");
+
+  const [row] = await db
+    .select({
+      project: projects,
+      ownerHandle: users.handle,
+    })
+    .from(projects)
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (!row || (row.project.visibility === "private" && row.project.ownerId !== user.id)) {
+    throw new Error("Project not found");
+  }
+
+  const [existing] = await db
+    .select({ projectId: projectFavorites.projectId })
+    .from(projectFavorites)
+    .where(and(eq(projectFavorites.projectId, projectId), eq(projectFavorites.userId, user.id)))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .delete(projectFavorites)
+      .where(and(eq(projectFavorites.projectId, projectId), eq(projectFavorites.userId, user.id)));
+  } else {
+    await db
+      .insert(projectFavorites)
+      .values({ projectId, userId: user.id })
+      .onConflictDoNothing();
+  }
+
+  revalidateWorkspace(row.ownerHandle, row.project.slug, row.project.id);
+  revalidatePath(`/p/${user.handle}`);
+}
+
 async function createUniqueProjectSlug(title: string, ownerId: string) {
   const base = slugifyProjectTitle(title);
   let candidate = base;
@@ -642,6 +663,36 @@ async function createUniqueProjectSlug(title: string, ownerId: string) {
   }
 }
 
+function normalizeProjectVisibility(
+  projectType: ReturnType<typeof coerceProjectType>,
+  visibility: ReturnType<typeof coerceProjectVisibility>,
+) {
+  if (projectType === "external" && visibility === "private") {
+    return "unlisted";
+  }
+
+  return visibility;
+}
+
+function normalizeSourceUrl(
+  projectType: ReturnType<typeof coerceProjectType>,
+  sourceUrl: string | undefined,
+  demoUrl: string | undefined,
+  repoUrl: string | undefined,
+) {
+  if (projectType === "owned") {
+    return sourceUrl ?? null;
+  }
+
+  const url = sourceUrl ?? demoUrl ?? repoUrl;
+
+  if (!url) {
+    throw new Error("sourceUrl is required for external public projects");
+  }
+
+  return url;
+}
+
 function readRequiredString(formData: FormData, key: string) {
   const value = formData.get(key);
 
@@ -660,6 +711,90 @@ function readOptionalString(formData: FormData, key: string) {
   }
 
   return value.trim();
+}
+
+function readNullableString(formData: FormData, key: string) {
+  const value = formData.get(key);
+
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return null;
+  }
+
+  return value.trim();
+}
+
+async function saveUploadedProjectCover(value: FormDataEntryValue | null, projectId: string) {
+  if (!(value instanceof File) || value.size === 0) {
+    return null;
+  }
+
+  const extension = coverImageTypes.get(value.type);
+
+  if (!extension) {
+    throw new Error("Cover image must be a JPEG, PNG, WebP, or GIF file");
+  }
+
+  if (value.size > maxCoverImageBytes) {
+    throw new Error("Cover image must be 5MB or smaller");
+  }
+
+  await mkdir(coverUploadDir, { recursive: true });
+
+  const objectKey = `${projectId}-${randomUUID()}.${extension}`;
+  const absolutePath = path.join(coverUploadDir, objectKey);
+  const bytes = Buffer.from(await value.arrayBuffer());
+
+  await writeFile(absolutePath, bytes);
+
+  return {
+    objectKey,
+    publicUrl: `${coverPublicPath}/${objectKey}`,
+  };
+}
+
+async function captureProjectCoverFromUrl(projectId: string, rawUrl: string) {
+  const url = new URL(rawUrl);
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("Demo URL must be http or https");
+  }
+
+  await mkdir(coverUploadDir, { recursive: true });
+
+  const objectKey = `${projectId}-${randomUUID()}.png`;
+  const absolutePath = path.join(coverUploadDir, objectKey);
+  const chromium = await findChromiumBinary();
+
+  await execFileAsync(
+    chromium,
+    [
+      "--headless",
+      "--no-sandbox",
+      "--disable-gpu",
+      "--window-size=1280,900",
+      `--screenshot=${absolutePath}`,
+      url.toString(),
+    ],
+    { timeout: 45000, maxBuffer: 1024 * 1024 },
+  );
+
+  return {
+    objectKey,
+    publicUrl: `${coverPublicPath}/${objectKey}`,
+  };
+}
+
+async function findChromiumBinary() {
+  for (const binary of ["chromium-browser", "chromium", "google-chrome"]) {
+    try {
+      await execFileAsync("which", [binary], { timeout: 2000 });
+      return binary;
+    } catch {
+      // Try the next common binary name.
+    }
+  }
+
+  throw new Error("Chromium is not available on this server");
 }
 
 function createProfileHandle(input: string) {
@@ -692,10 +827,18 @@ function revalidateWorkspace(
   }
 
   if (ownerHandle) {
-    revalidatePath(`/p/${ownerHandle}`);
+    revalidatePath(profilePath(ownerHandle));
 
     if (projectSlug) {
-      revalidatePath(`/p/${ownerHandle}/${projectSlug}`);
+      revalidatePath(projectPublicPath(ownerHandle, projectSlug));
     }
   }
+}
+
+function profilePath(ownerHandle: string) {
+  return `/p/${encodeURIComponent(ownerHandle)}` as Route;
+}
+
+function projectPublicPath(ownerHandle: string, projectSlug: string) {
+  return `${profilePath(ownerHandle)}/${encodeURIComponent(projectSlug)}` as Route;
 }

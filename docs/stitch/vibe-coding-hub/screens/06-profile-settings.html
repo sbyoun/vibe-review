@@ -1,0 +1,288 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>User Settings - VibeCode</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#424754",
+                        "inverse-surface": "#303030",
+                        "inverse-on-surface": "#f3f0ef",
+                        "secondary-fixed": "#ffdbcd",
+                        "background": "#fcf9f8",
+                        "tertiary-fixed": "#ffdcc6",
+                        "on-secondary-fixed-variant": "#7c2e00",
+                        "on-secondary-fixed": "#360f00",
+                        "outline": "#727785",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "surface-container-highest": "#e5e2e1",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#adc6ff",
+                        "tertiary-container": "#b75b00",
+                        "primary-fixed": "#d8e2ff",
+                        "on-background": "#1b1c1c",
+                        "on-tertiary-container": "#fffbff",
+                        "on-primary-container": "#fefcff",
+                        "surface-container-high": "#eae7e7",
+                        "surface": "#fcf9f8",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-primary-fixed-variant": "#004395",
+                        "on-secondary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#fe6500",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#e5e2e1",
+                        "tertiary": "#924700",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "surface-bright": "#fcf9f8",
+                        "surface-dim": "#dcd9d9",
+                        "surface-tint": "#005ac2",
+                        "secondary-fixed-dim": "#ffb596",
+                        "primary": "#0058be",
+                        "secondary": "#a33e00",
+                        "on-tertiary-fixed": "#311400",
+                        "primary-container": "#2170e4",
+                        "outline-variant": "#c2c6d6",
+                        "surface-container-low": "#f6f3f2",
+                        "on-surface": "#1b1c1c",
+                        "on-error": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#001a42",
+                        "surface-container": "#f0eded",
+                        "on-secondary-container": "#541d00",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "margin-desktop": "24px",
+                        "gutter": "16px",
+                        "container-max": "1100px",
+                        "stack-sm": "4px",
+                        "stack-lg": "16px",
+                        "margin-mobile": "12px",
+                        "stack-md": "8px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "500" }],
+                        "headline-md": ["16px", { "lineHeight": "22px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "headline-lg": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.surface');
+            color: theme('colors.on-surface');
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .input-field {
+            @apply w-full bg-surface-container-lowest border border-outline-variant px-3 py-2 text-on-surface font-body-md text-body-md rounded-DEFAULT focus:outline-none focus:border-primary transition-colors duration-200;
+        }
+
+        .btn-primary {
+            @apply bg-[#3B82F6] text-on-primary px-4 py-2 font-headline-md text-headline-md rounded-DEFAULT hover:bg-primary-container transition-colors duration-200;
+        }
+
+        .btn-secondary {
+            @apply bg-surface-container-highest text-on-surface px-4 py-2 font-headline-md text-headline-md rounded-DEFAULT hover:bg-surface-variant transition-colors duration-200 border border-outline-variant;
+        }
+        
+        .btn-danger {
+            @apply text-error px-3 py-1 font-label-md text-label-md hover:underline transition-colors duration-200;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim docked full-width top-0 border-b border-outline-variant dark:border-outline transition-colors duration-200">
+<div class="flex justify-between items-center w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-2">
+<div class="flex items-center gap-gutter">
+<span class="font-headline-md text-headline-md font-bold text-on-surface dark:text-on-surface-variant">VibeCode</span>
+<nav class="hidden md:flex gap-gutter font-body-md text-body-md font-body-md text-body-md Headlines: font-headline-md text-headline-md Labels: font-label-md text-label-md"><a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">Discover</a><a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">My</a></nav>
+</div>
+<div class="flex items-center gap-gutter">
+<a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline font-body-md text-body-md Headlines: font-headline-md text-headline-md Labels: font-label-md text-label-md transition-colors duration-200" href="#">Profile</a>
+<button class="bg-[#3B82F6] text-on-primary px-3 py-1 text-label-sm font-label-sm rounded-DEFAULT hover:bg-primary-container transition-colors duration-200">Submit</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8 flex flex-col md:flex-row gap-8">
+<!-- Settings Sidebar Navigation (Desktop) -->
+<aside class="hidden md:block w-48 shrink-0">
+<nav class="flex flex-col gap-2 sticky top-24">
+<h2 class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-2">Settings</h2>
+<a class="text-primary font-bold font-body-md text-body-md p-2 -ml-2 rounded-DEFAULT bg-surface-container-low transition-colors duration-200" href="#account">Account</a>
+<a class="text-on-surface-variant hover:bg-surface-container-lowest font-body-md text-body-md p-2 -ml-2 rounded-DEFAULT transition-colors duration-200" href="#profile">Profile</a>
+<a class="text-on-surface-variant hover:bg-surface-container-lowest font-body-md text-body-md p-2 -ml-2 rounded-DEFAULT transition-colors duration-200" href="#developer">Developer</a>
+<a class="text-on-surface-variant hover:bg-surface-container-lowest font-body-md text-body-md p-2 -ml-2 rounded-DEFAULT transition-colors duration-200" href="#notifications">Notifications</a>
+</nav>
+</aside>
+<!-- Settings Content -->
+<div class="flex-grow flex flex-col gap-12 max-w-3xl">
+<div class="mb-4">
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-2">Settings</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage your account preferences, profile details, and API access.</p>
+</div>
+<!-- Section 1: Account Information -->
+<section class="flex flex-col gap-6" id="account">
+<div class="border-b border-outline-variant pb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface">Account Information</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant" for="username">Username</label>
+<input class="input-field" disabled="" id="username" type="text" value="alex_dev">
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-1">Username cannot be changed.</span>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant" for="email">Email Address</label>
+<input class="input-field" id="email" type="email" value="alex@example.com">
+</div>
+</div>
+<div class="flex flex-col gap-4 bg-surface-container-low p-6 border border-outline-variant rounded-DEFAULT">
+<h3 class="font-headline-md text-headline-md text-on-surface">Change Password</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant" for="current_password">Current Password</label>
+<input class="input-field" id="current_password" type="password">
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant" for="new_password">New Password</label>
+<input class="input-field" id="new_password" type="password">
+</div>
+</div>
+<div class="flex justify-end mt-2">
+<button class="btn-secondary text-sm py-1 px-3">Update Password</button>
+</div>
+</div>
+<div class="flex justify-end">
+<button class="btn-primary">Save Account Changes</button>
+</div>
+</section>
+<!-- Section 2: Profile Customization -->
+<section class="flex flex-col gap-6" id="profile">
+<div class="border-b border-outline-variant pb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface">Profile Customization</h2>
+</div>
+<div class="flex flex-col md:flex-row gap-8 items-start">
+<div class="flex flex-col items-center gap-4 shrink-0">
+<img class="w-24 h-24 rounded-full border border-outline-variant object-cover" data-alt="A minimalist, monochromatic user avatar placeholder image in a modern digital UI context. The image features a simple geometric head and shoulders silhouette against a pure light grey background, embodying a low-chrome, functional design aesthetic with no shadows or gradients." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6G721pep3tn00pLbT7RwlNrQs_Zig6UvrMQHeO2zr657HjP2lMwM1YwQqTIgSxrR1OOOzQyRBqLdrQhMhi16b6LqMILBTg4YXX0zjZIqxC1oSiOSdIgWCJTFb6Lhc_1mZnxRCl3SierjC9KCZASzQ7E-SvZdhOmgHEFBcdIMwIsm922SlBD5h0McxmHmNUB5ZNRpYI_gXfmpDJVfntef7u1ekrhoP2Ijs6fgl6UtlL5k-ma4Qrznp8m8sKxeLmQGHQqAz1xAHYQ">
+<button class="btn-secondary text-sm py-1 px-3">Upload Avatar</button>
+</div>
+<div class="flex-grow flex flex-col gap-6 w-full">
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant" for="bio">Bio</label>
+<textarea class="input-field resize-none" id="bio" rows="4">Full-stack developer focused on minimalist UI and efficient backends. Exploring the boundaries of functional design.</textarea>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-1 text-right">124 / 250</span>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant" for="website">Website / Links</label>
+<input class="input-field mb-2" id="website" placeholder="https://" type="url" value="https://alexdev.io">
+<input class="input-field" id="github" placeholder="GitHub URL" type="url" value="https://github.com/alexdev">
+</div>
+</div>
+</div>
+<div class="flex justify-end">
+<button class="btn-primary">Save Profile</button>
+</div>
+</section>
+<!-- Section 3: Developer Settings (API Access) -->
+<section class="flex flex-col gap-6" id="developer">
+<div class="border-b border-outline-variant pb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface">Developer Settings</h2>
+</div>
+<div class="bg-surface-container-highest p-4 rounded-DEFAULT border border-outline-variant flex justify-between items-center">
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Personal Access Tokens</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Generate tokens for use with the VibeCode API.</p>
+</div>
+<button class="btn-primary flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+                        Generate New Token
+                    </button>
+</div>
+<div class="flex flex-col gap-4">
+<!-- Token List Item 1 -->
+<div class="flex justify-between items-center p-4 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low transition-colors duration-200">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-headline-md text-on-surface">CLI Automation Script</span>
+<span class="bg-surface-dim text-on-surface text-label-sm font-label-sm px-2 py-0.5 rounded-DEFAULT">Read/Write</span>
+</div>
+<div class="flex items-center gap-4 font-label-md text-label-md text-on-surface-variant">
+<span class="">Last used: 2 hours ago</span>
+<span class="">Created: Oct 12, 2023</span>
+<span class="">Expires: Never</span>
+</div>
+</div>
+<button class="btn-danger">Revoke</button>
+</div>
+<!-- Token List Item 2 -->
+<div class="flex justify-between items-center p-4 border border-outline-variant rounded-DEFAULT hover:bg-surface-container-low transition-colors duration-200">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-headline-md text-on-surface">Dashboard Analytics Read-Only</span>
+<span class="bg-surface-dim text-on-surface text-label-sm font-label-sm px-2 py-0.5 rounded-DEFAULT">Read Only</span>
+</div>
+<div class="flex items-center gap-4 font-label-md text-label-md text-on-surface-variant">
+<span class="">Last used: 5 days ago</span>
+<span class="">Created: Nov 01, 2023</span>
+<span class="text-secondary">Expires: in 14 days</span>
+</div>
+</div>
+<button class="btn-danger">Revoke</button>
+</div>
+</div>
+</section>
+<!-- Danger Zone -->
+<section class="mt-8 border border-error-container rounded-DEFAULT p-6 bg-[#fffcfc]">
+<h3 class="font-headline-md text-headline-md text-error mb-2">Danger Zone</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Once you delete your account, there is no going back. Please be certain.</p>
+<button class="bg-surface-container-lowest text-error border border-error px-4 py-2 font-headline-md text-headline-md rounded-DEFAULT hover:bg-error-container transition-colors duration-200">Delete Account</button>
+</section>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface dark:bg-surface-dim full-width py-8 border-t border-outline-variant dark:border-outline mt-8 transition-colors duration-200">
+<div class="flex flex-col md:flex-row justify-center items-center gap-stack-lg w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop font-label-md text-label-md text-secondary dark:text-secondary-fixed-dim">
+<span class="font-headline-md text-headline-md font-bold text-on-surface mr-4">© 2024 VibeCode</span>
+<div class="flex gap-4">
+<a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">Guidelines</a>
+<a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">FAQ</a>
+<a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">Support</a>
+<a class="text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim hover:underline transition-colors duration-200" href="#">API</a>
+</div>
+</div>
+</footer>
+
+
+</body></html>

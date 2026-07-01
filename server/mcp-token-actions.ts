@@ -65,6 +65,7 @@ export async function createCurrentUserMcpToken(
   const token = await createMcpApiToken(user.id);
 
   revalidatePath("/settings");
+  revalidatePath(`/p/${user.handle}`);
 
   return {
     status: "success",
@@ -94,6 +95,7 @@ export async function revokeCurrentUserMcpToken(
     .returning({ identifier: verificationTokens.identifier });
 
   revalidatePath("/settings");
+  revalidatePath(`/p/${user.handle}`);
 
   return {
     status: "success",
@@ -123,6 +125,7 @@ export async function revokeCurrentUserMcpTokens(
     .returning({ identifier: verificationTokens.identifier });
 
   revalidatePath("/settings");
+  revalidatePath(`/p/${user.handle}`);
 
   return {
     status: "success",
