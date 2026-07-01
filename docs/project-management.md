@@ -2,289 +2,315 @@
 
 ## 한 줄 방향
 
-VibeReview의 프로젝트 관리는 Jira, Notion, Linear 같은 범용 업무 관리가 아니라, "내가 올린 프로젝트 글을 계속 개선하기 위한 가벼운 작업 로그"다.
+VibeReview의 프로젝트 관리는 별도 업무툴이 아니라, 프로젝트 상세 페이지의 댓글/피드백 스레드를 확장한 "셀프 피드백" 구조로 간다.
 
-공개 화면은 계속 게시판과 댓글형 피드백 중심으로 단순하게 유지하고, 관리 기능은 프로젝트 소유자가 자기 프로젝트를 정리하고 다음 액션을 잃어버리지 않게 돕는 보조 기능으로 둔다.
+프로젝트 할 일, 내부 메모, 결정 사항, 릴리즈 노트도 결국 피드백의 한 종류다. 따라서 Jira, Notion, Linear 같은 별도 보드가 아니라 현재 프로젝트 글 아래에 이어지는 public/private 댓글 흐름으로 관리한다.
 
-## 왜 필요한가
+## 왜 이 방향이 맞나
 
-AI 코딩으로 만든 프로젝트는 많이 생기지만, 만든 뒤에 다음 문제가 생긴다.
+AI 코딩으로 만든 프로젝트는 빠르게 많이 생기지만, 관리를 위한 별도 화면이 무거워지면 사용자는 다시 안 쓴다. VibeReview의 기본 가치는 게시판처럼 쉽게 올리고, 피드백을 받고, 다시 고치는 흐름이다.
 
-- 어떤 프로젝트를 어디까지 만들었는지 잊는다.
-- 받은 피드백을 반영했는지 추적하기 어렵다.
-- 다음에 해야 할 일이 채팅, README, 이슈, 메모장에 흩어진다.
-- 외부에 보여줄 소개글과 내부 작업 메모가 섞인다.
-- 코딩 에이전트가 프로젝트 상태를 읽고 다음 작업을 이어가기 어렵다.
+프로젝트 관리를 댓글로 합치면 다음 장점이 있다.
 
-따라서 VibeReview의 관리는 "작업을 통제하는 도구"보다 "프로젝트의 현재 맥락을 복원하는 도구"가 되어야 한다.
+- 프로젝트 글을 보는 곳과 관리하는 곳이 같다.
+- 외부 피드백과 내 셀프 피드백이 같은 맥락에 남는다.
+- 공개할 내용과 비공개 메모를 visibility로만 나누면 된다.
+- MCP 에이전트가 프로젝트 본문, 피드백, 할 일을 한 번에 읽기 쉽다.
+- 별도 task, board, workspace 모델을 만들지 않아도 된다.
 
-## 원칙
+## 핵심 원칙
 
-### 1. 공개 게시판을 무겁게 만들지 않는다
+### 1. 프로젝트 페이지가 중심이다
 
-Discover, 공개 프로필, 프로젝트 상세의 기본 경험은 게시판이어야 한다. 관리 기능 때문에 public 프로젝트 글이 업무 화면처럼 보이면 안 된다.
+프로젝트 상세 페이지가 공개 소개글이자 관리 화면이다. 기본 사용자는 게시글과 댓글을 보는 경험만 한다.
 
-관리 UI는 다음 위치에만 둔다.
+프로젝트 소유자에게만 다음 기능을 추가로 보여준다.
 
-- 내 프로젝트 목록
-- 내 프로젝트 수정 화면
-- 프로젝트 소유자에게만 보이는 프로젝트 상세의 관리 영역
-- MCP/API
+- 비공개 댓글 보기
+- 셀프 피드백 작성
+- 댓글을 할 일로 표시
+- 할 일 상태 변경
+- 댓글/피드백 수정 또는 삭제
 
-### 2. 할 일은 프로젝트 글의 하위 개념이다
+### 2. 할 일은 댓글의 한 종류다
 
-사용자가 관리하는 것은 독립된 업무 보드가 아니라 프로젝트다. 할 일, 결정, 피드백 반영 상태, 수정 이력은 모두 프로젝트를 설명하고 개선하기 위한 부속 데이터다.
+`ProjectTask` 같은 별도 테이블은 초기에는 만들지 않는다.
 
-### 3. 피드백에서 액션이 자연스럽게 생겨야 한다
+대신 feedback/comment에 다음 속성을 붙인다.
 
-VibeReview의 차별점은 피드백이다. 관리 기능도 피드백과 연결되어야 한다.
+- 공개 범위
+- 글 종류
+- 액션 상태
 
-예를 들어 프로젝트 소유자는 받은 피드백에서 바로 다음 액션을 만들 수 있어야 한다.
+즉 "할 일"은 독립 엔티티가 아니라 `kind=todo` 또는 `actionStatus=open`인 댓글이다.
 
-- "이 피드백 반영하기"
-- "나중에 검토"
-- "반영 완료"
-- "반영하지 않음"
-- "할 일로 추가"
+### 3. 공개와 비공개만 먼저 구분한다
 
-### 4. 상태는 적고 명확해야 한다
+visibility는 두 단계면 충분하다.
 
-프로젝트 상태는 지금처럼 적은 enum으로 유지한다.
+- `public`: 프로젝트 페이지에서 공개
+- `private`: 프로젝트 소유자와 작성자만 열람
 
-- `idea`
-- `prototype`
-- `building`
-- `needs_feedback`
-- `iterating`
-- `shipped`
-- `parked`
-- `archived`
+프로젝트 소유자가 자기 프로젝트에 남긴 private 댓글은 사실상 개인 메모다. 외부 사용자가 private으로 남긴 댓글은 프로젝트 소유자와 작성자 사이의 비공개 피드백이다.
 
-할 일 상태도 최소화한다.
+### 4. 공개 게시판 느낌을 유지한다
 
-- `todo`
-- `doing`
-- `done`
-- `dropped`
+Discover, 공개 프로필, 공개 프로젝트 페이지는 계속 단순한 게시판이어야 한다.
 
-칸반은 나중에 가능하지만, 초기 기본 UI는 row/list가 낫다.
+관리 기능은 다음처럼 숨긴다.
 
-### 5. 에이전트가 읽고 쓸 수 있어야 한다
+- 댓글 작성 버튼을 눌렀을 때 composer 열기
+- 소유자에게만 private 필터 표시
+- 소유자에게만 action status 표시
+- 일반 방문자는 public 댓글만 보기
 
-이 기능은 MCP와 잘 맞는다. 코딩 에이전트가 프로젝트의 현재 상태, 할 일, 피드백 액션, 최근 변경 이력을 읽고 다음 작업을 이어갈 수 있어야 한다.
+### 5. MCP가 같은 모델을 사용한다
+
+웹에서 쓰는 댓글/피드백 모델과 MCP 모델을 다르게 만들지 않는다. 에이전트도 댓글을 만들고, private 셀프 피드백을 남기고, 할 일 상태를 바꾸는 방식으로 동작한다.
 
 ## 제안하는 화면 구조
 
-### My Projects
+### Discover
 
-현재의 내 프로젝트 목록은 유지하되, 각 row에 관리용 최소 정보를 붙인다.
+Discover는 프로젝트 목록이다. 관리 정보는 넣지 않는다.
+
+표시 정보:
 
 - 프로젝트 제목
-- 공개 범위
-- 프로젝트 상태
-- 마지막 수정일
-- 열린 할 일 수
-- 미반영 피드백 수
-- 최근 액션
+- 소유자
+- 올린 사람
+- 공개 범위가 public인 경우만 노출
+- 태그, 기술 스택
+- 최신 공개 댓글 또는 피드백 수 정도의 가벼운 정보
 
-기본은 row 리스트다. 필터는 최소한만 둔다.
+### Project Page
+
+프로젝트 상세는 한 페이지로 유지한다.
+
+구성:
+
+1. 프로젝트 본문
+2. 공개 댓글/피드백 스레드
+3. 댓글 작성 버튼
+4. 소유자 전용 private/self feedback 필터
+
+소유자가 보는 필터:
 
 - All
-- Needs feedback
-- Active
-- Shipped
-- Parked
+- Public
+- Private
+- Open actions
+- Done
 
-칸반 보드는 기본 화면이 아니라 선택 뷰로 나중에 둔다. 처음부터 칸반을 전면에 두면 "일하는 화면" 느낌이 강해진다.
+일반 사용자가 보는 필터:
 
-### Project Workspace
+- Public
+- My private feedback, 본인이 private 댓글을 남긴 경우만
 
-프로젝트 소유자가 자기 프로젝트를 열었을 때만 보이는 내부 관리 화면이다. 별도 URL은 예를 들어 `/dashboard/projects/{projectId}`로 유지한다.
+댓글 작성 버튼을 누르면 composer가 열린다. composer의 기본값은 다음과 같다.
 
-구성은 세 영역이면 충분하다.
+- 일반 사용자의 기본 visibility: `public`
+- 프로젝트 소유자의 기본 visibility: `private`
+- 프로젝트 소유자의 기본 kind: `self_note`
 
-1. 프로젝트 글 수정
-2. 작업 로그
-3. 피드백 액션
+### My Profile
 
-작업 로그에는 다음을 둔다.
+내 프로필은 내 활동 아카이브다.
 
-- 할 일
-- 결정 사항
-- 짧은 업데이트
-- 릴리즈 메모
+표시 정보:
 
-피드백 액션에는 받은 피드백 중 아직 처리하지 않은 것만 모아 보여준다.
+- 내 정보
+- 내가 소유한 프로젝트
+- 내가 올린 외부 프로젝트
+- 내가 남긴 공개 피드백
+- 내가 즐겨찾기한 프로젝트
 
-### Public Project Page
+본인에게만 추가로 보여줄 수 있는 요약:
 
-공개 프로젝트 페이지에는 관리 기능을 노출하지 않는다. 다만 소유자가 로그인한 경우 작게 관리 링크만 보여준다.
+- open self feedback 수
+- private note 수
+- 최근 업데이트된 프로젝트
 
-- Edit
-- Manage
-- History
+단, 프로필을 별도 작업 보드처럼 만들지는 않는다. 각 항목은 프로젝트 페이지로 들어가는 링크 역할을 한다.
 
-이 링크들은 본문이나 피드백 흐름을 방해하지 않는 위치에 둔다.
+### Project Edit Page
 
-### Profile
+프로젝트 글 수정 화면은 본문 수정에 집중한다. 피드백이나 관리 스레드는 보여주지 않는다.
 
-프로필에는 "내 프로젝트"를 계속 보여주되, 내부 할 일 자체를 많이 노출하지 않는다.
-
-본인에게만 다음 요약을 보여줄 수 있다.
-
-- active projects
-- open tasks
-- unresolved feedback
-- recently updated
-
-타인에게는 public 프로젝트, external review, 작성한 피드백만 보여준다.
+필요한 관리 링크는 프로젝트 페이지에서 해결한다.
 
 ## 데이터 모델 초안
 
-### ProjectTask
+초기 구현은 기존 feedback/comment 모델 확장이 우선이다.
 
-프로젝트별 할 일이다.
-
-- id
-- projectId
-- ownerId
-- sourceFeedbackId: nullable
-- title
-- body
-- status: `todo | doing | done | dropped`
-- priority: `low | normal | high`
-- dueDate: nullable
-- createdAt
-- updatedAt
-- completedAt: nullable
-
-`sourceFeedbackId`가 있으면 특정 피드백에서 만들어진 액션이다.
-
-### ProjectUpdate
-
-프로젝트 작업 로그다. 긴 문서가 아니라 짧은 변경 기록에 가깝다.
+### Comment 또는 Feedback
 
 - id
 - projectId
 - authorId
-- updateType: `note | decision | release | experiment`
+- parentId: nullable
 - body: Markdown
+- rating: nullable
+- feedbackType: nullable
+- visibility: `public | private`
+- kind: `feedback | self_note | todo | decision | update | release`
+- actionStatus: `none | open | doing | done | dropped`
 - createdAt
 - updatedAt
+- deletedAt: nullable
 
-### FeedbackAction
+권한 규칙:
 
-피드백을 어떻게 처리했는지 표시한다. 기존 feedback 테이블에 붙여도 되고, 별도 테이블로 둬도 된다.
+- public 댓글은 public 프로젝트 페이지에서 보인다.
+- private 댓글은 프로젝트 소유자와 댓글 작성자만 볼 수 있다.
+- actionStatus 변경은 프로젝트 소유자만 할 수 있다.
+- 댓글 수정/삭제는 작성자만 할 수 있다.
+- 프로젝트 소유자는 자기 프로젝트의 private/self feedback을 관리할 수 있다.
 
-- feedbackId
-- projectId
-- ownerId
-- actionStatus: `unreviewed | accepted | later | done | rejected`
-- ownerNote
-- linkedTaskId: nullable
-- updatedAt
+### Project
 
-초기에는 feedback의 `implementedStatus`를 확장해도 된다. 다만 "반영 완료"와 "할 일로 전환"을 구분하려면 별도 모델이 더 깔끔하다.
+프로젝트에는 별도 관리 필드를 많이 붙이지 않는다. 다만 목록 요약을 위해 aggregate는 계산하거나 캐시할 수 있다.
 
-## MCP/API 기능
+- publicFeedbackCount
+- privateCommentCount, owner only
+- openActionCount, owner only
+- lastCommentAt
 
-관리 기능은 MCP에서 강력한 차별점이 될 수 있다. 코딩 에이전트가 프로젝트 맥락을 가져와서 다음 작업을 이어갈 수 있기 때문이다.
+### 나중에 필요하면 추가할 모델
 
-초기 MCP tool:
+초기에는 만들지 않는다.
 
-- `vibe.project_tasks_list`
-- `vibe.project_tasks_create`
-- `vibe.project_tasks_update`
-- `vibe.project_updates_list`
-- `vibe.project_updates_create`
-- `vibe.feedback_actions_update`
+- `CommentEvent`: action status 변경 이력
+- `ProjectActivity`: 자동 activity feed
+- `Assignment`: 피드백 요청 배정 시스템
+- `FeedbackQualityScore`: 피드백 평판
 
-대표 사용 흐름:
+## MCP/API 방향
 
-1. 에이전트가 `projects_get`으로 프로젝트 본문과 피드백을 읽는다.
-2. `project_tasks_list`로 열린 할 일을 확인한다.
-3. 작업 후 `project_updates_create`로 변경 요약을 남긴다.
-4. 필요하면 `project_tasks_update`로 완료 처리한다.
-5. 피드백을 반영했다면 `feedback_actions_update`로 상태를 바꾼다.
+MCP도 별도 project task tool을 만들기보다 feedback/comment tool을 확장한다.
 
-이렇게 되면 VibeReview는 단순 게시판이 아니라, 코딩 에이전트가 프로젝트 맥락을 이어받는 작업 허브가 된다.
+### 기본 tool
+
+- `vibe.feedback_list`
+- `vibe.feedback_create`
+- `vibe.feedback_update`
+- `vibe.feedback_delete`
+
+### 추가 입력 필드
+
+`feedback_create`:
+
+- projectId 또는 project slug
+- body
+- parentId
+- visibility: `public | private`
+- kind: `feedback | self_note | todo | decision | update | release`
+- actionStatus: optional
+
+`feedback_list`:
+
+- projectId 또는 project slug
+- includePrivate: boolean
+- visibility filter
+- kind filter
+- actionStatus filter
+
+`feedback_update`:
+
+- body
+- visibility
+- kind
+- actionStatus
+
+### 대표 MCP 사용 흐름
+
+1. 에이전트가 `projects_get`으로 프로젝트 본문과 공개/허용된 비공개 댓글을 읽는다.
+2. 작업 계획을 `feedback_create`로 `visibility=private`, `kind=todo`로 남긴다.
+3. 작업 중 결정 사항을 `kind=decision`으로 남긴다.
+4. 작업 완료 후 `actionStatus=done`으로 바꾼다.
+5. 공개해도 되는 변경 요약은 `visibility=public`, `kind=update`로 남긴다.
+
+이렇게 하면 코딩 에이전트는 별도 프로젝트 관리 API를 배우지 않아도 프로젝트 맥락을 이어갈 수 있다.
 
 ## 구현 단계
 
-### 1단계: 피드백 처리 상태 정리
+### 1단계: 댓글 visibility 추가
 
-가장 먼저 할 일은 피드백과 액션을 연결하는 것이다.
+- feedback/comment에 `visibility` 추가
+- 기본값은 `public`
+- 프로젝트 소유자는 private 댓글까지 조회
+- 작성자는 본인이 쓴 private 댓글 조회
+- public 페이지에서는 권한 없는 private 댓글 제외
 
-- 피드백별 처리 상태 표시
-- 프로젝트 소유자만 상태 변경 가능
-- 상태: unreviewed, later, done, rejected
-- 프로젝트 관리 화면에 "미처리 피드백" 모음 추가
+### 2단계: 댓글 kind 추가
 
-이 단계는 기존 피드백 중심 구조와 가장 잘 맞고, 화면도 크게 복잡해지지 않는다.
+- `feedback`
+- `self_note`
+- `todo`
+- `decision`
+- `update`
+- `release`
 
-### 2단계: 프로젝트별 할 일
+UI에서는 처음부터 많은 옵션을 노출하지 않는다.
 
-프로젝트 안에 단순 todo list를 붙인다.
+- 일반 사용자: feedback
+- 프로젝트 소유자: note, todo, update 정도만 먼저 노출
 
-- 제목
-- 본문
-- 상태
-- 우선순위
-- 피드백에서 할 일 생성
-- 소유자만 열람/수정
+### 3단계: action status 추가
 
-초기 UI는 칸반이 아니라 리스트다. 각 프로젝트 수정/관리 화면 오른쪽 또는 아래에 둔다.
+댓글에 action status를 붙인다.
 
-### 3단계: 작업 로그
+- `none`
+- `open`
+- `doing`
+- `done`
+- `dropped`
 
-작업 로그를 추가한다.
+소유자는 어떤 댓글이든 action으로 표시할 수 있다. 외부 피드백을 "할 일로 삼는 것"도 결국 이 상태 변경이다.
 
-- 오늘 무엇을 바꿨는지
-- 왜 이 결정을 했는지
-- 어떤 실험을 했는지
-- 어떤 릴리즈를 했는지
+### 4단계: 프로젝트 페이지 스레드 정리
 
-나중에 AI 첫 피드백이나 MCP 에이전트가 이 로그를 읽고 더 정확한 피드백을 줄 수 있다.
+프로젝트 페이지에서 댓글 스레드를 다음처럼 정리한다.
 
-### 4단계: 내 프로젝트 관리 요약
+- 공개 댓글은 기본 표시
+- private 댓글은 소유자에게만 섞어서 표시
+- private 댓글에는 작은 private badge 표시
+- todo/action 댓글에는 상태 badge 표시
+- 새 댓글 작성은 버튼 클릭 후 펼침
+- 댓글 수정은 수정 버튼 클릭 후 해당 댓글 자리에서 편집
 
-My Projects 화면에 관리 요약을 붙인다.
+### 5단계: 프로필 요약
 
-- 열린 할 일 수
-- 미처리 피드백 수
-- 최근 업데이트
-- 상태별 필터
+프로필에는 별도 보드 대신 요약만 둔다.
 
-이 단계까지 와도 기본은 row 리스트다.
+- 내가 소유한 프로젝트의 open action 수
+- 최근 private self feedback
+- 내가 남긴 public feedback
+- 즐겨찾기한 프로젝트
 
-### 5단계: 선택형 칸반/타임라인
+각 항목을 누르면 프로젝트 페이지의 해당 댓글로 이동한다.
 
-데이터가 쌓인 뒤에만 선택 뷰로 추가한다.
+### 6단계: MCP 현행화
 
-- 상태별 칸반
-- 최근 활동 타임라인
-- 피드백 반영 히스토리
+- feedback create/list/update/delete에 visibility, kind, actionStatus 반영
+- private 댓글 권한 체크
+- MCP 문서 업데이트
+- 에이전트 예시 추가
 
-기본 화면으로 두지 않는다.
+## 하지 않을 것
 
-## 하지 말아야 할 것
+초기에는 다음을 하지 않는다.
 
-- 모든 프로젝트를 한 번에 관리하는 복잡한 대시보드
-- 스프린트, 담당자, 팀 권한, 반복 일정
-- 공개 프로젝트 상세에 업무 관리 UI 노출
-- 처음부터 칸반을 메인으로 만들기
-- 피드백보다 할 일이 더 중요한 서비스처럼 보이게 만들기
+- 별도 칸반 보드
+- 별도 ProjectTask 테이블
+- 별도 ProjectUpdate 테이블
+- 공개 페이지에 무거운 관리 패널 노출
+- profile을 업무 대시보드로 확장
 
-## 성공 기준
-
-- 사용자가 받은 피드백을 잃어버리지 않는다.
-- 프로젝트별 다음 액션이 10초 안에 보인다.
-- 프로젝트 상세의 공개 화면은 여전히 단순 게시판처럼 보인다.
-- 코딩 에이전트가 MCP로 프로젝트 상태와 할 일을 읽고 업데이트할 수 있다.
-- 나중에 AI 피드백 하네스가 작업 로그와 피드백 반영 이력을 입력으로 쓸 수 있다.
+필요해지면 나중에 댓글 데이터를 기반으로 board view만 얹을 수 있다. 데이터 모델을 처음부터 무겁게 만들 필요는 없다.
 
 ## 결론
 
-프로젝트 관리 기능은 "또 하나의 업무툴"이 아니라 VibeReview의 피드백 루프를 완성하는 내부 레이어로 가야 한다.
+가장 좋은 방향은 "프로젝트 관리 = 비공개/공개 댓글이 섞인 프로젝트 스레드"다.
 
-가장 좋은 첫 구현은 칸반이 아니라 `피드백 처리 상태 -> 프로젝트별 할 일 -> 작업 로그` 순서다. 이렇게 하면 현재의 단순 게시판 정체성을 유지하면서도, 프로젝트를 계속 개선하는 작업 공간으로 자연스럽게 확장할 수 있다.
+프로젝트 할 일은 셀프 피드백이고, 외부 피드백은 남이 준 개선 힌트다. 둘을 같은 댓글 모델에 두면 VibeReview는 단순 게시판 정체성을 유지하면서도, 프로젝트를 계속 고쳐 나가는 아카이브와 작업 맥락을 자연스럽게 갖게 된다.
