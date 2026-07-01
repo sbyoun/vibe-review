@@ -84,7 +84,7 @@ export async function GET(request: Request) {
       "Read saved project edit history with vibe.projects_history or GET /api/mcp/projects/{projectId}/revisions.",
       "Read received feedback, private self notes, and todos with GET /api/mcp/feedback?projectId={id}&limit=50. Bodies are returned directly.",
       "Create a feedback comment, private note, todo, or reply with POST /api/mcp/feedback. Pass parentFeedbackId for a reply.",
-      "Update action status with PATCH /api/mcp/feedback and actionStatus=open|doing|done|dropped. Delete your own comments with DELETE /api/mcp/feedback.",
+      "Update your own feedback comment content, visibility, or kind with PATCH /api/mcp/feedback. Delete your own comments with DELETE /api/mcp/feedback.",
     ],
     endpoints: [
       {
@@ -213,9 +213,9 @@ export async function GET(request: Request) {
       },
       {
         method: "GET",
-        path: "/api/mcp/feedback?projectId=&limit=&visibility=&kind=&actionStatus=",
-        url: `${baseUrl}/api/mcp/feedback?projectId=&limit=&visibility=&kind=&actionStatus=`,
-        description: "List feedback comments, private notes, and action items on owned projects. Bodies are returned directly.",
+        path: "/api/mcp/feedback?projectId=&limit=&visibility=&kind=",
+        url: `${baseUrl}/api/mcp/feedback?projectId=&limit=&visibility=&kind=`,
+        description: "List feedback comments and private notes on owned projects. Bodies are returned directly.",
         authRequired: true,
       },
       {
@@ -232,14 +232,13 @@ export async function GET(request: Request) {
           rating: "integer 1-5, optional",
           visibility: "public | private, optional",
           kind: "feedback | self_note | todo | decision | update | release, optional",
-          actionStatus: "none | open | doing | done | dropped, optional",
         },
       },
       {
         method: "PATCH",
         path: "/api/mcp/feedback",
         url: `${baseUrl}/api/mcp/feedback`,
-        description: "Update your own comment content/visibility, or update actionStatus on owned project feedback.",
+        description: "Update your own comment content, visibility, or kind.",
         authRequired: true,
         body: {
           feedbackId: "uuid, required",
@@ -248,7 +247,6 @@ export async function GET(request: Request) {
           rating: "integer 1-5, optional",
           visibility: "public | private, optional",
           kind: "feedback | self_note | todo | decision | update | release, optional",
-          actionStatus: "none | open | doing | done | dropped, optional",
         },
       },
       {
@@ -264,7 +262,6 @@ export async function GET(request: Request) {
     ],
     feedbackVisibilities: ["public", "private"],
     feedbackKinds: ["feedback", "self_note", "todo", "decision", "update", "release"],
-    feedbackActionStatuses: ["none", "open", "doing", "done", "dropped"],
     feedbackTypes: [
       "first_impression",
       "ux_ui",

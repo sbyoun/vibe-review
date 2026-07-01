@@ -15,7 +15,6 @@ import {
   users,
 } from "@/db/schema";
 import {
-  feedbackActionStatuses,
   feedbackKinds,
   feedbackTypes,
   feedbackVisibilities,
@@ -23,7 +22,6 @@ import {
   projectStatuses,
   projectVisibilities,
   slugifyProjectTitle,
-  type FeedbackActionStatus,
   type FeedbackKind,
   type FeedbackType,
   type FeedbackVisibility,
@@ -165,7 +163,6 @@ export const createMcpFeedbackSchema = z.object({
   rating: z.number().int().min(1).max(5).default(4),
   visibility: z.enum(feedbackVisibilities).optional(),
   kind: z.enum(feedbackKinds).optional(),
-  actionStatus: z.enum(feedbackActionStatuses).optional(),
 });
 
 export const updateMcpFeedbackSchema = z
@@ -176,7 +173,6 @@ export const updateMcpFeedbackSchema = z
     rating: z.number().int().min(1).max(5).optional(),
     visibility: z.enum(feedbackVisibilities).optional(),
     kind: z.enum(feedbackKinds).optional(),
-    actionStatus: z.enum(feedbackActionStatuses).optional(),
   })
   .refine((value) => Object.entries(value).some(([key, field]) => key !== "feedbackId" && field !== undefined), {
     message: "At least one feedback field is required.",
@@ -244,7 +240,6 @@ export async function getMcpProject(owner: McpUser, projectId: string) {
       implementedStatus: feedback.implementedStatus,
       visibility: feedback.visibility,
       kind: feedback.kind,
-      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       authorName: users.name,
       authorHandle: users.handle,
@@ -545,7 +540,6 @@ export async function createMcpFeedback(
   const isProjectOwner = row.project.ownerId === author.id;
   const requestedVisibility = input.visibility ?? (isProjectOwner ? "private" : "public");
   const requestedKind = input.kind ?? (isProjectOwner ? "self_note" : "feedback");
-  const requestedActionStatus = input.actionStatus ?? "none";
   let parentVisibility: FeedbackVisibility | null = null;
 
   if (input.parentFeedbackId) {
@@ -573,7 +567,6 @@ export async function createMcpFeedback(
 
   const visibility = parentVisibility === "private" ? "private" : requestedVisibility;
   const kind = isProjectOwner ? requestedKind : "feedback";
-  const actionStatus = isProjectOwner ? requestedActionStatus : "none";
   const storedRating = kind === "feedback" ? input.rating : null;
 
   const [entry] = await db.transaction(async (tx) => {
@@ -592,7 +585,6 @@ export async function createMcpFeedback(
         implementedStatus: "unreviewed",
         visibility,
         kind,
-        actionStatus,
       })
       .returning();
 
@@ -647,7 +639,6 @@ export async function listMcpFeedback(owner: McpUser, url: URL) {
       implementedStatus: feedback.implementedStatus,
       visibility: feedback.visibility,
       kind: feedback.kind,
-      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       authorName: users.name,
       authorHandle: users.handle,
@@ -667,7 +658,6 @@ export async function listMcpFeedback(owner: McpUser, url: URL) {
 function createMcpFeedbackListWhere(url: URL, projectId: string | undefined, projectIds: string[]) {
   const visibility = url.searchParams.get("visibility")?.trim();
   const kind = url.searchParams.get("kind")?.trim();
-  const actionStatus = url.searchParams.get("actionStatus")?.trim();
   const includePrivate = url.searchParams.get("includePrivate") !== "false";
   const conditions = [projectId ? eq(feedback.projectId, projectId) : inArray(feedback.projectId, projectIds)];
 
@@ -679,10 +669,6 @@ function createMcpFeedbackListWhere(url: URL, projectId: string | undefined, pro
 
   if (feedbackKinds.includes(kind as FeedbackKind)) {
     conditions.push(eq(feedback.kind, kind as FeedbackKind));
-  }
-
-  if (feedbackActionStatuses.includes(actionStatus as FeedbackActionStatus)) {
-    conditions.push(eq(feedback.actionStatus, actionStatus as FeedbackActionStatus));
   }
 
   return and(...conditions);
@@ -721,17 +707,12 @@ export async function updateMcpFeedback(
     throw new ApiError(403, "feedback_update_forbidden", "Only the feedback author can edit comment content.");
   }
 
-  if (input.actionStatus !== undefined && !isProjectOwner) {
-    throw new ApiError(403, "feedback_action_forbidden", "Only the project owner can update action status.");
-  }
-
   const patch: Partial<{
     body: string;
     feedbackType: FeedbackType;
     rating: number | null;
     visibility: FeedbackVisibility;
     kind: FeedbackKind;
-    actionStatus: FeedbackActionStatus;
     updatedAt: Date;
   }> = {
     updatedAt: new Date(),
@@ -760,10 +741,6 @@ export async function updateMcpFeedback(
         patch.rating = null;
       }
     }
-  }
-
-  if (isProjectOwner && input.actionStatus !== undefined) {
-    patch.actionStatus = input.actionStatus;
   }
 
   const finalKind = patch.kind ?? row.feedback.kind;
@@ -918,7 +895,6 @@ function serializeFeedback<
     implementedStatus: string;
     visibility: FeedbackVisibility;
     kind: FeedbackKind;
-    actionStatus: FeedbackActionStatus;
     createdAt: Date;
     projectTitle?: string;
     projectSlug?: string;
@@ -943,7 +919,6 @@ function serializeFeedback<
     implementedStatus: entry.implementedStatus,
     visibility: entry.visibility,
     kind: entry.kind,
-    actionStatus: entry.actionStatus,
     createdAt: entry.createdAt,
   };
 }

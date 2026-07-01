@@ -229,8 +229,7 @@ curl -X POST https://vibe.foldalpha.com/api/mcp/feedback \
     "projectId": "{projectId}",
     "body": "Next action: simplify onboarding copy.",
     "visibility": "private",
-    "kind": "todo",
-    "actionStatus": "open"
+    "kind": "todo"
   }'
 ```
 
@@ -255,7 +254,9 @@ curl -X PATCH https://vibe.foldalpha.com/api/mcp/feedback \
   -H "Content-Type: application/json" \
   -d '{
     "feedbackId": "{feedbackId}",
-    "actionStatus": "done"
+    "body": "Updated comment body.",
+    "visibility": "private",
+    "kind": "self_note"
   }'
 ```
 

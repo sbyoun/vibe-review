@@ -338,7 +338,6 @@ export async function getWorkspaceData() {
             implementedStatus: feedback.implementedStatus,
             visibility: feedback.visibility,
             kind: feedback.kind,
-            actionStatus: feedback.actionStatus,
             createdAt: feedback.createdAt,
             authorName: users.name,
           })
@@ -423,7 +422,6 @@ export async function getWorkspaceProjectData(projectId: string) {
       implementedStatus: feedback.implementedStatus,
       visibility: feedback.visibility,
       kind: feedback.kind,
-      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       authorName: users.name,
     })
@@ -520,7 +518,6 @@ async function getAuthoredFeedbackRows(authorId: string, publicOnly = false) {
       implementedStatus: feedback.implementedStatus,
       visibility: feedback.visibility,
       kind: feedback.kind,
-      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       projectTitle: projects.title,
       projectSlug: projects.slug,
@@ -809,7 +806,6 @@ export async function getPublicProjectData(handle: string, slug: string) {
       implementedStatus: feedback.implementedStatus,
       visibility: feedback.visibility,
       kind: feedback.kind,
-      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       authorName: users.name,
       authorBio: users.bio,

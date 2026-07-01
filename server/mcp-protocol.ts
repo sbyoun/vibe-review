@@ -72,7 +72,6 @@ const feedbackListSchema = apiTokenSchema.extend({
   includePrivate: z.boolean().optional(),
   visibility: z.enum(["public", "private"]).optional(),
   kind: z.enum(["feedback", "self_note", "todo", "decision", "update", "release"]).optional(),
-  actionStatus: z.enum(["none", "open", "doing", "done", "dropped"]).optional(),
 });
 
 const projectUpdateSchema = apiTokenSchema.extend({
@@ -423,7 +422,6 @@ const tools = [
           type: "string",
           enum: ["feedback", "self_note", "todo", "decision", "update", "release"],
         },
-        actionStatus: { type: "string", enum: ["none", "open", "doing", "done", "dropped"] },
       },
       additionalProperties: false,
     },
@@ -460,7 +458,6 @@ const tools = [
           enum: ["feedback", "self_note", "todo", "decision", "update", "release"],
           description: "Project owners can create self_note, todo, decision, update, or release comments.",
         },
-        actionStatus: { type: "string", enum: ["none", "open", "doing", "done", "dropped"] },
       },
       required: ["projectId", "body"],
       additionalProperties: false,
@@ -469,8 +466,7 @@ const tools = [
   {
     name: "vibe.feedback_update",
     title: "Update Vibe Feedback",
-    description:
-      "Update your own comment content/visibility, or update actionStatus on owned project feedback.",
+    description: "Update your own comment content, visibility, or kind.",
     inputSchema: {
       type: "object",
       properties: {
@@ -496,7 +492,6 @@ const tools = [
           type: "string",
           enum: ["feedback", "self_note", "todo", "decision", "update", "release"],
         },
-        actionStatus: { type: "string", enum: ["none", "open", "doing", "done", "dropped"] },
       },
       required: ["feedbackId"],
       additionalProperties: false,
@@ -755,10 +750,6 @@ async function feedbackList(request: Request, args: JsonObject) {
     url.searchParams.set("kind", input.kind);
   }
 
-  if (input.actionStatus) {
-    url.searchParams.set("actionStatus", input.actionStatus);
-  }
-
   return listMcpFeedback(user, url);
 }
 
@@ -773,7 +764,6 @@ async function feedbackCreate(request: Request, args: JsonObject) {
     rating: input.rating,
     visibility: input.visibility,
     kind: input.kind,
-    actionStatus: input.actionStatus,
   };
 
   return createMcpFeedback(user, feedbackInput);
@@ -789,7 +779,6 @@ async function feedbackUpdate(request: Request, args: JsonObject) {
     rating: input.rating,
     visibility: input.visibility,
     kind: input.kind,
-    actionStatus: input.actionStatus,
   };
 
   return updateMcpFeedback(user, feedbackInput);

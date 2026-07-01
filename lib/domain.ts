@@ -53,9 +53,6 @@ export const feedbackKinds = [
 ] as const;
 export type FeedbackKind = (typeof feedbackKinds)[number];
 
-export const feedbackActionStatuses = ["none", "open", "doing", "done", "dropped"] as const;
-export type FeedbackActionStatus = (typeof feedbackActionStatuses)[number];
-
 export const feedbackClaimStatuses = ["claimed", "submitted", "cancelled", "expired"] as const;
 export type FeedbackClaimStatus = (typeof feedbackClaimStatuses)[number];
 
@@ -104,14 +101,6 @@ export const feedbackKindLabel: Record<FeedbackKind, string> = {
   decision: "Decision",
   update: "Update",
   release: "Release",
-};
-
-export const feedbackActionStatusLabel: Record<FeedbackActionStatus, string> = {
-  none: "No action",
-  open: "Open",
-  doing: "Doing",
-  done: "Done",
-  dropped: "Dropped",
 };
 
 export const feedbackClaimStatusLabel: Record<FeedbackClaimStatus, string> = {
@@ -199,15 +188,6 @@ export function coerceFeedbackKind(
   fallback: FeedbackKind = "feedback",
 ): FeedbackKind {
   return feedbackKinds.includes(value as FeedbackKind) ? (value as FeedbackKind) : fallback;
-}
-
-export function coerceFeedbackActionStatus(
-  value: FormDataEntryValue | null,
-  fallback: FeedbackActionStatus = "none",
-): FeedbackActionStatus {
-  return feedbackActionStatuses.includes(value as FeedbackActionStatus)
-    ? (value as FeedbackActionStatus)
-    : fallback;
 }
 
 export function coerceFeedbackTypes(values: FormDataEntryValue[]): FeedbackType[] {

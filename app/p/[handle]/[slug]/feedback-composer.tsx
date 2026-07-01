@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  feedbackActionStatusLabel,
-  feedbackActionStatuses,
   feedbackKindLabel,
   feedbackTypeLabel,
   feedbackTypes,
@@ -55,20 +53,12 @@ export function FeedbackComposer({ projectId, viewerName, isOwner }: FeedbackCom
                   </option>
                 ))}
               </select>
-              <select className={compactInputClass} name="actionStatus" defaultValue="none" aria-label="Action status">
-                {feedbackActionStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {feedbackActionStatusLabel[status]}
-                  </option>
-                ))}
-              </select>
               <input type="hidden" name="feedbackType" value="first_impression" />
               <input type="hidden" name="rating" value="4" />
             </>
           ) : (
             <>
               <input type="hidden" name="kind" value="feedback" />
-              <input type="hidden" name="actionStatus" value="none" />
               <select
                 className={compactInputClass}
                 name="feedbackType"

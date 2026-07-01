@@ -7,8 +7,6 @@ import { ChevronUp, Save, Trash2 } from "lucide-react";
 import { MarkdownContent } from "@/components/markdown-content";
 import { Button } from "@/components/ui/button";
 import {
-  feedbackActionStatusLabel,
-  feedbackActionStatuses,
   feedbackKindLabel,
   feedbackKinds,
   feedbackTypeLabel,
@@ -16,7 +14,6 @@ import {
   feedbackVisibilityLabel,
   feedbackVisibilities,
   formatShortDate,
-  type FeedbackActionStatus,
   type FeedbackKind,
   type FeedbackType,
   type FeedbackVisibility,
@@ -24,7 +21,6 @@ import {
 import {
   createFeedback,
   deleteFeedback,
-  updateFeedbackAction,
   updateFeedbackDetails,
 } from "@/server/actions";
 
@@ -42,7 +38,6 @@ type FeedbackEntry = {
   rating: number | null;
   visibility: FeedbackVisibility;
   kind: FeedbackKind;
-  actionStatus: FeedbackActionStatus;
   createdAt: Date | string;
 };
 
@@ -52,7 +47,7 @@ type FeedbackThreadProps = {
   isOwner: boolean;
 };
 
-type FeedbackFilter = "all" | "public" | "private" | "open" | "done";
+type FeedbackFilter = "all" | "public" | "private";
 
 const ownerKindOptions: FeedbackKind[] = [...feedbackKinds];
 
@@ -81,11 +76,6 @@ export function FeedbackThread({ feedback, viewerId, isOwner }: FeedbackThreadPr
   async function replyToFeedback(formData: FormData) {
     await createFeedback(formData);
     setReplyingId(null);
-    router.refresh();
-  }
-
-  async function saveAction(formData: FormData) {
-    await updateFeedbackAction(formData);
     router.refresh();
   }
 
@@ -135,7 +125,6 @@ export function FeedbackThread({ feedback, viewerId, isOwner }: FeedbackThreadPr
               onReply={setReplyingId}
               onSave={saveFeedback}
               onReplySubmit={replyToFeedback}
-              onActionSubmit={saveAction}
               onDeleteSubmit={removeFeedback}
             />
           ))}
@@ -159,7 +148,6 @@ function FeedbackItem({
   onReply,
   onSave,
   onReplySubmit,
-  onActionSubmit,
   onDeleteSubmit,
 }: {
   entry: FeedbackEntry;
@@ -173,7 +161,6 @@ function FeedbackItem({
   onReply: (id: string | null) => void;
   onSave: (formData: FormData) => Promise<void>;
   onReplySubmit: (formData: FormData) => Promise<void>;
-  onActionSubmit: (formData: FormData) => Promise<void>;
   onDeleteSubmit: (formData: FormData) => Promise<void>;
 }) {
   const canEditFeedback = viewerId === entry.authorId;
@@ -205,13 +192,6 @@ function FeedbackItem({
                     {ownerKindOptions.map((kind) => (
                       <option key={kind} value={kind}>
                         {feedbackKindLabel[kind]}
-                      </option>
-                    ))}
-                  </select>
-                  <select className={compactInputClass} name="actionStatus" defaultValue={entry.actionStatus} aria-label="Action status">
-                    {feedbackActionStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {feedbackActionStatusLabel[status]}
                       </option>
                     ))}
                   </select>
@@ -329,22 +309,6 @@ function FeedbackItem({
               ) : null}
             </div>
 
-            {isOwner ? (
-              <form action={onActionSubmit} className="mt-2 flex flex-wrap items-center gap-2">
-                <input type="hidden" name="feedbackId" value={entry.id} />
-                <select className={compactInputClass} name="actionStatus" defaultValue={entry.actionStatus} aria-label="Action status">
-                  {feedbackActionStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {feedbackActionStatusLabel[status]}
-                    </option>
-                  ))}
-                </select>
-                <Button type="submit" size="sm" variant="outline">
-                  Set
-                </Button>
-              </form>
-            ) : null}
-
             {isReplying ? (
               <form action={onReplySubmit} className="mt-3 grid gap-2 border border-border bg-card p-3">
                 <input type="hidden" name="projectId" value={entry.projectId} />
@@ -353,7 +317,6 @@ function FeedbackItem({
                 <input type="hidden" name="rating" value="4" />
                 <input type="hidden" name="visibility" value={entry.visibility} />
                 <input type="hidden" name="kind" value={isOwner && entry.visibility === "private" ? "self_note" : "feedback"} />
-                <input type="hidden" name="actionStatus" value="none" />
                 <textarea
                   className={inputClass}
                   name="body"
@@ -390,7 +353,6 @@ function FeedbackItem({
                     onReply={onReply}
                     onSave={onSave}
                     onReplySubmit={onReplySubmit}
-                    onActionSubmit={onActionSubmit}
                     onDeleteSubmit={onDeleteSubmit}
                   />
                 ))}
@@ -426,19 +388,12 @@ function FeedbackBadges({ entry }: { entry: FeedbackEntry }) {
           {feedbackKindLabel[entry.kind]}
         </span>
       ) : null}
-      {entry.actionStatus !== "none" ? (
-        <span className="rounded-sm border border-secondary/40 bg-secondary/10 px-1.5 py-0.5 text-[10px] text-secondary">
-          {feedbackActionStatusLabel[entry.actionStatus]}
-        </span>
-      ) : null}
     </>
   );
 }
 
 function getFilterOptions(feedback: FeedbackEntry[], isOwner: boolean) {
   const hasPrivate = feedback.some((entry) => entry.visibility === "private");
-  const hasOpen = feedback.some((entry) => entry.actionStatus === "open" || entry.actionStatus === "doing");
-  const hasDone = feedback.some((entry) => entry.actionStatus === "done");
   const options: { value: FeedbackFilter; label: string }[] = [
     { value: "all", label: `All ${feedback.length}` },
     {
@@ -454,20 +409,6 @@ function getFilterOptions(feedback: FeedbackEntry[], isOwner: boolean) {
     });
   }
 
-  if (isOwner || hasOpen) {
-    options.push({
-      value: "open",
-      label: `Open ${feedback.filter((entry) => entry.actionStatus === "open" || entry.actionStatus === "doing").length}`,
-    });
-  }
-
-  if (isOwner || hasDone) {
-    options.push({
-      value: "done",
-      label: `Done ${feedback.filter((entry) => entry.actionStatus === "done").length}`,
-    });
-  }
-
   return options;
 }
 
@@ -477,10 +418,6 @@ function matchesFilter(entry: FeedbackEntry, filter: FeedbackFilter) {
       return entry.visibility === "public";
     case "private":
       return entry.visibility === "private";
-    case "open":
-      return entry.actionStatus === "open" || entry.actionStatus === "doing";
-    case "done":
-      return entry.actionStatus === "done";
     case "all":
     default:
       return true;

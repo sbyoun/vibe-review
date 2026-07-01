@@ -93,7 +93,7 @@ MCP tools:
 - `vibe.feedback_delete`
 
 프로젝트 생성/수정 API는 `thumbnailUrl`, `images[0].url`, `thumbnailBase64`를 지원한다.
-피드백 API는 `visibility`, `kind`, `actionStatus`로 public/private 댓글, self note, todo를 같은 스레드에서 다룬다.
+피드백 API는 `visibility`, `kind`로 public/private 댓글과 self note를 같은 스레드에서 다룬다.
 
 브라우저 자동화는 금지하고, MCP/curl/fetch로만 처리한다.
 
