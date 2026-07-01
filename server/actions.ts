@@ -23,6 +23,9 @@ import {
 } from "@/db/schema";
 import {
   coerceFeedbackType,
+  coerceFeedbackActionStatus,
+  coerceFeedbackKind,
+  coerceFeedbackVisibility,
   coerceImplementationStatus,
   coerceInt,
   coerceProjectStatus,
@@ -455,9 +458,26 @@ export async function createFeedback(formData: FormData) {
     throw new Error("Project not found");
   }
 
+  const isProjectOwner = project.ownerId === reviewer.id;
+  const requestedVisibility = coerceFeedbackVisibility(
+    formData.get("visibility"),
+    isProjectOwner ? "private" : "public",
+  );
+  const requestedKind = coerceFeedbackKind(
+    formData.get("kind"),
+    isProjectOwner ? "self_note" : "feedback",
+  );
+  const requestedActionStatus = coerceFeedbackActionStatus(formData.get("actionStatus"));
+  let parentVisibility: "public" | "private" | null = null;
+
   if (parentFeedbackId) {
     const [parent] = await db
-      .select({ id: feedback.id, projectId: feedback.projectId })
+      .select({
+        id: feedback.id,
+        projectId: feedback.projectId,
+        authorId: feedback.authorId,
+        visibility: feedback.visibility,
+      })
       .from(feedback)
       .where(eq(feedback.id, parentFeedbackId))
       .limit(1);
@@ -465,7 +485,17 @@ export async function createFeedback(formData: FormData) {
     if (!parent || parent.projectId !== project.id) {
       throw new Error("Parent feedback not found");
     }
+
+    parentVisibility = parent.visibility;
+
+    if (parent.visibility === "private" && !isProjectOwner && parent.authorId !== reviewer.id) {
+      throw new Error("Parent feedback not found");
+    }
   }
+
+  const visibility = parentVisibility === "private" ? "private" : requestedVisibility;
+  const kind = isProjectOwner ? requestedKind : "feedback";
+  const actionStatus = isProjectOwner ? requestedActionStatus : "none";
 
   const [owner] = await db
     .select({ handle: users.handle })
@@ -499,6 +529,9 @@ export async function createFeedback(formData: FormData) {
         rating,
         helpfulStatus: "unreviewed",
         implementedStatus: "unreviewed",
+        visibility,
+        kind,
+        actionStatus,
       });
 
     await tx
@@ -551,6 +584,15 @@ export async function updateFeedbackDetails(formData: FormData) {
     throw new Error("Project not found");
   }
 
+  const isProjectOwner = project.ownerId === author.id;
+  const visibility = coerceFeedbackVisibility(formData.get("visibility"), entry.visibility);
+  const kind = isProjectOwner
+    ? coerceFeedbackKind(formData.get("kind"), entry.kind)
+    : "feedback";
+  const actionStatus = isProjectOwner
+    ? coerceFeedbackActionStatus(formData.get("actionStatus"), entry.actionStatus)
+    : entry.actionStatus;
+
   const [owner] = await db
     .select({ handle: users.handle })
     .from(users)
@@ -566,6 +608,9 @@ export async function updateFeedbackDetails(formData: FormData) {
         body,
         feedbackType,
         rating,
+        visibility,
+        kind,
+        actionStatus,
         updatedAt: now,
       })
       .where(eq(feedback.id, entry.id));
@@ -580,6 +625,117 @@ export async function updateFeedbackDetails(formData: FormData) {
   });
 
   revalidateWorkspace(owner?.handle, project.slug, project.id);
+  revalidatePath(`/p/${author.handle}`);
+}
+
+export async function updateFeedbackAction(formData: FormData) {
+  await ensureDemoData();
+  const owner = await requireCurrentUser();
+
+  const feedbackId = readRequiredString(formData, "feedbackId");
+  const actionStatus = coerceFeedbackActionStatus(formData.get("actionStatus"));
+
+  const [entry] = await db
+    .select({
+      id: feedback.id,
+      projectId: feedback.projectId,
+      authorId: feedback.authorId,
+    })
+    .from(feedback)
+    .where(eq(feedback.id, feedbackId))
+    .limit(1);
+
+  if (!entry) {
+    throw new Error("Feedback not found");
+  }
+
+  const [project] = await db
+    .select({
+      id: projects.id,
+      slug: projects.slug,
+      ownerId: projects.ownerId,
+    })
+    .from(projects)
+    .where(and(eq(projects.id, entry.projectId), eq(projects.ownerId, owner.id)))
+    .limit(1);
+
+  if (!project) {
+    throw new Error("Feedback not found");
+  }
+
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(feedback)
+      .set({
+        actionStatus,
+        updatedAt: now,
+      })
+      .where(eq(feedback.id, entry.id));
+
+    await tx
+      .update(projects)
+      .set({
+        updatedAt: now,
+        lastActivityAt: now,
+      })
+      .where(eq(projects.id, project.id));
+  });
+
+  revalidateWorkspace(owner.handle, project.slug, project.id);
+}
+
+export async function deleteFeedback(formData: FormData) {
+  await ensureDemoData();
+  const author = await requireCurrentUser();
+
+  const feedbackId = readRequiredString(formData, "feedbackId");
+
+  const [entry] = await db
+    .select({
+      id: feedback.id,
+      projectId: feedback.projectId,
+      authorId: feedback.authorId,
+    })
+    .from(feedback)
+    .where(and(eq(feedback.id, feedbackId), eq(feedback.authorId, author.id)))
+    .limit(1);
+
+  if (!entry) {
+    throw new Error("Feedback not found");
+  }
+
+  const [project] = await db
+    .select({
+      id: projects.id,
+      slug: projects.slug,
+      ownerId: projects.ownerId,
+      ownerHandle: users.handle,
+    })
+    .from(projects)
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(eq(projects.id, entry.projectId))
+    .limit(1);
+
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  await db.transaction(async (tx) => {
+    const now = new Date();
+
+    await tx.delete(feedback).where(eq(feedback.id, entry.id));
+    await tx
+      .update(projects)
+      .set({
+        updatedAt: now,
+        lastActivityAt: now,
+      })
+      .where(eq(projects.id, project.id));
+  });
+
+  revalidateWorkspace(project.ownerHandle, project.slug, project.id);
   revalidatePath(`/p/${author.handle}`);
 }
 

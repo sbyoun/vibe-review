@@ -15,12 +15,18 @@ import {
   users,
 } from "@/db/schema";
 import {
+  feedbackActionStatuses,
+  feedbackKinds,
   feedbackTypes,
+  feedbackVisibilities,
   projectTypes,
   projectStatuses,
   projectVisibilities,
   slugifyProjectTitle,
+  type FeedbackActionStatus,
+  type FeedbackKind,
   type FeedbackType,
+  type FeedbackVisibility,
   type ProjectType,
   type ProjectVisibility,
 } from "@/lib/domain";
@@ -157,6 +163,27 @@ export const createMcpFeedbackSchema = z.object({
   body: z.string().trim().min(1).max(2000),
   feedbackType: z.enum(feedbackTypes).default("first_impression"),
   rating: z.number().int().min(1).max(5).default(4),
+  visibility: z.enum(feedbackVisibilities).optional(),
+  kind: z.enum(feedbackKinds).optional(),
+  actionStatus: z.enum(feedbackActionStatuses).optional(),
+});
+
+export const updateMcpFeedbackSchema = z
+  .object({
+    feedbackId: z.string().trim().uuid(),
+    body: z.string().trim().min(1).max(2000).optional(),
+    feedbackType: z.enum(feedbackTypes).optional(),
+    rating: z.number().int().min(1).max(5).optional(),
+    visibility: z.enum(feedbackVisibilities).optional(),
+    kind: z.enum(feedbackKinds).optional(),
+    actionStatus: z.enum(feedbackActionStatuses).optional(),
+  })
+  .refine((value) => Object.entries(value).some(([key, field]) => key !== "feedbackId" && field !== undefined), {
+    message: "At least one feedback field is required.",
+  });
+
+export const deleteMcpFeedbackSchema = z.object({
+  feedbackId: z.string().trim().uuid(),
 });
 
 export const listMcpProjectRevisionsSchema = z.object({
@@ -215,6 +242,9 @@ export async function getMcpProject(owner: McpUser, projectId: string) {
       rating: feedback.rating,
       helpfulStatus: feedback.helpfulStatus,
       implementedStatus: feedback.implementedStatus,
+      visibility: feedback.visibility,
+      kind: feedback.kind,
+      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       authorName: users.name,
       authorHandle: users.handle,
@@ -512,9 +542,20 @@ export async function createMcpFeedback(
     throw new ApiError(404, "project_not_found", "Project was not found or is private.");
   }
 
+  const isProjectOwner = row.project.ownerId === author.id;
+  const requestedVisibility = input.visibility ?? (isProjectOwner ? "private" : "public");
+  const requestedKind = input.kind ?? (isProjectOwner ? "self_note" : "feedback");
+  const requestedActionStatus = input.actionStatus ?? "none";
+  let parentVisibility: FeedbackVisibility | null = null;
+
   if (input.parentFeedbackId) {
     const [parent] = await db
-      .select({ id: feedback.id, projectId: feedback.projectId })
+      .select({
+        id: feedback.id,
+        projectId: feedback.projectId,
+        authorId: feedback.authorId,
+        visibility: feedback.visibility,
+      })
       .from(feedback)
       .where(eq(feedback.id, input.parentFeedbackId))
       .limit(1);
@@ -522,7 +563,17 @@ export async function createMcpFeedback(
     if (!parent || parent.projectId !== row.project.id) {
       throw new ApiError(404, "parent_feedback_not_found", "Parent feedback was not found for this project.");
     }
+
+    if (parent.visibility === "private" && !isProjectOwner && parent.authorId !== author.id) {
+      throw new ApiError(404, "parent_feedback_not_found", "Parent feedback was not found for this project.");
+    }
+
+    parentVisibility = parent.visibility;
   }
+
+  const visibility = parentVisibility === "private" ? "private" : requestedVisibility;
+  const kind = isProjectOwner ? requestedKind : "feedback";
+  const actionStatus = isProjectOwner ? requestedActionStatus : "none";
 
   const [entry] = await db.transaction(async (tx) => {
     const now = new Date();
@@ -538,6 +589,9 @@ export async function createMcpFeedback(
         rating: input.rating,
         helpfulStatus: "unreviewed",
         implementedStatus: "unreviewed",
+        visibility,
+        kind,
+        actionStatus,
       })
       .returning();
 
@@ -590,6 +644,9 @@ export async function listMcpFeedback(owner: McpUser, url: URL) {
       rating: feedback.rating,
       helpfulStatus: feedback.helpfulStatus,
       implementedStatus: feedback.implementedStatus,
+      visibility: feedback.visibility,
+      kind: feedback.kind,
+      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       authorName: users.name,
       authorHandle: users.handle,
@@ -599,11 +656,175 @@ export async function listMcpFeedback(owner: McpUser, url: URL) {
     .from(feedback)
     .innerJoin(users, eq(feedback.authorId, users.id))
     .innerJoin(projects, eq(feedback.projectId, projects.id))
-    .where(projectId ? eq(feedback.projectId, projectId) : inArray(feedback.projectId, projectIds))
+    .where(createMcpFeedbackListWhere(url, projectId, projectIds))
     .orderBy(desc(feedback.createdAt))
     .limit(limit);
 
   return rows.map(serializeFeedback);
+}
+
+function createMcpFeedbackListWhere(url: URL, projectId: string | undefined, projectIds: string[]) {
+  const visibility = url.searchParams.get("visibility")?.trim();
+  const kind = url.searchParams.get("kind")?.trim();
+  const actionStatus = url.searchParams.get("actionStatus")?.trim();
+  const includePrivate = url.searchParams.get("includePrivate") !== "false";
+  const conditions = [projectId ? eq(feedback.projectId, projectId) : inArray(feedback.projectId, projectIds)];
+
+  if (feedbackVisibilities.includes(visibility as FeedbackVisibility)) {
+    conditions.push(eq(feedback.visibility, visibility as FeedbackVisibility));
+  } else if (!includePrivate) {
+    conditions.push(eq(feedback.visibility, "public"));
+  }
+
+  if (feedbackKinds.includes(kind as FeedbackKind)) {
+    conditions.push(eq(feedback.kind, kind as FeedbackKind));
+  }
+
+  if (feedbackActionStatuses.includes(actionStatus as FeedbackActionStatus)) {
+    conditions.push(eq(feedback.actionStatus, actionStatus as FeedbackActionStatus));
+  }
+
+  return and(...conditions);
+}
+
+export async function updateMcpFeedback(
+  actor: McpUser,
+  input: z.output<typeof updateMcpFeedbackSchema>,
+) {
+  const [row] = await db
+    .select({
+      feedback: feedback,
+      project: projects,
+      ownerHandle: users.handle,
+    })
+    .from(feedback)
+    .innerJoin(projects, eq(feedback.projectId, projects.id))
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(eq(feedback.id, input.feedbackId))
+    .limit(1);
+
+  if (!row || (row.feedback.visibility === "private" && row.feedback.authorId !== actor.id && row.project.ownerId !== actor.id)) {
+    throw new ApiError(404, "feedback_not_found", "Feedback was not found for this API user.");
+  }
+
+  const isAuthor = row.feedback.authorId === actor.id;
+  const isProjectOwner = row.project.ownerId === actor.id;
+
+  if (!isAuthor && !isProjectOwner) {
+    throw new ApiError(404, "feedback_not_found", "Feedback was not found for this API user.");
+  }
+
+  const authorOnlyFields = [input.body, input.feedbackType, input.rating, input.visibility, input.kind];
+
+  if (!isAuthor && authorOnlyFields.some((field) => field !== undefined)) {
+    throw new ApiError(403, "feedback_update_forbidden", "Only the feedback author can edit comment content.");
+  }
+
+  if (input.actionStatus !== undefined && !isProjectOwner) {
+    throw new ApiError(403, "feedback_action_forbidden", "Only the project owner can update action status.");
+  }
+
+  const patch: Partial<{
+    body: string;
+    feedbackType: FeedbackType;
+    rating: number;
+    visibility: FeedbackVisibility;
+    kind: FeedbackKind;
+    actionStatus: FeedbackActionStatus;
+    updatedAt: Date;
+  }> = {
+    updatedAt: new Date(),
+  };
+
+  if (isAuthor) {
+    if (input.body !== undefined) {
+      patch.body = input.body;
+    }
+
+    if (input.feedbackType !== undefined) {
+      patch.feedbackType = input.feedbackType;
+    }
+
+    if (input.rating !== undefined) {
+      patch.rating = input.rating;
+    }
+
+    if (input.visibility !== undefined) {
+      patch.visibility = input.visibility;
+    }
+
+    if (input.kind !== undefined) {
+      patch.kind = isProjectOwner ? input.kind : "feedback";
+    }
+  }
+
+  if (isProjectOwner && input.actionStatus !== undefined) {
+    patch.actionStatus = input.actionStatus;
+  }
+
+  const [updated] = await db.transaction(async (tx) => {
+    const [updatedFeedback] = await tx
+      .update(feedback)
+      .set(patch)
+      .where(eq(feedback.id, row.feedback.id))
+      .returning();
+
+    await tx
+      .update(projects)
+      .set({ updatedAt: new Date(), lastActivityAt: new Date() })
+      .where(eq(projects.id, row.project.id));
+
+    return [updatedFeedback];
+  });
+
+  revalidateWorkspace(row.ownerHandle, row.project.slug, row.project.id);
+  revalidatePath(`/p/${actor.handle}`);
+
+  return serializeFeedback({
+    ...updated,
+    authorName: actor.id === updated.authorId ? actor.name : null,
+    authorHandle: actor.id === updated.authorId ? actor.handle : null,
+    projectTitle: row.project.title,
+    projectSlug: row.project.slug,
+  });
+}
+
+export async function deleteMcpFeedback(
+  actor: McpUser,
+  input: z.output<typeof deleteMcpFeedbackSchema>,
+) {
+  const [row] = await db
+    .select({
+      feedback: feedback,
+      project: projects,
+      ownerHandle: users.handle,
+    })
+    .from(feedback)
+    .innerJoin(projects, eq(feedback.projectId, projects.id))
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(and(eq(feedback.id, input.feedbackId), eq(feedback.authorId, actor.id)))
+    .limit(1);
+
+  if (!row) {
+    throw new ApiError(404, "feedback_not_found", "Feedback was not found for this API user.");
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(feedback).where(eq(feedback.id, row.feedback.id));
+    await tx
+      .update(projects)
+      .set({ updatedAt: new Date(), lastActivityAt: new Date() })
+      .where(eq(projects.id, row.project.id));
+  });
+
+  revalidateWorkspace(row.ownerHandle, row.project.slug, row.project.id);
+  revalidatePath(`/p/${actor.handle}`);
+
+  return {
+    deleted: true,
+    feedbackId: row.feedback.id,
+    projectId: row.project.id,
+  };
 }
 
 
@@ -685,6 +906,9 @@ function serializeFeedback<
     rating?: number | null;
     helpfulStatus: string;
     implementedStatus: string;
+    visibility: FeedbackVisibility;
+    kind: FeedbackKind;
+    actionStatus: FeedbackActionStatus;
     createdAt: Date;
     projectTitle?: string;
     projectSlug?: string;
@@ -707,6 +931,9 @@ function serializeFeedback<
     rating: entry.rating ?? null,
     helpfulStatus: entry.helpfulStatus,
     implementedStatus: entry.implementedStatus,
+    visibility: entry.visibility,
+    kind: entry.kind,
+    actionStatus: entry.actionStatus,
     createdAt: entry.createdAt,
   };
 }

@@ -71,6 +71,22 @@ export const feedbackImplementationStatus = pgEnum("feedback_implementation_stat
   "rejected",
   "later",
 ]);
+export const feedbackVisibility = pgEnum("feedback_visibility", ["public", "private"]);
+export const feedbackKind = pgEnum("feedback_kind", [
+  "feedback",
+  "self_note",
+  "todo",
+  "decision",
+  "update",
+  "release",
+]);
+export const feedbackActionStatus = pgEnum("feedback_action_status", [
+  "none",
+  "open",
+  "doing",
+  "done",
+  "dropped",
+]);
 export const creditLedgerReason = pgEnum("credit_ledger_reason", [
   "earned_feedback",
   "spent_feedback_request",
@@ -371,6 +387,9 @@ export const feedback = pgTable(
     implementedStatus: feedbackImplementationStatus("implemented_status")
       .notNull()
       .default("unreviewed"),
+    visibility: feedbackVisibility("visibility").notNull().default("public"),
+    kind: feedbackKind("kind").notNull().default("feedback"),
+    actionStatus: feedbackActionStatus("action_status").notNull().default("none"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -379,6 +398,9 @@ export const feedback = pgTable(
     index("feedback_request_id_idx").on(table.requestId),
     index("feedback_parent_feedback_id_idx").on(table.parentFeedbackId),
     index("feedback_author_id_idx").on(table.authorId),
+    index("feedback_visibility_idx").on(table.visibility),
+    index("feedback_kind_idx").on(table.kind),
+    index("feedback_action_status_idx").on(table.actionStatus),
   ],
 );
 

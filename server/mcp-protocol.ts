@@ -16,12 +16,16 @@ import {
   createMcpFeedbackSchema,
   createMcpProject,
   createMcpProjectSchema,
+  deleteMcpFeedback,
+  deleteMcpFeedbackSchema,
   deleteMcpProject,
   getMcpProject,
   listMcpProjectRevisions,
   listMcpProjectRevisionsSchema,
   listMcpFeedback,
   listMcpProjects,
+  updateMcpFeedback,
+  updateMcpFeedbackSchema,
   updateMcpProject,
   updateMcpProjectSchema,
 } from "@/server/mcp-service";
@@ -65,6 +69,10 @@ const projectIdSchema = apiTokenSchema.extend({
 const feedbackListSchema = apiTokenSchema.extend({
   projectId: z.string().trim().min(1).optional(),
   limit: z.number().int().min(1).max(100).optional(),
+  includePrivate: z.boolean().optional(),
+  visibility: z.enum(["public", "private"]).optional(),
+  kind: z.enum(["feedback", "self_note", "todo", "decision", "update", "release"]).optional(),
+  actionStatus: z.enum(["none", "open", "doing", "done", "dropped"]).optional(),
 });
 
 const projectUpdateSchema = apiTokenSchema.extend({
@@ -78,6 +86,12 @@ const projectHistorySchema = apiTokenSchema.extend({
 });
 
 const feedbackCreateSchema = createMcpFeedbackSchema.extend({
+  apiToken: z.string().trim().min(1).optional(),
+});
+
+const feedbackUpdateSchema = apiTokenSchema.and(updateMcpFeedbackSchema);
+
+const feedbackDeleteSchema = deleteMcpFeedbackSchema.extend({
   apiToken: z.string().trim().min(1).optional(),
 });
 
@@ -395,13 +409,21 @@ const tools = [
   {
     name: "vibe.feedback_list",
     title: "List Vibe Feedback",
-    description: "List feedback comments received on owned projects. Bodies are returned directly.",
+    description:
+      "List feedback comments, private notes, and action items on owned projects. Bodies are returned directly.",
     inputSchema: {
       type: "object",
       properties: {
         ...authInputProperties(),
         projectId: { type: "string" },
         limit: { type: "integer", minimum: 1, maximum: 100 },
+        includePrivate: { type: "boolean", default: true },
+        visibility: { type: "string", enum: ["public", "private"] },
+        kind: {
+          type: "string",
+          enum: ["feedback", "self_note", "todo", "decision", "update", "release"],
+        },
+        actionStatus: { type: "string", enum: ["none", "open", "doing", "done", "dropped"] },
       },
       additionalProperties: false,
     },
@@ -432,8 +454,65 @@ const tools = [
           ],
         },
         rating: { type: "integer", minimum: 1, maximum: 5 },
+        visibility: { type: "string", enum: ["public", "private"] },
+        kind: {
+          type: "string",
+          enum: ["feedback", "self_note", "todo", "decision", "update", "release"],
+          description: "Project owners can create self_note, todo, decision, update, or release comments.",
+        },
+        actionStatus: { type: "string", enum: ["none", "open", "doing", "done", "dropped"] },
       },
       required: ["projectId", "body"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.feedback_update",
+    title: "Update Vibe Feedback",
+    description:
+      "Update your own comment content/visibility, or update actionStatus on owned project feedback.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        feedbackId: { type: "string", format: "uuid" },
+        body: { type: "string", minLength: 1, maxLength: 2000 },
+        feedbackType: {
+          type: "string",
+          enum: [
+            "first_impression",
+            "ux_ui",
+            "bug",
+            "mobile_usability",
+            "feature_idea",
+            "business",
+            "code_structure",
+            "security_data_risk",
+          ],
+        },
+        rating: { type: "integer", minimum: 1, maximum: 5 },
+        visibility: { type: "string", enum: ["public", "private"] },
+        kind: {
+          type: "string",
+          enum: ["feedback", "self_note", "todo", "decision", "update", "release"],
+        },
+        actionStatus: { type: "string", enum: ["none", "open", "doing", "done", "dropped"] },
+      },
+      required: ["feedbackId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.feedback_delete",
+    title: "Delete Vibe Feedback",
+    description: "Delete one feedback comment authored by the authenticated user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        feedbackId: { type: "string", format: "uuid" },
+      },
+      required: ["feedbackId"],
       additionalProperties: false,
     },
   },
@@ -542,6 +621,10 @@ async function callTool(request: Request, params: unknown) {
         return toolSuccess({ feedback: await feedbackList(request, args) });
       case "vibe.feedback_create":
         return toolSuccess({ feedback: await feedbackCreate(request, args) });
+      case "vibe.feedback_update":
+        return toolSuccess({ feedback: await feedbackUpdate(request, args) });
+      case "vibe.feedback_delete":
+        return toolSuccess(await feedbackDelete(request, args));
       default:
         return toolError({
           code: "unknown_tool",
@@ -584,6 +667,8 @@ async function authCheck(request: Request, args: JsonObject) {
       "auth_account:delete",
       "feedback:read",
       "feedback:create",
+      "feedback:update",
+      "feedback:delete",
     ],
   };
 }
@@ -658,6 +743,22 @@ async function feedbackList(request: Request, args: JsonObject) {
     url.searchParams.set("limit", String(input.limit));
   }
 
+  if (input.includePrivate !== undefined) {
+    url.searchParams.set("includePrivate", String(input.includePrivate));
+  }
+
+  if (input.visibility) {
+    url.searchParams.set("visibility", input.visibility);
+  }
+
+  if (input.kind) {
+    url.searchParams.set("kind", input.kind);
+  }
+
+  if (input.actionStatus) {
+    url.searchParams.set("actionStatus", input.actionStatus);
+  }
+
   return listMcpFeedback(user, url);
 }
 
@@ -670,9 +771,35 @@ async function feedbackCreate(request: Request, args: JsonObject) {
     body: input.body,
     feedbackType: input.feedbackType,
     rating: input.rating,
+    visibility: input.visibility,
+    kind: input.kind,
+    actionStatus: input.actionStatus,
   };
 
   return createMcpFeedback(user, feedbackInput);
+}
+
+async function feedbackUpdate(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(feedbackUpdateSchema, args);
+  const feedbackInput = {
+    feedbackId: input.feedbackId,
+    body: input.body,
+    feedbackType: input.feedbackType,
+    rating: input.rating,
+    visibility: input.visibility,
+    kind: input.kind,
+    actionStatus: input.actionStatus,
+  };
+
+  return updateMcpFeedback(user, feedbackInput);
+}
+
+async function feedbackDelete(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(feedbackDeleteSchema, args);
+
+  return deleteMcpFeedback(user, { feedbackId: input.feedbackId });
 }
 
 async function requireToolUser(request: Request, args: JsonObject) {

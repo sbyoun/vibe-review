@@ -40,6 +40,22 @@ export const feedbackImplementationStatuses = [
 
 export type FeedbackImplementationStatus = (typeof feedbackImplementationStatuses)[number];
 
+export const feedbackVisibilities = ["public", "private"] as const;
+export type FeedbackVisibility = (typeof feedbackVisibilities)[number];
+
+export const feedbackKinds = [
+  "feedback",
+  "self_note",
+  "todo",
+  "decision",
+  "update",
+  "release",
+] as const;
+export type FeedbackKind = (typeof feedbackKinds)[number];
+
+export const feedbackActionStatuses = ["none", "open", "doing", "done", "dropped"] as const;
+export type FeedbackActionStatus = (typeof feedbackActionStatuses)[number];
+
 export const feedbackClaimStatuses = ["claimed", "submitted", "cancelled", "expired"] as const;
 export type FeedbackClaimStatus = (typeof feedbackClaimStatuses)[number];
 
@@ -74,6 +90,28 @@ export const feedbackTypeLabel: Record<FeedbackType, string> = {
   business: "Business",
   code_structure: "Code/structure",
   security_data_risk: "Security/data risk",
+};
+
+export const feedbackVisibilityLabel: Record<FeedbackVisibility, string> = {
+  public: "Public",
+  private: "Private",
+};
+
+export const feedbackKindLabel: Record<FeedbackKind, string> = {
+  feedback: "Feedback",
+  self_note: "Self note",
+  todo: "Todo",
+  decision: "Decision",
+  update: "Update",
+  release: "Release",
+};
+
+export const feedbackActionStatusLabel: Record<FeedbackActionStatus, string> = {
+  none: "No action",
+  open: "Open",
+  doing: "Doing",
+  done: "Done",
+  dropped: "Dropped",
 };
 
 export const feedbackClaimStatusLabel: Record<FeedbackClaimStatus, string> = {
@@ -145,6 +183,31 @@ export function coerceProjectType(value: FormDataEntryValue | null): ProjectType
 
 export function coerceFeedbackType(value: FormDataEntryValue | null): FeedbackType {
   return feedbackTypes.includes(value as FeedbackType) ? (value as FeedbackType) : "first_impression";
+}
+
+export function coerceFeedbackVisibility(
+  value: FormDataEntryValue | null,
+  fallback: FeedbackVisibility = "public",
+): FeedbackVisibility {
+  return feedbackVisibilities.includes(value as FeedbackVisibility)
+    ? (value as FeedbackVisibility)
+    : fallback;
+}
+
+export function coerceFeedbackKind(
+  value: FormDataEntryValue | null,
+  fallback: FeedbackKind = "feedback",
+): FeedbackKind {
+  return feedbackKinds.includes(value as FeedbackKind) ? (value as FeedbackKind) : fallback;
+}
+
+export function coerceFeedbackActionStatus(
+  value: FormDataEntryValue | null,
+  fallback: FeedbackActionStatus = "none",
+): FeedbackActionStatus {
+  return feedbackActionStatuses.includes(value as FeedbackActionStatus)
+    ? (value as FeedbackActionStatus)
+    : fallback;
 }
 
 export function coerceFeedbackTypes(values: FormDataEntryValue[]): FeedbackType[] {

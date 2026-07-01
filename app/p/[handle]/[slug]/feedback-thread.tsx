@@ -2,17 +2,31 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronUp, Save } from "lucide-react";
+import { ChevronUp, Save, Trash2 } from "lucide-react";
 
 import { MarkdownContent } from "@/components/markdown-content";
 import { Button } from "@/components/ui/button";
 import {
+  feedbackActionStatusLabel,
+  feedbackActionStatuses,
+  feedbackKindLabel,
+  feedbackKinds,
   feedbackTypeLabel,
   feedbackTypes,
+  feedbackVisibilityLabel,
+  feedbackVisibilities,
   formatShortDate,
+  type FeedbackActionStatus,
+  type FeedbackKind,
   type FeedbackType,
+  type FeedbackVisibility,
 } from "@/lib/domain";
-import { createFeedback, updateFeedbackDetails } from "@/server/actions";
+import {
+  createFeedback,
+  deleteFeedback,
+  updateFeedbackAction,
+  updateFeedbackDetails,
+} from "@/server/actions";
 
 const inputClass = "vc-input";
 const compactInputClass = "vc-input-compact";
@@ -26,20 +40,37 @@ type FeedbackEntry = {
   feedbackType: FeedbackType;
   body: string;
   rating: number | null;
+  visibility: FeedbackVisibility;
+  kind: FeedbackKind;
+  actionStatus: FeedbackActionStatus;
   createdAt: Date | string;
 };
 
 type FeedbackThreadProps = {
   feedback: FeedbackEntry[];
   viewerId: string | null;
+  isOwner: boolean;
 };
 
-export function FeedbackThread({ feedback, viewerId }: FeedbackThreadProps) {
+type FeedbackFilter = "all" | "public" | "private" | "open" | "done";
+
+const ownerKindOptions: FeedbackKind[] = [...feedbackKinds];
+
+export function FeedbackThread({ feedback, viewerId, isOwner }: FeedbackThreadProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FeedbackFilter>("all");
   const router = useRouter();
   const repliesByParent = groupReplies(feedback);
   const rootEntries = feedback.filter((entry) => !entry.parentFeedbackId);
+  const filterOptions = getFilterOptions(feedback, isOwner);
+  const filteredRootEntries = rootEntries.filter((entry) => {
+    if (matchesFilter(entry, filter)) {
+      return true;
+    }
+
+    return (repliesByParent.get(entry.id) ?? []).some((reply) => matchesFilter(reply, filter));
+  });
 
   async function saveFeedback(formData: FormData) {
     await updateFeedbackDetails(formData);
@@ -53,26 +84,65 @@ export function FeedbackThread({ feedback, viewerId }: FeedbackThreadProps) {
     router.refresh();
   }
 
+  async function saveAction(formData: FormData) {
+    await updateFeedbackAction(formData);
+    router.refresh();
+  }
+
+  async function removeFeedback(formData: FormData) {
+    await deleteFeedback(formData);
+    setEditingId(null);
+    setReplyingId(null);
+    router.refresh();
+  }
+
   if (feedback.length === 0) {
     return <p className="py-5 text-sm text-muted-foreground">No comments yet.</p>;
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {rootEntries.map((entry) => (
-        <FeedbackItem
-          key={entry.id}
-          entry={entry}
-          repliesByParent={repliesByParent}
-          viewerId={viewerId}
-          editingId={editingId}
-          replyingId={replyingId}
-          onEdit={setEditingId}
-          onReply={setReplyingId}
-          onSave={saveFeedback}
-          onReplySubmit={replyToFeedback}
-        />
-      ))}
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+        {filterOptions.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={`rounded-sm border px-2 py-1 text-xs font-medium leading-4 ${
+              filter === option.value
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+            onClick={() => setFilter(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {filteredRootEntries.length > 0 ? (
+        <div className="flex flex-col gap-6">
+          {filteredRootEntries.map((entry) => (
+            <FeedbackItem
+              key={entry.id}
+              entry={entry}
+              repliesByParent={repliesByParent}
+              viewerId={viewerId}
+              isOwner={isOwner}
+              filter={filter}
+              editingId={editingId}
+              replyingId={replyingId}
+              onEdit={setEditingId}
+              onReply={setReplyingId}
+              onSave={saveFeedback}
+              onReplySubmit={replyToFeedback}
+              onActionSubmit={saveAction}
+              onDeleteSubmit={removeFeedback}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="py-5 text-sm text-muted-foreground">No comments match this filter.</p>
+      )}
     </div>
   );
 }
@@ -81,27 +151,35 @@ function FeedbackItem({
   entry,
   repliesByParent,
   viewerId,
+  isOwner,
+  filter,
   editingId,
   replyingId,
   onEdit,
   onReply,
   onSave,
   onReplySubmit,
+  onActionSubmit,
+  onDeleteSubmit,
 }: {
   entry: FeedbackEntry;
   repliesByParent: Map<string, FeedbackEntry[]>;
   viewerId: string | null;
+  isOwner: boolean;
+  filter: FeedbackFilter;
   editingId: string | null;
   replyingId: string | null;
   onEdit: (id: string | null) => void;
   onReply: (id: string | null) => void;
   onSave: (formData: FormData) => Promise<void>;
   onReplySubmit: (formData: FormData) => Promise<void>;
+  onActionSubmit: (formData: FormData) => Promise<void>;
+  onDeleteSubmit: (formData: FormData) => Promise<void>;
 }) {
   const canEditFeedback = viewerId === entry.authorId;
   const isEditing = editingId === entry.id;
   const isReplying = replyingId === entry.id;
-  const replies = repliesByParent.get(entry.id) ?? [];
+  const replies = (repliesByParent.get(entry.id) ?? []).filter((reply) => matchesFilter(reply, filter));
 
   return (
     <article
@@ -114,6 +192,31 @@ function FeedbackItem({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <FeedbackAuthor entry={entry} />
             <div className="flex flex-wrap items-center gap-2">
+              <select className={compactInputClass} name="visibility" defaultValue={entry.visibility} aria-label="Visibility">
+                {feedbackVisibilities.map((visibility) => (
+                  <option key={visibility} value={visibility}>
+                    {feedbackVisibilityLabel[visibility]}
+                  </option>
+                ))}
+              </select>
+              {isOwner ? (
+                <>
+                  <select className={compactInputClass} name="kind" defaultValue={entry.kind} aria-label="Comment kind">
+                    {ownerKindOptions.map((kind) => (
+                      <option key={kind} value={kind}>
+                        {feedbackKindLabel[kind]}
+                      </option>
+                    ))}
+                  </select>
+                  <select className={compactInputClass} name="actionStatus" defaultValue={entry.actionStatus} aria-label="Action status">
+                    {feedbackActionStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {feedbackActionStatusLabel[status]}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : null}
               <select
                 className={compactInputClass}
                 name="feedbackType"
@@ -174,19 +277,14 @@ function FeedbackItem({
             <span>({(entry.rating ?? 0) * 120})</span>
             <span>{formatShortDate(entry.createdAt)}</span>
             <span>[-]</span>
-            <span className="ml-1 rounded-sm border border-primary px-1.5 py-0.5 text-[10px] uppercase text-primary">
-              [{feedbackTypeLabel[entry.feedbackType]}]
-            </span>
-            <span className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {entry.rating ?? "-"} / 5
-            </span>
+            <FeedbackBadges entry={entry} />
           </div>
 
           <div className="mt-1 pl-6">
             <div className="vc-markdown">
               <MarkdownContent>{entry.body}</MarkdownContent>
             </div>
-            <div className="mt-2 flex gap-3 text-[11px] font-medium leading-[14px] text-muted-foreground">
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] font-medium leading-[14px] text-muted-foreground">
               {viewerId ? (
                 <button
                   type="button"
@@ -204,10 +302,39 @@ function FeedbackItem({
                   edit
                 </button>
               ) : null}
-              <a href="#comments" className="hover:underline">
-                flag
-              </a>
+              {canEditFeedback ? (
+                <form
+                  action={onDeleteSubmit}
+                  onSubmit={(event) => {
+                    if (!window.confirm("Delete this comment?")) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
+                  <input type="hidden" name="feedbackId" value={entry.id} />
+                  <button type="submit" className="inline-flex items-center gap-1 hover:underline">
+                    <Trash2 className="size-3" aria-hidden="true" />
+                    delete
+                  </button>
+                </form>
+              ) : null}
             </div>
+
+            {isOwner ? (
+              <form action={onActionSubmit} className="mt-2 flex flex-wrap items-center gap-2">
+                <input type="hidden" name="feedbackId" value={entry.id} />
+                <select className={compactInputClass} name="actionStatus" defaultValue={entry.actionStatus} aria-label="Action status">
+                  {feedbackActionStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {feedbackActionStatusLabel[status]}
+                    </option>
+                  ))}
+                </select>
+                <Button type="submit" size="sm" variant="outline">
+                  Set
+                </Button>
+              </form>
+            ) : null}
 
             {isReplying ? (
               <form action={onReplySubmit} className="mt-3 grid gap-2 border border-border bg-card p-3">
@@ -215,6 +342,9 @@ function FeedbackItem({
                 <input type="hidden" name="parentFeedbackId" value={entry.id} />
                 <input type="hidden" name="feedbackType" value="first_impression" />
                 <input type="hidden" name="rating" value="4" />
+                <input type="hidden" name="visibility" value={entry.visibility} />
+                <input type="hidden" name="kind" value={isOwner && entry.visibility === "private" ? "self_note" : "feedback"} />
+                <input type="hidden" name="actionStatus" value="none" />
                 <textarea
                   className={inputClass}
                   name="body"
@@ -243,12 +373,16 @@ function FeedbackItem({
                     entry={reply}
                     repliesByParent={repliesByParent}
                     viewerId={viewerId}
+                    isOwner={isOwner}
+                    filter={filter}
                     editingId={editingId}
                     replyingId={replyingId}
                     onEdit={onEdit}
                     onReply={onReply}
                     onSave={onSave}
                     onReplySubmit={onReplySubmit}
+                    onActionSubmit={onActionSubmit}
+                    onDeleteSubmit={onDeleteSubmit}
                   />
                 ))}
               </div>
@@ -258,6 +392,86 @@ function FeedbackItem({
       )}
     </article>
   );
+}
+
+function FeedbackBadges({ entry }: { entry: FeedbackEntry }) {
+  return (
+    <>
+      <span className="ml-1 rounded-sm border border-primary px-1.5 py-0.5 text-[10px] uppercase text-primary">
+        [{feedbackTypeLabel[entry.feedbackType]}]
+      </span>
+      <span className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+        {entry.rating ?? "-"} / 5
+      </span>
+      {entry.visibility === "private" ? (
+        <span className="rounded-sm border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-800">
+          private
+        </span>
+      ) : null}
+      {entry.kind !== "feedback" ? (
+        <span className="rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[10px] text-foreground">
+          {feedbackKindLabel[entry.kind]}
+        </span>
+      ) : null}
+      {entry.actionStatus !== "none" ? (
+        <span className="rounded-sm border border-secondary/40 bg-secondary/10 px-1.5 py-0.5 text-[10px] text-secondary">
+          {feedbackActionStatusLabel[entry.actionStatus]}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+function getFilterOptions(feedback: FeedbackEntry[], isOwner: boolean) {
+  const hasPrivate = feedback.some((entry) => entry.visibility === "private");
+  const hasOpen = feedback.some((entry) => entry.actionStatus === "open" || entry.actionStatus === "doing");
+  const hasDone = feedback.some((entry) => entry.actionStatus === "done");
+  const options: { value: FeedbackFilter; label: string }[] = [
+    { value: "all", label: `All ${feedback.length}` },
+    {
+      value: "public",
+      label: `Public ${feedback.filter((entry) => entry.visibility === "public").length}`,
+    },
+  ];
+
+  if (isOwner || hasPrivate) {
+    options.push({
+      value: "private",
+      label: `Private ${feedback.filter((entry) => entry.visibility === "private").length}`,
+    });
+  }
+
+  if (isOwner || hasOpen) {
+    options.push({
+      value: "open",
+      label: `Open ${feedback.filter((entry) => entry.actionStatus === "open" || entry.actionStatus === "doing").length}`,
+    });
+  }
+
+  if (isOwner || hasDone) {
+    options.push({
+      value: "done",
+      label: `Done ${feedback.filter((entry) => entry.actionStatus === "done").length}`,
+    });
+  }
+
+  return options;
+}
+
+function matchesFilter(entry: FeedbackEntry, filter: FeedbackFilter) {
+  switch (filter) {
+    case "public":
+      return entry.visibility === "public";
+    case "private":
+      return entry.visibility === "private";
+    case "open":
+      return entry.actionStatus === "open" || entry.actionStatus === "doing";
+    case "done":
+      return entry.actionStatus === "done";
+    case "all":
+    default:
+      return true;
+  }
 }
 
 function groupReplies(feedback: FeedbackEntry[]) {

@@ -61,8 +61,9 @@ export async function GET(request: Request) {
       "For external public project reviews, pass projectType=external, sourceUrl, externalOwnerName, and categoryTags.",
       "Update or delete owned posts with vibe.projects_update, vibe.projects_delete, PATCH, or DELETE.",
       "Read owner-only edit history with vibe.projects_history or GET /api/mcp/projects/{projectId}/revisions.",
-      "List received feedback with vibe.feedback_list or GET /api/mcp/feedback. Feedback bodies are returned directly.",
-      "Create a comment or reply with vibe.feedback_create or POST /api/mcp/feedback.",
+      "List feedback, private self notes, and todos with vibe.feedback_list or GET /api/mcp/feedback. Bodies are returned directly.",
+      "Create a public/private comment, self note, todo, or reply with vibe.feedback_create or POST /api/mcp/feedback.",
+      "Update action status with vibe.feedback_update or PATCH /api/mcp/feedback. Delete your own comments with vibe.feedback_delete or DELETE /api/mcp/feedback.",
     ],
     endpoints: {
       mcp: `${baseUrl}/mcp`,

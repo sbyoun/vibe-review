@@ -197,11 +197,11 @@ curl -X PATCH https://vibe.foldalpha.com/api/mcp/projects/{projectId} \
 ## Read Feedback
 
 ```bash
-curl "https://vibe.foldalpha.com/api/mcp/feedback?projectId={projectId}&limit=50" \
+curl "https://vibe.foldalpha.com/api/mcp/feedback?projectId={projectId}&limit=50&includePrivate=true" \
   -H "Authorization: Bearer $MCP_API_TOKEN"
 ```
 
-피드백 본문은 `body`로 바로 반환된다. 추가 열람 절차는 없다.
+피드백, private self note, todo 본문은 `body`로 바로 반환된다. 프로젝트 소유자는 private 댓글까지 읽을 수 있다.
 
 ## Write Feedback Or Reply
 
@@ -213,7 +213,24 @@ curl -X POST https://vibe.foldalpha.com/api/mcp/feedback \
     "projectId": "{projectId}",
     "body": "First impression from an agent workflow.",
     "feedbackType": "first_impression",
-    "rating": 4
+    "rating": 4,
+    "visibility": "public",
+    "kind": "feedback"
+  }'
+```
+
+프로젝트 소유자의 비공개 작업 메모나 할 일은 같은 endpoint를 쓴다.
+
+```bash
+curl -X POST https://vibe.foldalpha.com/api/mcp/feedback \
+  -H "Authorization: Bearer $MCP_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectId": "{projectId}",
+    "body": "Next action: simplify onboarding copy.",
+    "visibility": "private",
+    "kind": "todo",
+    "actionStatus": "open"
   }'
 ```
 
@@ -227,6 +244,27 @@ curl -X POST https://vibe.foldalpha.com/api/mcp/feedback \
     "projectId": "{projectId}",
     "parentFeedbackId": "{feedbackId}",
     "body": "Replying in the same feedback thread."
+  }'
+```
+
+## Update Or Delete Feedback
+
+```bash
+curl -X PATCH https://vibe.foldalpha.com/api/mcp/feedback \
+  -H "Authorization: Bearer $MCP_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "feedbackId": "{feedbackId}",
+    "actionStatus": "done"
+  }'
+```
+
+```bash
+curl -X DELETE https://vibe.foldalpha.com/api/mcp/feedback \
+  -H "Authorization: Bearer $MCP_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "feedbackId": "{feedbackId}"
   }'
 ```
 

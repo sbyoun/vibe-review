@@ -54,6 +54,7 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
   const isOwner = viewer?.id === profile.id;
   const projectUrl = project.sourceUrl ?? project.repoUrl ?? project.demoUrl;
   const isExternal = project.projectType === "external";
+  const publicFeedback = feedback.filter((entry) => entry.visibility === "public");
   const externalOwnerLabel =
     project.externalOwnerName ??
     projectHost(project.externalOwnerUrl ?? project.sourceUrl) ??
@@ -202,12 +203,13 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
               <FeedbackComposer
                 projectId={project.id}
                 viewerName={viewer.name ?? `@${viewer.handle}`}
+                isOwner={isOwner}
               />
             )}
           </section>
 
           <section id="comments" className="flex flex-col gap-6 pl-8">
-            <FeedbackThread feedback={feedback} viewerId={viewer?.id ?? null} />
+            <FeedbackThread feedback={feedback} viewerId={viewer?.id ?? null} isOwner={isOwner} />
           </section>
         </div>
 
@@ -289,7 +291,7 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
               Vibed By
             </h3>
             <ul className="flex flex-col gap-2 text-xs leading-4">
-              {feedback.slice(0, 4).map((entry) => (
+              {publicFeedback.slice(0, 4).map((entry) => (
                 <li key={entry.id}>
                   <a
                     href={`#feedback-${entry.id}`}
@@ -300,13 +302,13 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                   </a>
                 </li>
               ))}
-              {feedback.length === 0 ? (
+              {publicFeedback.length === 0 ? (
                 <li className="text-muted-foreground">No vibes yet.</li>
               ) : null}
             </ul>
-            {feedback.length > 4 ? (
+            {publicFeedback.length > 4 ? (
               <a href="#comments" className="text-[11px] font-medium leading-[14px] text-primary hover:underline">
-                View all {feedback.length} vibes...
+                View all {publicFeedback.length} vibes...
               </a>
             ) : null}
           </div>

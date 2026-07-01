@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, like, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -102,6 +102,18 @@ async function ensureAppSchema() {
       IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'project_type') THEN
         CREATE TYPE "project_type" AS ENUM ('owned', 'external');
       END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedback_visibility') THEN
+        CREATE TYPE "feedback_visibility" AS ENUM ('public', 'private');
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedback_kind') THEN
+        CREATE TYPE "feedback_kind" AS ENUM ('feedback', 'self_note', 'todo', 'decision', 'update', 'release');
+      END IF;
+
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feedback_action_status') THEN
+        CREATE TYPE "feedback_action_status" AS ENUM ('none', 'open', 'doing', 'done', 'dropped');
+      END IF;
     END $$
   `);
 
@@ -153,12 +165,30 @@ async function ensureAppSchema() {
 
   await db.execute(sql`
     ALTER TABLE "feedback"
-      ADD COLUMN IF NOT EXISTS "parent_feedback_id" uuid REFERENCES "feedback"("id") ON DELETE CASCADE
+      ADD COLUMN IF NOT EXISTS "parent_feedback_id" uuid REFERENCES "feedback"("id") ON DELETE CASCADE,
+      ADD COLUMN IF NOT EXISTS "visibility" "feedback_visibility" DEFAULT 'public' NOT NULL,
+      ADD COLUMN IF NOT EXISTS "kind" "feedback_kind" DEFAULT 'feedback' NOT NULL,
+      ADD COLUMN IF NOT EXISTS "action_status" "feedback_action_status" DEFAULT 'none' NOT NULL
   `);
 
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS "feedback_parent_feedback_id_idx"
       ON "feedback" ("parent_feedback_id")
+  `);
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS "feedback_visibility_idx"
+      ON "feedback" ("visibility")
+  `);
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS "feedback_kind_idx"
+      ON "feedback" ("kind")
+  `);
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS "feedback_action_status_idx"
+      ON "feedback" ("action_status")
   `);
 
   await db.execute(sql`
@@ -306,6 +336,9 @@ export async function getWorkspaceData() {
             rating: feedback.rating,
             helpfulStatus: feedback.helpfulStatus,
             implementedStatus: feedback.implementedStatus,
+            visibility: feedback.visibility,
+            kind: feedback.kind,
+            actionStatus: feedback.actionStatus,
             createdAt: feedback.createdAt,
             authorName: users.name,
           })
@@ -388,6 +421,9 @@ export async function getWorkspaceProjectData(projectId: string) {
       rating: feedback.rating,
       helpfulStatus: feedback.helpfulStatus,
       implementedStatus: feedback.implementedStatus,
+      visibility: feedback.visibility,
+      kind: feedback.kind,
+      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       authorName: users.name,
     })
@@ -482,6 +518,9 @@ async function getAuthoredFeedbackRows(authorId: string, publicOnly = false) {
       rating: feedback.rating,
       helpfulStatus: feedback.helpfulStatus,
       implementedStatus: feedback.implementedStatus,
+      visibility: feedback.visibility,
+      kind: feedback.kind,
+      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       projectTitle: projects.title,
       projectSlug: projects.slug,
@@ -494,7 +533,11 @@ async function getAuthoredFeedbackRows(authorId: string, publicOnly = false) {
     .innerJoin(users, eq(projects.ownerId, users.id))
     .where(
       publicOnly
-        ? and(eq(feedback.authorId, authorId), eq(projects.visibility, "public"))
+        ? and(
+            eq(feedback.authorId, authorId),
+            eq(projects.visibility, "public"),
+            eq(feedback.visibility, "public"),
+          )
         : eq(feedback.authorId, authorId),
     )
     .orderBy(desc(feedback.createdAt))
@@ -527,7 +570,10 @@ export async function getDiscoverData() {
   const requestIds = requestRows.map((request) => request.id);
   const feedbackRows =
     projectIds.length > 0
-      ? await db.select().from(feedback).where(inArray(feedback.projectId, projectIds))
+      ? await db
+          .select()
+          .from(feedback)
+          .where(and(inArray(feedback.projectId, projectIds), eq(feedback.visibility, "public")))
       : [];
   const claimRows =
     requestIds.length > 0
@@ -625,7 +671,10 @@ export async function getPublicProfileData(handle: string) {
   const visibleRequestRows = requestRows.filter((request) => request.status !== "cancelled");
   const feedbackRows =
     projectIds.length > 0
-      ? await db.select().from(feedback).where(inArray(feedback.projectId, projectIds))
+      ? await db
+          .select()
+          .from(feedback)
+          .where(and(inArray(feedback.projectId, projectIds), eq(feedback.visibility, "public")))
       : [];
   const authoredFeedbackRows = await getAuthoredFeedbackRows(profile.id, true);
   const favoriteProjectRows = await getFavoriteProjectRows(profile.id);
@@ -669,7 +718,14 @@ async function getExternalReviewRows(userId: string, publicOnly = false) {
   const projectIds = projectRows.map((project) => project.id);
   const feedbackRows =
     projectIds.length > 0
-      ? await db.select().from(feedback).where(inArray(feedback.projectId, projectIds))
+      ? await db
+          .select()
+          .from(feedback)
+          .where(
+            publicOnly
+              ? and(inArray(feedback.projectId, projectIds), eq(feedback.visibility, "public"))
+              : inArray(feedback.projectId, projectIds),
+          )
       : [];
   const favoriteRows =
     projectIds.length > 0
@@ -751,13 +807,25 @@ export async function getPublicProjectData(handle: string, slug: string) {
       rating: feedback.rating,
       helpfulStatus: feedback.helpfulStatus,
       implementedStatus: feedback.implementedStatus,
+      visibility: feedback.visibility,
+      kind: feedback.kind,
+      actionStatus: feedback.actionStatus,
       createdAt: feedback.createdAt,
       authorName: users.name,
       authorBio: users.bio,
     })
     .from(feedback)
     .innerJoin(users, eq(feedback.authorId, users.id))
-    .where(eq(feedback.projectId, row.project.id))
+    .where(
+      row.project.ownerId === viewer?.id
+        ? eq(feedback.projectId, row.project.id)
+        : and(
+            eq(feedback.projectId, row.project.id),
+            viewer
+              ? or(eq(feedback.visibility, "public"), eq(feedback.authorId, viewer.id))
+              : eq(feedback.visibility, "public"),
+          ),
+    )
     .orderBy(asc(feedback.createdAt));
 
   const favoriteRows = await db
