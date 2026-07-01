@@ -2,7 +2,7 @@
 
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -45,6 +45,8 @@ const coverImageTypes = new Map([
 ]);
 const uploadRootDir = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "public", "uploads");
 const coverUploadDir = path.join(uploadRootDir, "project-covers");
+const coverCaptureScratchDir =
+  process.env.CAPTURE_TMP_DIR ?? path.join(process.cwd(), "public", "uploads", ".capture-tmp");
 const coverPublicPath = "/uploads/project-covers";
 
 export async function updateCurrentUserProfile(formData: FormData) {
@@ -779,9 +781,11 @@ async function captureProjectCoverFromUrl(projectId: string, rawUrl: string) {
   }
 
   await mkdir(coverUploadDir, { recursive: true });
+  await mkdir(coverCaptureScratchDir, { recursive: true });
 
   const objectKey = `${projectId}-${randomUUID()}.png`;
   const absolutePath = path.join(coverUploadDir, objectKey);
+  const screenshotPath = path.join(coverCaptureScratchDir, objectKey);
   const chromium = await findChromiumBinary();
 
   await execFileAsync(
@@ -795,16 +799,27 @@ async function captureProjectCoverFromUrl(projectId: string, rawUrl: string) {
       "--ignore-certificate-errors",
       "--window-size=1280,900",
       "--virtual-time-budget=5000",
-      `--screenshot=${absolutePath}`,
+      `--screenshot=${screenshotPath}`,
       url.toString(),
     ],
     { timeout: 45000, maxBuffer: 1024 * 1024 },
   );
 
-  const capturedFile = await stat(absolutePath).catch(() => null);
+  const capturedFile = await stat(screenshotPath).catch(() => null);
 
   if (!capturedFile || capturedFile.size === 0) {
     throw new Error(`Chromium completed but did not write a screenshot for ${url.toString()}`);
+  }
+
+  if (path.resolve(screenshotPath) !== path.resolve(absolutePath)) {
+    await copyFile(screenshotPath, absolutePath);
+    await unlink(screenshotPath).catch(() => undefined);
+  }
+
+  const finalFile = await stat(absolutePath).catch(() => null);
+
+  if (!finalFile || finalFile.size === 0) {
+    throw new Error(`Screenshot was captured but could not be saved for ${url.toString()}`);
   }
 
   return {
