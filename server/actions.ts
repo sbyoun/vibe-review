@@ -2,7 +2,7 @@
 
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -147,7 +147,8 @@ export async function createProject(formData: FormData) {
   if (!cover && demoUrl) {
     try {
       cover = await captureProjectCoverFromUrl(project.id, demoUrl);
-    } catch {
+    } catch (error) {
+      console.warn("[project-cover] Demo screenshot capture failed during create:", error);
       cover = null;
     }
   }
@@ -242,7 +243,16 @@ export async function updateProjectDetails(formData: FormData) {
     throw new Error("Project not found");
   }
 
-  const cover = await saveUploadedProjectCover(formData.get("coverImage"), projectId);
+  let cover = await saveUploadedProjectCover(formData.get("coverImage"), projectId);
+
+  if (!cover && demoUrl && !project.coverImageUrl) {
+    try {
+      cover = await captureProjectCoverFromUrl(project.id, demoUrl);
+    } catch (error) {
+      console.warn("[project-cover] Demo screenshot capture failed during update:", error);
+      cover = null;
+    }
+  }
 
   await db.transaction(async (tx) => {
     const now = new Date();
@@ -394,7 +404,14 @@ export async function captureProjectCover(formData: FormData) {
     throw new Error("Demo URL is required before capturing a cover image");
   }
 
-  const cover = await captureProjectCoverFromUrl(project.id, project.demoUrl);
+  let cover: Awaited<ReturnType<typeof captureProjectCoverFromUrl>>;
+
+  try {
+    cover = await captureProjectCoverFromUrl(project.id, project.demoUrl);
+  } catch (error) {
+    console.error("[project-cover] Demo screenshot capture failed:", error);
+    redirect(`/dashboard/projects/${project.id}?cover=failed` as Route);
+  }
 
   await db.transaction(async (tx) => {
     await tx.insert(projectRevisions).values(projectRevisionValues(project, owner.id, "web_update"));
@@ -411,6 +428,7 @@ export async function captureProjectCover(formData: FormData) {
   });
 
   revalidateWorkspace(owner.handle, project.slug, project.id);
+  redirect(`/dashboard/projects/${project.id}?cover=captured` as Route);
 }
 
 export async function createFeedback(formData: FormData) {
@@ -768,15 +786,25 @@ async function captureProjectCoverFromUrl(projectId: string, rawUrl: string) {
   await execFileAsync(
     chromium,
     [
-      "--headless",
+      "--headless=new",
       "--no-sandbox",
       "--disable-gpu",
+      "--disable-dev-shm-usage",
+      "--hide-scrollbars",
+      "--ignore-certificate-errors",
       "--window-size=1280,900",
+      "--virtual-time-budget=5000",
       `--screenshot=${absolutePath}`,
       url.toString(),
     ],
     { timeout: 45000, maxBuffer: 1024 * 1024 },
   );
+
+  const capturedFile = await stat(absolutePath).catch(() => null);
+
+  if (!capturedFile || capturedFile.size === 0) {
+    throw new Error(`Chromium completed but did not write a screenshot for ${url.toString()}`);
+  }
 
   return {
     objectKey,
@@ -785,10 +813,10 @@ async function captureProjectCoverFromUrl(projectId: string, rawUrl: string) {
 }
 
 async function findChromiumBinary() {
-  for (const binary of ["chromium-browser", "chromium", "google-chrome"]) {
+  for (const binary of ["chromium-browser", "chromium", "google-chrome", "google-chrome-stable"]) {
     try {
-      await execFileAsync("which", [binary], { timeout: 2000 });
-      return binary;
+      const { stdout } = await execFileAsync("which", [binary], { timeout: 2000 });
+      return stdout.trim() || binary;
     } catch {
       // Try the next common binary name.
     }

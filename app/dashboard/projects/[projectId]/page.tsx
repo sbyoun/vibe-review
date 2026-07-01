@@ -32,6 +32,7 @@ export const dynamic = "force-dynamic";
 
 type ProjectManagePageProps = {
   params: Promise<{ projectId: string }>;
+  searchParams?: Promise<{ cover?: string }>;
 };
 
 export async function generateMetadata({
@@ -45,8 +46,9 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProjectManagePage({ params }: ProjectManagePageProps) {
+export default async function ProjectManagePage({ params, searchParams }: ProjectManagePageProps) {
   const { projectId } = await params;
+  const query = await searchParams;
   const data = await getWorkspaceProjectData(projectId);
 
   if (!data) {
@@ -86,6 +88,16 @@ export default async function ProjectManagePage({ params }: ProjectManagePagePro
               </header>
 
               <section className="grid gap-6">
+                {query?.cover === "captured" ? (
+                  <p className="border border-primary/30 bg-primary/10 px-3 py-2 text-sm leading-5 text-primary">
+                    Demo screenshot captured.
+                  </p>
+                ) : null}
+                {query?.cover === "failed" ? (
+                  <p className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-5 text-destructive">
+                    Demo screenshot capture failed. Upload an image manually or check that the demo URL is publicly reachable.
+                  </p>
+                ) : null}
                 <ProjectForm
                   action={updateProjectDetails}
                   mode="edit"
