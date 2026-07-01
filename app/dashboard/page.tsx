@@ -64,7 +64,7 @@ export default async function DashboardPage() {
                   {columnProjects.map((project) => (
                     <Link
                       key={project.id}
-                      href={`/dashboard/projects/${project.id}`}
+                      href={`/p/${data.owner.handle}/${project.slug}`}
                       className="group rounded-sm border border-border bg-background p-2 hover:bg-muted"
                     >
                       {project.coverImageUrl ? (
