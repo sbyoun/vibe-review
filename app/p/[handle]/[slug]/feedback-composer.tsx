@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import {
   feedbackActionStatusLabel,
   feedbackActionStatuses,
@@ -26,20 +24,6 @@ type FeedbackComposerProps = {
 const ownerKinds: FeedbackKind[] = ["self_note", "todo", "decision", "update", "release", "feedback"];
 
 export function FeedbackComposer({ projectId, viewerName, isOwner }: FeedbackComposerProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  if (!isOpen) {
-    return (
-      <button
-        type="button"
-        className="border border-border bg-card px-4 py-3 text-left text-sm font-medium leading-5 text-foreground hover:bg-muted"
-        onClick={() => setIsOpen(true)}
-      >
-        {isOwner ? "Add self feedback or todo" : "Write feedback"}
-      </button>
-    );
-  }
-
   return (
     <form action={createFeedback} className="border border-border bg-card p-4">
       <input type="hidden" name="projectId" value={projectId} />
@@ -106,9 +90,6 @@ export function FeedbackComposer({ projectId, viewerName, isOwner }: FeedbackCom
               </select>
             </>
           )}
-          <button type="button" className="px-2 py-1 text-xs text-muted-foreground hover:underline" onClick={() => setIsOpen(false)}>
-            Cancel
-          </button>
           <button
             type="submit"
             className="bg-primary px-4 py-1.5 text-xs font-medium leading-4 text-primary-foreground hover:bg-primary/90"
