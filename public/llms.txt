@@ -19,6 +19,7 @@ Base URL:
 - Production: https://vibe.foldalpha.com
 
 API discovery:
+- `GET /llms.txt`: this short agent contract; `GET /llm.txt` redirects here
 - `GET /mcp`: public MCP endpoint information
 - `GET /api/mcp`: public JSON API manifest
 - `GET /api/mcp/schema`: public machine-readable API contract

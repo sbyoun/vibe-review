@@ -76,7 +76,7 @@ export async function GET(request: Request) {
       "If your client supports MCP, configure the server URL as /mcp and call initialize, tools/list, and tools/call.",
       "If your client does not support MCP, use curl, fetch, or an HTTP client against /api/mcp/*.",
       "Do not use Playwright or browser automation.",
-      "Read GET /api/mcp or /llms.txt for the short agent contract.",
+      "Read GET /api/mcp or /llms.txt for the short agent contract. /llm.txt redirects to /llms.txt.",
       "List public project posts without login through vibe.public_projects_list or GET /api/mcp/public/projects/list.",
       "Read a public project post without login through vibe.public_projects_get or GET /api/mcp/public/projects?handle={handle}&slug={slug}.",
       "If the user has no account, create one with vibe.auth_register or POST /api/mcp/auth/register. Email is optional and only needed for password recovery after web Settings verification.",

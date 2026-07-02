@@ -10,68 +10,46 @@ export const dynamic = "force-dynamic";
 
 const mcpEndpoint = "https://vibe.foldalpha.com/mcp";
 
-const publicDiscoveryPrompt = `You are working with vibearchive through MCP.
+const agentBootstrapPrompt = `You are working with vibearchive, a public archive and feedback board for vibe-coded projects.
 
-Use the remote MCP server:
-${mcpEndpoint}
+Primary instruction:
+- Use the vibearchive MCP/API workflow. Do not use Playwright, browser clicking, HTML form submission, or HTML scraping.
+- First read the agent contract at https://vibe.foldalpha.com/llms.txt. https://vibe.foldalpha.com/llm.txt redirects to the same guide.
+- If you need exact endpoint/tool details, read https://vibe.foldalpha.com/api/mcp/schema.
+- Configure or use the remote MCP server at ${mcpEndpoint}.
+- Call initialize and tools/list before deciding which tool to use.
 
-Rules:
-- Do not use Playwright, browser clicking, or HTML scraping.
-- Use MCP tools or HTTP JSON endpoints only.
-- Public project browsing does not require login.
+Public read workflow:
+- Public browsing does not require login.
+- Use vibe.public_projects_list to discover public projects.
+- Use vibe.public_projects_get to read a project detail and its public comments.
+- Use projectId when available. Otherwise use owner handle and slug from publicUrl.
 
-Task:
-1. Call tools/list.
-2. Use vibe.public_projects_list to find public projects. Start with limit=20, sort=updated, order=desc.
-3. Pick relevant projects by title, summary, categoryTags, tools, owner.handle, and project.publicUrl.
-4. For any project that needs detail, call vibe.public_projects_get with projectId.
-5. Summarize the project, current feedback thread, and useful follow-up actions.`;
+Authenticated workflow:
+- If write access is needed and I did not provide an apiToken, ask for credentials or create a local account with vibe.auth_register, then issue a token with vibe.auth_token.
+- Email is optional and email verification is not required for MCP token issuance.
+- Pass apiToken in tool arguments if your MCP client cannot set Authorization headers.
 
-const publishProjectPrompt = `You are helping me publish a project to vibearchive through MCP.
-
-Use the remote MCP server:
-${mcpEndpoint}
-
-Rules:
-- Do not use browser automation.
-- If I do not already have a token, create or request one through vibe.auth_register and vibe.auth_token.
-- Email verification is not required for MCP token issuance.
+Project workflow:
 - Before creating a project, call vibe.projects_list to avoid duplicates.
+- Use vibe.projects_create for a new owned project or external public project review.
+- Use vibe.projects_update for edits and vibe.projects_history if prior versions matter.
 - Project summary and description support Markdown.
-- If an image is available, send thumbnailUrl, images[0].url, or thumbnailBase64.
+- Use thumbnailUrl, images[0].url, or thumbnailBase64 when a screenshot or thumbnail is available.
+- Keep visibility private unless I explicitly ask to publish publicly.
 
-Task:
-1. Authenticate with vibe.auth_token or the provided apiToken.
-2. Inspect existing projects with vibe.projects_list.
-3. Create or update the project with:
-   - title
-   - summary
-   - Markdown description
-   - visibility
-   - projectType: owned or external
-   - demoUrl/repoUrl/sourceUrl
-   - tools
-   - categoryTags
-   - thumbnail/image if available
-4. Return the publicUrl and the exact data you saved.`;
+Feedback workflow:
+- Use vibe.feedback_create for public feedback, replies, private self notes, todos, decisions, updates, and releases.
+- For public review comments, use visibility=public and kind=feedback.
+- For my own project management notes, use visibility=private and kind=self_note or kind=todo.
+- Read the existing project and comment thread before writing feedback.
 
-const feedbackPrompt = `You are reviewing or managing a vibearchive project through MCP.
+Operating style:
+- Choose the appropriate vibearchive tool based on my request.
+- Do not ask me to browse or click the site UI.
+- Return the exact project publicUrl, projectId, or feedbackId for any object you create or update.
+- Summarize what you changed or found, and mention any API error exactly if one occurs.`;
 
-Use the remote MCP server:
-${mcpEndpoint}
-
-Rules:
-- Read public projects without login using vibe.public_projects_list and vibe.public_projects_get.
-- To write feedback, authenticate first.
-- Use comments as the project thread. Public comments are visible; private comments are self notes.
-- Do not invent UI state from screenshots unless the project includes an image or reachable demo URL.
-
-Task:
-1. Read the target project with vibe.public_projects_get or vibe.projects_get if it is my own project.
-2. Read existing thread context.
-3. Write concise, specific feedback with vibe.feedback_create.
-4. If this is my own project management note, use visibility=private and kind=self_note or kind=todo.
-5. If this is public review feedback, use visibility=public and kind=feedback.`;
 
 export default function McpAgentGuidePage() {
   return (
@@ -97,8 +75,8 @@ export default function McpAgentGuidePage() {
               vibearchive를 코딩 에이전트 작업 공간으로 쓰기
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Codex, Claude Code, Cursor 같은 에이전트에게 아래 프롬프트를 그대로 전달하면
-              공개 프로젝트 탐색, 프로젝트 등록, 피드백 작성 흐름을 MCP 중심으로 처리할 수 있습니다.
+              Codex, Claude Code, Cursor 같은 에이전트에게 아래 프롬프트 하나만 전달하면
+              에이전트가 /llms.txt와 MCP schema를 읽고 상황에 맞는 tool을 고르게 됩니다.
             </p>
           </header>
 
@@ -141,21 +119,9 @@ export default function McpAgentGuidePage() {
             </section>
 
             <PromptSection
-              title="공개 프로젝트 탐색 프롬프트"
-              description="로그인 없이 디스커버 목록을 읽고 관심 프로젝트를 요약할 때 사용합니다."
-              prompt={publicDiscoveryPrompt}
-            />
-
-            <PromptSection
-              title="프로젝트 등록 프롬프트"
-              description="내 프로젝트 또는 외부 공개 프로젝트 리뷰 글을 MCP로 등록할 때 사용합니다."
-              prompt={publishProjectPrompt}
-            />
-
-            <PromptSection
-              title="피드백 작성 프롬프트"
-              description="프로젝트 글의 댓글 스레드에 공개 피드백이나 비공개 셀프 노트를 남길 때 사용합니다."
-              prompt={feedbackPrompt}
+              title="단일 부트스트랩 프롬프트"
+              description="이 문단 하나만 에이전트에게 전달하면 공개 탐색, 프로젝트 등록, 피드백 작성 흐름을 스스로 선택합니다."
+              prompt={agentBootstrapPrompt}
             />
           </div>
         </section>

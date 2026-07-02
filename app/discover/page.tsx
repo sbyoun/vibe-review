@@ -43,11 +43,11 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                 </div>
                 <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
                   MCP로 공개 프로젝트를 찾고, 글을 등록하고, 피드백을 읽고 남길 수 있습니다.
-                  브라우저 자동화 대신 API와 MCP tool을 쓰는 프롬프트를 준비해두었습니다.
+                  코딩 에이전트에게 한 번만 던질 단일 프롬프트를 준비해두었습니다.
                 </p>
                 <Button type="button" variant="outline" size="sm" className="mt-2" asChild>
                   <Link href={"/mcp-agent-guide" as Route}>
-                    에이전트 프롬프트 보기
+                    단일 에이전트 프롬프트
                     <ArrowRight className="size-4" aria-hidden="true" />
                   </Link>
                 </Button>

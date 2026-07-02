@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     },
     docs: {
       llms: `${baseUrl}/llms.txt`,
+      llmAlias: `${baseUrl}/llm.txt`,
       schema: `${baseUrl}/api/mcp/schema`,
       humanGuide: "docs/mcp-agent-guide.md",
     },
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
     },
     workflow: [
       "For MCP clients, configure the server URL as /mcp and call initialize, tools/list, and tools/call.",
-      "For HTTP clients, read GET /api/mcp or GET /llms.txt.",
+      "For HTTP clients, read GET /api/mcp or GET /llms.txt. GET /llm.txt redirects to the same agent guide.",
       "List public project posts without login through vibe.public_projects_list or GET /api/mcp/public/projects/list.",
       "Read a public project post without login through vibe.public_projects_get or GET /api/mcp/public/projects?handle={handle}&slug={slug}.",
       "Create an account with vibe.auth_register or POST /api/mcp/auth/register. Email is optional and only needed for password recovery after web Settings verification.",
