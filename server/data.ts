@@ -313,6 +313,9 @@ export async function getWorkspaceData() {
   const externalReviewRows = await getExternalReviewRows(owner.id);
 
   const projectIds = projectRows.map((project) => project.id);
+  const feedProjectIds = Array.from(
+    new Set([...projectRows.map((project) => project.id), ...externalReviewRows.map((project) => project.id)]),
+  );
   const requestRows =
     projectIds.length > 0
       ? await db
@@ -323,7 +326,7 @@ export async function getWorkspaceData() {
       : [];
 
   const feedbackRows =
-    projectIds.length > 0
+    feedProjectIds.length > 0
       ? await db
           .select({
             id: feedback.id,
@@ -340,12 +343,14 @@ export async function getWorkspaceData() {
             kind: feedback.kind,
             createdAt: feedback.createdAt,
             authorName: users.name,
+            authorHandle: users.handle,
           })
           .from(feedback)
           .innerJoin(users, eq(feedback.authorId, users.id))
-          .where(inArray(feedback.projectId, projectIds))
+          .where(inArray(feedback.projectId, feedProjectIds))
           .orderBy(desc(feedback.createdAt))
       : [];
+  const authoredFeedbackRows = await getAuthoredFeedbackRows(owner.id);
 
   const ledgerRows = await db
     .select()
@@ -383,6 +388,7 @@ export async function getWorkspaceData() {
       decorateRequest(request, projectRows, feedbackRows),
     ).filter((request) => request.status !== "cancelled"),
     feedback: feedbackRows,
+    authoredFeedback: authoredFeedbackRows,
     creditLedger: ledgerRows,
     statusEvents: statusRows,
   };

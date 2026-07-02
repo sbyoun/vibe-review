@@ -1,36 +1,60 @@
 import Link from "next/link";
-import { MoreHorizontal, Plus, Timer, CheckCircle2, Eye } from "lucide-react";
+import type { Route } from "next";
+import { ArrowUpRight, FileText, MessageSquareText, Plus } from "lucide-react";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
-import { formatShortDate, statusLabel, type ProjectStatus } from "@/lib/domain";
+import { feedbackKindLabel, formatShortDate, statusLabel } from "@/lib/domain";
 import { getWorkspaceData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
 
-const columns: Array<{
-  title: string;
-  statuses: ProjectStatus[];
-  muted?: boolean;
-}> = [
-  { title: "Ideation", statuses: ["idea", "parked"] },
-  { title: "In Progress", statuses: ["prototype", "building", "iterating"] },
-  { title: "Vibe Check", statuses: ["needs_feedback"] },
-  { title: "Shipped", statuses: ["shipped", "archived"], muted: true },
-];
+type WorkspaceData = Awaited<ReturnType<typeof getWorkspaceData>>;
+type WorkspaceProject = WorkspaceData["projects"][number] | WorkspaceData["externalReviews"][number];
+type ReceivedFeedback = WorkspaceData["feedback"][number];
+type AuthoredFeedback = WorkspaceData["authoredFeedback"][number];
+
+type FeedItem =
+  | {
+      type: "project";
+      id: string;
+      createdAt: Date;
+      href: string;
+      project: WorkspaceProject;
+    }
+  | {
+      type: "feedback";
+      id: string;
+      createdAt: Date;
+      href: string;
+      projectTitle: string;
+      authorLabel: string;
+      relationLabel: string;
+      body: string;
+      kind: ReceivedFeedback["kind"] | AuthoredFeedback["kind"];
+      visibility: ReceivedFeedback["visibility"] | AuthoredFeedback["visibility"];
+    };
 
 export default async function DashboardPage() {
   const data = await getWorkspaceData();
+  const feed = buildFeed(data);
+  const projectCount = data.projects.length + data.externalReviews.length;
+  const feedbackCount = feed.filter((item) => item.type === "feedback").length;
 
   return (
     <>
       <SiteNav />
-      <main className="mx-auto flex min-h-[calc(100vh-64px)] w-full max-w-[1400px] flex-col overflow-hidden px-3 py-8 md:px-6">
-        <header className="mb-8 flex items-end justify-between gap-4">
+      <main className="mx-auto min-h-[calc(100vh-64px)] w-full max-w-[960px] px-3 py-8 md:px-6">
+        <header className="mb-6 flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="mb-1 text-xl font-semibold leading-7 text-foreground">My Projects</h1>
-            <p className="text-sm leading-5 text-muted-foreground">Manage your pipeline.</p>
+            <h1 className="mb-1 text-xl font-semibold leading-7 text-foreground">My Feed</h1>
+            <p className="text-sm leading-5 text-muted-foreground">
+              내가 올린 프로젝트 글, 내 글에 달린 댓글, 내가 남긴 댓글을 최신순으로 봅니다.
+            </p>
+            <p className="mt-2 text-xs leading-4 text-muted-foreground">
+              {projectCount} posts · {feedbackCount} comments
+            </p>
           </div>
           <Button type="button" variant="outline" size="sm" asChild>
             <Link href="/projects/new">
@@ -40,87 +64,156 @@ export default async function DashboardPage() {
           </Button>
         </header>
 
-        <section className="flex flex-grow items-start gap-4 overflow-x-auto pb-4">
-          {columns.map((column) => {
-            const columnProjects = data.projects.filter((project) =>
-              column.statuses.includes(project.status),
-            );
+        <section className="border-t border-border">
+          {feed.map((item) =>
+            item.type === "project" ? (
+              <ProjectFeedItem key={item.id} item={item} />
+            ) : (
+              <FeedbackFeedItem key={item.id} item={item} />
+            ),
+          )}
 
-            return (
-              <section
-                key={column.title}
-                className={`flex h-full min-w-[300px] w-[300px] flex-col rounded-sm border border-border bg-card p-2 ${
-                  column.muted ? "opacity-70 hover:opacity-100" : ""
-                }`}
-              >
-                <h2 className="mb-4 flex items-center justify-between border-b border-border pb-2 text-base font-semibold leading-[22px]">
-                  {column.title}
-                  <span className="rounded-sm bg-muted px-2 py-0.5 text-[11px] font-medium leading-[14px] text-muted-foreground">
-                    {columnProjects.length}
-                  </span>
-                </h2>
-
-                <div className="flex flex-col gap-2 overflow-y-auto pr-1">
-                  {columnProjects.map((project) => (
-                    <Link
-                      key={project.id}
-                      href={`/p/${data.owner.handle}/${project.slug}`}
-                      className="group rounded-sm border border-border bg-background p-2 hover:bg-muted"
-                    >
-                      {project.coverImageUrl ? (
-                        <div className="relative mb-2 h-24 overflow-hidden rounded-sm border border-border bg-muted">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={project.coverImageUrl}
-                            alt=""
-                            className={`h-full w-full object-cover ${column.muted ? "grayscale" : ""}`}
-                          />
-                        </div>
-                      ) : null}
-                      <div className="mb-1 flex items-center gap-2">
-                        {column.title === "Vibe Check" ? (
-                          <Eye className="size-3.5 text-secondary" aria-hidden="true" />
-                        ) : column.muted ? (
-                          <CheckCircle2 className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                        ) : (
-                          <span className="size-2 rounded-full bg-secondary" aria-hidden="true" />
-                        )}
-                        <h3
-                          className={`text-xs font-semibold leading-4 text-foreground group-hover:text-primary ${
-                            column.muted ? "line-through text-muted-foreground" : ""
-                          }`}
-                        >
-                          {project.title}
-                        </h3>
-                      </div>
-                      <p className="mb-2 line-clamp-2 text-[11px] leading-[14px] text-muted-foreground">
-                        {project.summary}
-                      </p>
-                      <div className="flex items-center justify-between text-[11px] leading-[14px] text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Timer className="size-3" aria-hidden="true" />
-                          {formatShortDate(project.updatedAt)}
-                        </span>
-                        <MoreHorizontal className="size-3.5" aria-hidden="true" />
-                      </div>
-                      <div className="mt-2 text-[11px] leading-[14px] text-muted-foreground">
-                        {statusLabel[project.status]} · {project.feedbackCount} comments
-                      </div>
-                    </Link>
-                  ))}
-
-                  {columnProjects.length === 0 ? (
-                    <div className="rounded-sm border border-dashed border-border p-3 text-[11px] leading-[14px] text-muted-foreground">
-                      No projects.
-                    </div>
-                  ) : null}
-                </div>
-              </section>
-            );
-          })}
+          {feed.length === 0 ? (
+            <div className="border-b border-border py-8 text-sm leading-6 text-muted-foreground">
+              아직 보여줄 활동이 없습니다. 프로젝트 글을 올리거나 피드백을 남기면 여기에 최신순으로 표시됩니다.
+            </div>
+          ) : null}
         </section>
       </main>
       <SiteFooter />
     </>
+  );
+}
+
+function ProjectFeedItem({ item }: { item: Extract<FeedItem, { type: "project" }> }) {
+  const project = item.project;
+  const label = project.projectType === "external" ? "외부 프로젝트 글" : "내 프로젝트 글";
+
+  return (
+    <article className="grid grid-cols-[28px_minmax(0,1fr)] gap-3 border-b border-border py-4">
+      <div className="pt-1">
+        <FileText className="size-5 text-primary" aria-hidden="true" />
+      </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2 text-xs leading-4 text-muted-foreground">
+          <span>{label}</span>
+          <span>·</span>
+          <span>{formatShortDate(item.createdAt)}</span>
+          <span>·</span>
+          <span>{project.visibility}</span>
+          <span>·</span>
+          <span>{statusLabel[project.status]}</span>
+        </div>
+        <Link
+          href={item.href as Route}
+          className="mt-1 inline-flex max-w-full items-center gap-1 text-base font-semibold leading-[22px] text-foreground hover:text-primary hover:underline"
+        >
+          <span className="truncate">{project.title}</span>
+          <ArrowUpRight className="size-4 shrink-0" aria-hidden="true" />
+        </Link>
+        <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">
+          {project.summary}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2 text-[11px] leading-[14px] text-muted-foreground">
+          <span>{project.feedbackCount} comments</span>
+          {project.categoryTags.slice(0, 4).map((tag) => (
+            <span key={tag} className="rounded-sm border border-border bg-muted px-1.5 py-0.5">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function FeedbackFeedItem({ item }: { item: Extract<FeedItem, { type: "feedback" }> }) {
+  return (
+    <article className="grid grid-cols-[28px_minmax(0,1fr)] gap-3 border-b border-border py-4">
+      <div className="pt-1">
+        <MessageSquareText className="size-5 text-primary" aria-hidden="true" />
+      </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2 text-xs leading-4 text-muted-foreground">
+          <span>{item.relationLabel}</span>
+          <span>·</span>
+          <span>{item.authorLabel}</span>
+          <span>·</span>
+          <span>{formatShortDate(item.createdAt)}</span>
+          <span>·</span>
+          <span>{feedbackKindLabel[item.kind]}</span>
+          {item.visibility === "private" ? (
+            <>
+              <span>·</span>
+              <span>Private</span>
+            </>
+          ) : null}
+        </div>
+        <Link
+          href={item.href as Route}
+          className="mt-1 inline-flex max-w-full items-center gap-1 text-sm font-semibold leading-5 text-foreground hover:text-primary hover:underline"
+        >
+          <span className="truncate">{item.projectTitle}</span>
+          <ArrowUpRight className="size-4 shrink-0" aria-hidden="true" />
+        </Link>
+        <div className="mt-2 max-h-48 overflow-auto whitespace-pre-line border-l-2 border-border pl-3 text-sm leading-6 text-foreground">
+          {item.body}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function buildFeed(data: WorkspaceData): FeedItem[] {
+  const allProjects = [...data.projects, ...data.externalReviews];
+  const projectById = new Map(allProjects.map((project) => [project.id, project]));
+  const seenFeedbackIds = new Set<string>();
+
+  const projectItems: FeedItem[] = allProjects.map((project) => ({
+    type: "project",
+    id: `project-${project.id}`,
+    createdAt: project.createdAt,
+    href: `/p/${data.owner.handle}/${project.slug}`,
+    project,
+  }));
+
+  const receivedItems: FeedItem[] = data.feedback.map((entry) => {
+    seenFeedbackIds.add(entry.id);
+    const project = projectById.get(entry.projectId);
+    const isMine = entry.authorId === data.owner.id;
+
+    return {
+      type: "feedback",
+      id: `feedback-${entry.id}`,
+      createdAt: entry.createdAt,
+      href: project ? `/p/${data.owner.handle}/${project.slug}#feedback-${entry.id}` : "/dashboard",
+      projectTitle: project?.title ?? "Unknown project",
+      authorLabel: isMine ? "me" : entry.authorHandle ?? entry.authorName ?? "user",
+      relationLabel: isMine ? "내 댓글" : "내 글에 달린 댓글",
+      body: entry.body,
+      kind: entry.kind,
+      visibility: entry.visibility,
+    };
+  });
+
+  const authoredItems: FeedItem[] = data.authoredFeedback
+    .filter((entry) => !seenFeedbackIds.has(entry.id))
+    .map((entry) => ({
+      type: "feedback",
+      id: `feedback-${entry.id}`,
+      createdAt: entry.createdAt,
+      href: entry.ownerHandle
+        ? `/p/${entry.ownerHandle}/${entry.projectSlug}#feedback-${entry.id}`
+        : "/dashboard",
+      projectTitle: entry.projectTitle,
+      authorLabel: "me",
+      relationLabel: "내 댓글",
+      body: entry.body,
+      kind: entry.kind,
+      visibility: entry.visibility,
+    }));
+
+  return [...projectItems, ...receivedItems, ...authoredItems].sort(
+    (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
   );
 }
