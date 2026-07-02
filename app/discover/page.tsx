@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ChevronUp, Compass, MessageSquareText } from "lucide-react";
+import { ArrowRight, Bot, ChevronUp, Compass, MessageSquareText } from "lucide-react";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
@@ -34,12 +34,23 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       <SiteNav />
       <main className="min-h-screen">
         <section className="mx-auto w-full max-w-[1100px] px-3 py-6 md:px-6">
-          <header className="mb-4 border-b border-border pb-1">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-xs leading-4 text-muted-foreground">
-                  Community projects, experiments, and tools.
+          <header className="mb-4 border-b border-border pb-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-semibold leading-5 text-foreground">
+                  <Bot className="size-4 text-primary" aria-hidden="true" />
+                  <span>코딩 에이전트로 vibearchive를 바로 사용하세요</span>
+                </div>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
+                  MCP로 공개 프로젝트를 찾고, 글을 등록하고, 피드백을 읽고 남길 수 있습니다.
+                  브라우저 자동화 대신 API와 MCP tool을 쓰는 프롬프트를 준비해두었습니다.
                 </p>
+                <Button type="button" variant="outline" size="sm" className="mt-2" asChild>
+                  <Link href={"/mcp-agent-guide" as Route}>
+                    에이전트 프롬프트 보기
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                </Button>
               </div>
               <div className="hidden gap-2 text-[11px] font-medium leading-[14px] text-muted-foreground md:flex">
                 <span>Sorted by:</span>
