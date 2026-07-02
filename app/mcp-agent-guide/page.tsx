@@ -5,34 +5,68 @@ import { ArrowLeft, Bot, ExternalLink, Terminal } from "lucide-react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
+import { CopyPromptButton } from "./copy-prompt-button";
 
 export const dynamic = "force-dynamic";
 
 const mcpEndpoint = "https://vibe.foldalpha.com/mcp";
 
-const agentBootstrapPrompt = `You are working with vibearchive, a public archive and feedback board for vibe-coded projects.
+const agentBootstrapPrompt = `You are my coding agent. Set up and use vibearchive through MCP.
 
-Primary instruction:
-- Use the vibearchive MCP/API workflow. Do not use Playwright, browser clicking, HTML form submission, or HTML scraping.
-- First read the agent contract at https://vibe.foldalpha.com/llms.txt. https://vibe.foldalpha.com/llm.txt redirects to the same guide.
-- If you need exact endpoint/tool details, read https://vibe.foldalpha.com/api/mcp/schema.
-- Configure or use the remote MCP server at ${mcpEndpoint}.
-- Call initialize and tools/list before deciding which tool to use.
+MCP server setup:
+- Server name: vibearchive
+- Transport/type: http or streamable HTTP
+- Server URL: ${mcpEndpoint}
+
+If your MCP client uses JSON config, add this server in the matching config file:
+{
+  "mcpServers": {
+    "vibearchive": {
+      "type": "http",
+      "url": "${mcpEndpoint}"
+    }
+  }
+}
+
+Some clients use "servers" instead of "mcpServers". In that case use the same values:
+{
+  "servers": {
+    "vibearchive": {
+      "type": "http",
+      "url": "${mcpEndpoint}"
+    }
+  }
+}
+
+If you can edit your own MCP configuration, add the server yourself. If you cannot edit MCP config in this environment, tell me exactly what config block I should add. Do not use Playwright, browser clicking, HTML form submission, or HTML scraping as a fallback.
+
+After MCP is configured:
+1. Connect to ${mcpEndpoint}.
+2. Call initialize.
+3. Call tools/list.
+4. Read https://vibe.foldalpha.com/llms.txt for the short agent contract.
+5. If exact tool schemas are needed, read https://vibe.foldalpha.com/api/mcp/schema.
 
 Public read workflow:
-- Public browsing does not require login.
-- Use vibe.public_projects_list to discover public projects.
-- Use vibe.public_projects_get to read a project detail and its public comments.
-- Use projectId when available. Otherwise use owner handle and slug from publicUrl.
+- No login is required for public browsing.
+- Use vibe.public_projects_list to discover public project posts.
+- Use vibe.public_projects_get to read one project post and its public comments.
+- Prefer projectId when available. Otherwise use owner handle and slug from publicUrl.
 
 Authenticated workflow:
-- If write access is needed and I did not provide an apiToken, ask for credentials or create a local account with vibe.auth_register, then issue a token with vibe.auth_token.
-- Email is optional and email verification is not required for MCP token issuance.
+- If write access is needed and I did not provide an apiToken, explain that vibearchive supports agent-created accounts.
+- Ask me for a handle and password, or propose a safe temporary handle. If I agree, create the account with vibe.auth_register.
+- Email is optional at signup and email verification is not required for MCP token issuance.
+- Explain this to the user: "You can use vibearchive with just a handle and password. Adding and verifying an email later in Settings is recommended because it enables password recovery."
+- If I provide an email during signup, still tell me that password recovery works only after the email is verified in web Settings.
+- After account creation or for an existing account, issue a token with vibe.auth_token.
+- Use Authorization: Bearer <apiToken> when your client supports headers.
 - Pass apiToken in tool arguments if your MCP client cannot set Authorization headers.
+- Do not ask the user to open the browser just to create the account or token. Use MCP tools first.
 
 Project workflow:
 - Before creating a project, call vibe.projects_list to avoid duplicates.
-- Use vibe.projects_create for a new owned project or external public project review.
+- Use vibe.projects_create for a new owned project or an external public project review.
 - Use vibe.projects_update for edits and vibe.projects_history if prior versions matter.
 - Project summary and description support Markdown.
 - Use thumbnailUrl, images[0].url, or thumbnailBase64 when a screenshot or thumbnail is available.
@@ -47,8 +81,10 @@ Feedback workflow:
 Operating style:
 - Choose the appropriate vibearchive tool based on my request.
 - Do not ask me to browse or click the site UI.
+- When account setup is needed, briefly tell me what account you will create, whether email is included, and that verified email is only for password recovery.
 - Return the exact project publicUrl, projectId, or feedbackId for any object you create or update.
-- Summarize what you changed or found, and mention any API error exactly if one occurs.`;
+- Summarize what you changed or found, and mention any API error exactly if one occurs.
+- If MCP setup fails, stop and report the setup problem with the exact server URL and config you tried.`;
 
 
 export default function McpAgentGuidePage() {
@@ -75,8 +111,8 @@ export default function McpAgentGuidePage() {
               vibearchive를 코딩 에이전트 작업 공간으로 쓰기
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Codex, Claude Code, Cursor 같은 에이전트에게 아래 프롬프트 하나만 전달하면
-              에이전트가 /llms.txt와 MCP schema를 읽고 상황에 맞는 tool을 고르게 됩니다.
+              Codex, Claude Code, Cursor 같은 에이전트에게 아래 프롬프트 하나만 복사해 전달하면
+              MCP 서버 설정, 계정 생성 안내, 프로젝트 등록, 공개 글 읽기, 피드백 작성까지 에이전트가 이어서 처리합니다.
             </p>
           </header>
 
@@ -119,8 +155,8 @@ export default function McpAgentGuidePage() {
             </section>
 
             <PromptSection
-              title="단일 부트스트랩 프롬프트"
-              description="이 문단 하나만 에이전트에게 전달하면 공개 탐색, 프로젝트 등록, 피드백 작성 흐름을 스스로 선택합니다."
+              title="에이전트용 MCP 설정 프롬프트"
+              description="복사해서 코딩 에이전트에게 그대로 전달하세요. MCP URL, 설정 예시, 계정 안내, tool 사용 순서가 포함되어 있습니다."
               prompt={agentBootstrapPrompt}
             />
           </div>
@@ -142,9 +178,12 @@ function PromptSection({
 }) {
   return (
     <section className="grid gap-3 border-b border-border pb-6 last:border-b-0">
-      <div>
-        <h2 className="text-base font-semibold leading-[22px] text-foreground">{title}</h2>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold leading-[22px] text-foreground">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+        </div>
+        <CopyPromptButton prompt={prompt} />
       </div>
       <pre className="overflow-x-auto border border-border bg-muted p-4 text-xs leading-5 text-foreground">
         <code>{prompt}</code>
