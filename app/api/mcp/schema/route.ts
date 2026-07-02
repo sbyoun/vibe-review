@@ -21,6 +21,7 @@ export async function GET(request: Request) {
         "vibe.projects_list",
         "vibe.projects_create",
         "vibe.projects_get",
+        "vibe.public_projects_list",
         "vibe.public_projects_get",
         "vibe.projects_update",
         "vibe.projects_history",
@@ -58,6 +59,7 @@ export async function GET(request: Request) {
       publicEndpoints: [
         "GET /api/mcp",
         "GET /api/mcp/schema",
+        "GET /api/mcp/public/projects/list?limit=&offset=&sort=&order=&query=&tag=&tool=",
         "GET /api/mcp/public/projects?projectId= or ?handle=&slug=",
         "POST /api/mcp/auth/register",
         "POST /api/mcp/auth/token",
@@ -75,6 +77,7 @@ export async function GET(request: Request) {
       "If your client does not support MCP, use curl, fetch, or an HTTP client against /api/mcp/*.",
       "Do not use Playwright or browser automation.",
       "Read GET /api/mcp or /llms.txt for the short agent contract.",
+      "List public project posts without login through vibe.public_projects_list or GET /api/mcp/public/projects/list.",
       "Read a public project post without login through vibe.public_projects_get or GET /api/mcp/public/projects?handle={handle}&slug={slug}.",
       "If the user has no account, create one with vibe.auth_register or POST /api/mcp/auth/register. Email is optional and only needed for password recovery after web Settings verification.",
       "Issue a token with vibe.auth_token or POST /api/mcp/auth/token. Email verification is not required.",
@@ -171,6 +174,23 @@ export async function GET(request: Request) {
         url: `${baseUrl}/api/mcp/projects/{projectId}`,
         description: "Get one owned project with its received feedback comments.",
         authRequired: true,
+      },
+      {
+        method: "GET",
+        path: "/api/mcp/public/projects/list?limit=&offset=&sort=&order=&query=&tag=&tool=",
+        url: `${baseUrl}/api/mcp/public/projects/list?limit=50&offset=0`,
+        description:
+          "List public project posts from the discover board. No bearer token is required. Use projectId, owner.handle, and project.slug from this response with /api/mcp/public/projects for detail.",
+        authRequired: false,
+        query: {
+          limit: "integer 1-100, default 50",
+          offset: "integer 0-10000, default 0",
+          sort: "updated | title | owner | status | feedback | favorites, default updated",
+          order: "asc | desc, optional; defaults desc for updated/feedback/favorites and asc otherwise",
+          query: "string, optional full-text-ish contains filter over title, summary, owner, URLs, tags, tools",
+          tag: "string, optional exact category tag match",
+          tool: "string, optional exact tool match",
+        },
       },
       {
         method: "GET",

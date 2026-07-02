@@ -84,6 +84,7 @@ MCP tools:
 - `vibe.projects_list`
 - `vibe.projects_create`
 - `vibe.projects_get`
+- `vibe.public_projects_list`
 - `vibe.public_projects_get`
 - `vibe.projects_update`
 - `vibe.projects_history`

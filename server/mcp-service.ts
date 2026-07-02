@@ -9,6 +9,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import {
   feedback,
+  projectFavorites,
   projectRevisions,
   projectStatusEvents,
   projects,
@@ -37,6 +38,9 @@ const uploadRootDir = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "public
 const thumbnailUploadDir = path.join(uploadRootDir, "project-covers");
 const thumbnailPublicPath = "/uploads/project-covers";
 const thumbnailMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+const publicProjectListSortKeys = ["updated", "title", "owner", "status", "feedback", "favorites"] as const;
+const publicProjectListOrderKeys = ["asc", "desc"] as const;
+const publicProjectListCollator = new Intl.Collator("ko", { numeric: true, sensitivity: "base" });
 const thumbnailExtensions = new Map<(typeof thumbnailMimeTypes)[number], string>([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
@@ -92,6 +96,14 @@ const optionalBase64 = z
   .string()
   .trim()
   .max(maxThumbnailBase64Chars)
+  .optional()
+  .nullable()
+  .transform((value) => (value && value.length > 0 ? value : undefined));
+
+const optionalListFilter = z
+  .string()
+  .trim()
+  .max(160)
   .optional()
   .nullable()
   .transform((value) => (value && value.length > 0 ? value : undefined));
@@ -195,6 +207,16 @@ export const getPublicMcpProjectSchema = z
   .refine((value) => value.projectId || (value.handle && value.slug), {
     message: "Pass projectId, or pass handle and slug together.",
   });
+
+export const listPublicMcpProjectsSchema = z.object({
+  limit: z.number().int().min(1).max(100).default(50),
+  offset: z.number().int().min(0).max(10000).default(0),
+  sort: z.enum(publicProjectListSortKeys).default("updated"),
+  order: z.enum(publicProjectListOrderKeys).optional(),
+  query: optionalListFilter,
+  tag: optionalListFilter,
+  tool: optionalListFilter,
+});
 
 export async function listMcpProjects(owner: McpUser) {
   const projectRows = await db
@@ -322,6 +344,87 @@ export async function getPublicMcpProject(input: z.output<typeof getPublicMcpPro
       name: row.owner.name,
     },
     feedback: feedbackRows.map(serializeFeedback),
+  };
+}
+
+export async function listPublicMcpProjects(input: z.output<typeof listPublicMcpProjectsSchema>) {
+  const sort = input.sort;
+  const order = input.order ?? defaultPublicProjectListOrder(sort);
+  const projectRows = await db
+    .select({
+      project: projects,
+      owner: users,
+    })
+    .from(projects)
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(eq(projects.visibility, "public"))
+    .orderBy(desc(projects.lastActivityAt), desc(projects.createdAt));
+
+  const projectIds = projectRows.map((row) => row.project.id);
+  const feedbackRows =
+    projectIds.length > 0
+      ? await db
+          .select({
+            id: feedback.id,
+            projectId: feedback.projectId,
+            implementedStatus: feedback.implementedStatus,
+          })
+          .from(feedback)
+          .where(and(inArray(feedback.projectId, projectIds), eq(feedback.visibility, "public")))
+      : [];
+  const favoriteRows =
+    projectIds.length > 0
+      ? await db
+          .select({ projectId: projectFavorites.projectId })
+          .from(projectFavorites)
+          .where(inArray(projectFavorites.projectId, projectIds))
+      : [];
+
+  const feedbackByProject = groupByProjectId(feedbackRows);
+  const favoriteCountByProject = countByProjectId(favoriteRows);
+  const filters = {
+    query: input.query ?? null,
+    tag: input.tag ?? null,
+    tool: input.tool ?? null,
+  };
+  const items = projectRows
+    .map((row) => {
+      const ownerHandle = row.owner.handle ?? row.owner.id;
+      const projectFeedbackRows = feedbackByProject.get(row.project.id) ?? [];
+
+      return {
+        project: {
+          ...serializeProject(row.project, projectFeedbackRows, ownerHandle),
+          favoriteCount: favoriteCountByProject.get(row.project.id) ?? 0,
+        },
+        owner: {
+          id: row.owner.id,
+          handle: row.owner.handle,
+          name: row.owner.name,
+        },
+      };
+    })
+    .filter((item) => matchesPublicProjectListFilters(item, filters))
+    .sort((left, right) => comparePublicProjectListItems(left, right, sort, order));
+
+  const total = items.length;
+  const projectsPage = items.slice(input.offset, input.offset + input.limit);
+  const nextOffset = input.offset + input.limit < total ? input.offset + input.limit : null;
+
+  return {
+    projects: projectsPage,
+    pagination: {
+      limit: input.limit,
+      offset: input.offset,
+      total,
+      hasMore: nextOffset !== null,
+      nextOffset,
+    },
+    sort: {
+      key: sort,
+      order,
+    },
+    filters,
   };
 }
 
@@ -991,6 +1094,127 @@ function serializeFeedback<
     kind: entry.kind,
     createdAt: entry.createdAt,
   };
+}
+
+type PublicProjectListItem = {
+  project: ReturnType<typeof serializeProject> & { favoriteCount: number };
+  owner: {
+    id: string;
+    handle: string | null;
+    name: string | null;
+  };
+};
+
+function groupByProjectId<TEntry extends { projectId: string }>(entries: TEntry[]) {
+  const grouped = new Map<string, TEntry[]>();
+
+  for (const entry of entries) {
+    const projectEntries = grouped.get(entry.projectId) ?? [];
+    projectEntries.push(entry);
+    grouped.set(entry.projectId, projectEntries);
+  }
+
+  return grouped;
+}
+
+function countByProjectId<TEntry extends { projectId: string }>(entries: TEntry[]) {
+  const counts = new Map<string, number>();
+
+  for (const entry of entries) {
+    counts.set(entry.projectId, (counts.get(entry.projectId) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+function matchesPublicProjectListFilters(
+  item: PublicProjectListItem,
+  filters: { query: string | null; tag: string | null; tool: string | null },
+) {
+  if (filters.tag) {
+    const tag = filters.tag.toLowerCase();
+
+    if (!item.project.categoryTags.some((entry) => entry.toLowerCase() === tag)) {
+      return false;
+    }
+  }
+
+  if (filters.tool) {
+    const tool = filters.tool.toLowerCase();
+
+    if (!item.project.tools.some((entry) => entry.toLowerCase() === tool)) {
+      return false;
+    }
+  }
+
+  if (filters.query) {
+    const query = filters.query.toLowerCase();
+    const haystack = [
+      item.project.title,
+      item.project.summary,
+      item.project.description,
+      item.project.externalOwnerName,
+      item.project.externalOwnerUrl,
+      item.project.sourceUrl,
+      item.project.demoUrl,
+      item.project.repoUrl,
+      item.owner.handle,
+      item.owner.name,
+      ...item.project.categoryTags,
+      ...item.project.tools,
+    ]
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .join(" ")
+      .toLowerCase();
+
+    if (!haystack.includes(query)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function comparePublicProjectListItems(
+  left: PublicProjectListItem,
+  right: PublicProjectListItem,
+  sort: (typeof publicProjectListSortKeys)[number],
+  order: (typeof publicProjectListOrderKeys)[number],
+) {
+  const direction = order === "asc" ? 1 : -1;
+  let value = 0;
+
+  if (sort === "title") {
+    value = publicProjectListCollator.compare(left.project.title, right.project.title);
+  } else if (sort === "owner") {
+    value = publicProjectListCollator.compare(projectOwnerLabel(left), projectOwnerLabel(right));
+  } else if (sort === "status") {
+    value = publicProjectListCollator.compare(left.project.status, right.project.status);
+  } else if (sort === "feedback") {
+    value = left.project.feedbackCount - right.project.feedbackCount;
+  } else if (sort === "favorites") {
+    value = left.project.favoriteCount - right.project.favoriteCount;
+  } else {
+    value = left.project.lastActivityAt.getTime() - right.project.lastActivityAt.getTime();
+  }
+
+  if (value === 0) {
+    value = left.project.createdAt.getTime() - right.project.createdAt.getTime();
+  }
+
+  return value * direction;
+}
+
+function projectOwnerLabel(item: PublicProjectListItem) {
+  if (item.project.projectType === "external") {
+    return item.project.externalOwnerName ?? item.project.externalOwnerUrl ?? item.project.sourceUrl ?? "";
+  }
+
+  return item.owner.handle ?? item.owner.name ?? "";
+}
+
+function defaultPublicProjectListOrder(sort: (typeof publicProjectListSortKeys)[number]) {
+  return sort === "updated" || sort === "feedback" || sort === "favorites" ? "desc" : "asc";
 }
 
 function resolveCreateThumbnailUrl(input: z.output<typeof createMcpProjectSchema>) {

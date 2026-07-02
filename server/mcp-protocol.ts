@@ -22,6 +22,8 @@ import {
   getMcpProject,
   getPublicMcpProject,
   getPublicMcpProjectSchema,
+  listPublicMcpProjects,
+  listPublicMcpProjectsSchema,
   listMcpProjectRevisions,
   listMcpProjectRevisionsSchema,
   listMcpFeedback,
@@ -69,6 +71,7 @@ const projectIdSchema = apiTokenSchema.extend({
 });
 
 const publicProjectGetSchema = apiTokenSchema.and(getPublicMcpProjectSchema);
+const publicProjectListSchema = apiTokenSchema.and(listPublicMcpProjectsSchema);
 
 const feedbackListSchema = apiTokenSchema.extend({
   projectId: z.string().trim().min(1).optional(),
@@ -281,6 +284,33 @@ const tools = [
         projectId: { type: "string" },
       },
       required: ["projectId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.public_projects_list",
+    title: "List Public Vibe Projects",
+    description:
+      "List public project posts from the discover board without auth. Use this before public_projects_get to find projectId, handle, and slug.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        apiToken: {
+          type: "string",
+          description: "Optional and ignored for this public read-only tool.",
+        },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+        offset: { type: "integer", minimum: 0, maximum: 10000, default: 0 },
+        sort: {
+          type: "string",
+          enum: ["updated", "title", "owner", "status", "feedback", "favorites"],
+          default: "updated",
+        },
+        order: { type: "string", enum: ["asc", "desc"] },
+        query: { type: "string", maxLength: 160 },
+        tag: { type: "string", maxLength: 160 },
+        tool: { type: "string", maxLength: 160 },
+      },
       additionalProperties: false,
     },
   },
@@ -630,6 +660,8 @@ async function callTool(request: Request, params: unknown) {
         return toolSuccess(await projectsCreate(request, args));
       case "vibe.projects_get":
         return toolSuccess(await projectsGet(request, args));
+      case "vibe.public_projects_list":
+        return toolSuccess(await publicProjectsList(args));
       case "vibe.public_projects_get":
         return toolSuccess(await publicProjectsGet(args));
       case "vibe.projects_update":
@@ -722,6 +754,20 @@ async function projectsGet(request: Request, args: JsonObject) {
   const input = parseToolInput(projectIdSchema, args);
 
   return getMcpProject(user, input.projectId);
+}
+
+async function publicProjectsList(args: JsonObject) {
+  const input = parseToolInput(publicProjectListSchema, args);
+
+  return listPublicMcpProjects({
+    limit: input.limit,
+    offset: input.offset,
+    sort: input.sort,
+    order: input.order,
+    query: input.query,
+    tag: input.tag,
+    tool: input.tool,
+  });
 }
 
 async function publicProjectsGet(args: JsonObject) {
