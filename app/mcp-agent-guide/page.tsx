@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, Bot, ExternalLink, Terminal } from "lucide-react";
+import { ArrowLeft, Bot } from "lucide-react";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
@@ -117,43 +117,6 @@ export default function McpAgentGuidePage() {
           </header>
 
           <div className="grid gap-8 py-6">
-            <section className="grid gap-3 border-b border-border pb-6">
-              <h2 className="text-base font-semibold leading-[22px]">Endpoint</h2>
-              <div className="grid gap-2 text-sm leading-6 text-muted-foreground">
-                <p>
-                  Remote MCP server:{" "}
-                  <code className="border border-border bg-muted px-1.5 py-0.5 text-foreground">
-                    {mcpEndpoint}
-                  </code>
-                </p>
-                <p>
-                  Public discovery tools:{" "}
-                  <code className="text-foreground">vibe.public_projects_list</code>,{" "}
-                  <code className="text-foreground">vibe.public_projects_get</code>
-                </p>
-                <p>
-                  Authenticated write tools:{" "}
-                  <code className="text-foreground">vibe.projects_create</code>,{" "}
-                  <code className="text-foreground">vibe.projects_update</code>,{" "}
-                  <code className="text-foreground">vibe.feedback_create</code>
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Button type="button" variant="outline" size="sm" asChild>
-                  <a href="/llms.txt">
-                    <Terminal className="size-4" aria-hidden="true" />
-                    llms.txt
-                  </a>
-                </Button>
-                <Button type="button" variant="outline" size="sm" asChild>
-                  <a href="/api/mcp/schema">
-                    <ExternalLink className="size-4" aria-hidden="true" />
-                    API schema
-                  </a>
-                </Button>
-              </div>
-            </section>
-
             <PromptSection
               title="에이전트용 MCP 설정 프롬프트"
               description="복사해서 코딩 에이전트에게 그대로 전달하세요. MCP URL, 설정 예시, 계정 안내, tool 사용 순서가 포함되어 있습니다."
@@ -185,7 +148,7 @@ function PromptSection({
         </div>
         <CopyPromptButton prompt={prompt} />
       </div>
-      <pre className="overflow-x-auto border border-border bg-muted p-4 text-xs leading-5 text-foreground">
+      <pre className="max-h-[60vh] overflow-auto border border-border bg-muted p-4 text-xs leading-5 text-foreground">
         <code>{prompt}</code>
       </pre>
     </section>
