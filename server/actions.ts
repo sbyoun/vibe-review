@@ -33,6 +33,7 @@ import {
   parseCommaList,
   slugifyProjectTitle,
 } from "@/lib/domain";
+import { safeRedirectPath } from "@/lib/redirects";
 import { ensureDemoData } from "@/server/data";
 import { requireCurrentUser } from "@/server/current-user";
 import { projectRevisionValues } from "@/server/project-revisions";
@@ -454,9 +455,12 @@ export async function captureProjectCover(formData: FormData) {
 
 export async function createFeedback(formData: FormData) {
   await ensureDemoData();
-  const reviewer = await requireCurrentUser();
-
   const projectId = readRequiredString(formData, "projectId");
+  const returnTo = safeRedirectPath(readOptionalString(formData, "returnTo"));
+  const reviewer = await requireCurrentUser(
+    (returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login") as Route,
+  );
+
   const parentFeedbackId = readOptionalString(formData, "parentFeedbackId");
   const authorName = readOptionalString(formData, "authorName")?.slice(0, 120);
   const body = readRequiredString(formData, "body").slice(0, 2000);

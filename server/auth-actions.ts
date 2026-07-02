@@ -2,11 +2,13 @@
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
+import type { Route } from "next";
 import { signIn, signOut } from "@/auth";
 import { db } from "@/db";
 import { users, verificationTokens } from "@/db/schema";
 import { assertValidPassword, hashPassword, verifyPassword } from "@/lib/auth/password";
 import { slugify } from "@/lib/domain";
+import { safeRedirectPath } from "@/lib/redirects";
 import { and, eq, lt } from "drizzle-orm";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
@@ -43,6 +45,7 @@ export async function loginWithPassword(
   }
 
   const password = readRequiredString(formData, "password");
+  const next = safeRedirectPath(readOptionalString(formData, "next"));
 
   if (!password) {
     return {
@@ -64,7 +67,7 @@ export async function loginWithPassword(
 
   const handle = await findHandleForLogin(loginResult.login);
 
-  redirect(handle ? `/p/${handle}` : "/discover");
+  redirect((next ?? (handle ? `/p/${handle}` : "/discover")) as Route);
 }
 
 export async function registerWithPassword(

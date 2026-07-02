@@ -5,7 +5,6 @@ import {
   ChevronUp,
   ExternalLink,
   GitBranch,
-  LogIn,
   Settings,
   Star,
 } from "lucide-react";
@@ -52,6 +51,7 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
 
   const { profile, project, viewer, feedback, viewerHasFavorited } = data;
   const isOwner = viewer?.id === profile.id;
+  const projectPath = `/p/${profile.handle}/${project.slug}`;
   const projectUrl = project.sourceUrl ?? project.repoUrl ?? project.demoUrl;
   const isExternal = project.projectType === "external";
   const publicFeedback = feedback.filter((entry) => entry.visibility === "public" && entry.kind === "feedback");
@@ -187,25 +187,13 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
           </section>
 
           <section className="pl-8">
-            {!viewer ? (
-              <div className="border border-border bg-card p-4">
-                <p className="text-sm leading-5 text-muted-foreground">
-                  Log in to add your perspective.
-                </p>
-                <Button type="button" className="mt-4" size="sm" asChild>
-                  <Link href="/login">
-                    <LogIn className="size-4" aria-hidden="true" />
-                    Log in
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <FeedbackComposer
-                projectId={project.id}
-                viewerName={viewer.name ?? `@${viewer.handle}`}
-                isOwner={isOwner}
-              />
-            )}
+            <FeedbackComposer
+              projectId={project.id}
+              viewerName={viewer ? viewer.name ?? `@${viewer.handle}` : null}
+              isOwner={isOwner}
+              loginRequired={!viewer}
+              returnTo={`${projectPath}#feedback-composer`}
+            />
           </section>
 
           <section id="comments" className="flex flex-col gap-6 pl-8">

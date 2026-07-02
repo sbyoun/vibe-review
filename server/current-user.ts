@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Route } from "next";
 import { eq } from "drizzle-orm";
 
 import { auth } from "@/auth";
@@ -20,15 +21,15 @@ export async function getOptionalCurrentUser(): Promise<User | null> {
   return user ?? null;
 }
 
-export async function requireCurrentUser() {
+export async function requireCurrentUser(loginPath: Route = "/login") {
   const user = await getOptionalCurrentUser();
 
   if (!user) {
-    redirect("/login");
+    redirect(loginPath);
   }
 
   if (!user.handle) {
-    redirect("/login");
+    redirect(loginPath);
   }
 
   return user as CurrentUser;

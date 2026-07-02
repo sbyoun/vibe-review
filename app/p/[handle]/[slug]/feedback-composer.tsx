@@ -15,16 +15,25 @@ const compactInputClass = "vc-input-compact";
 
 type FeedbackComposerProps = {
   projectId: string;
-  viewerName: string;
+  viewerName: string | null;
   isOwner: boolean;
+  loginRequired?: boolean;
+  returnTo?: string;
 };
 
 const ownerKinds: FeedbackKind[] = ["self_note", "todo", "decision", "update", "release", "feedback"];
 
-export function FeedbackComposer({ projectId, viewerName, isOwner }: FeedbackComposerProps) {
+export function FeedbackComposer({
+  projectId,
+  viewerName,
+  isOwner,
+  loginRequired = false,
+  returnTo,
+}: FeedbackComposerProps) {
   return (
-    <form action={createFeedback} className="border border-border bg-card p-4">
+    <form id="feedback-composer" action={createFeedback} className="border border-border bg-card p-4">
       <input type="hidden" name="projectId" value={projectId} />
+      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
       <textarea
         className={inputClass}
         name="body"
@@ -34,7 +43,7 @@ export function FeedbackComposer({ projectId, viewerName, isOwner }: FeedbackCom
       />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <span className="text-[11px] font-medium leading-[14px] text-muted-foreground">
-          Markdown supported · posting as {viewerName}
+          Markdown supported · {loginRequired ? "log in to post" : `posting as ${viewerName}`}
         </span>
         <div className="flex flex-wrap items-center gap-2">
           <select className={compactInputClass} name="visibility" defaultValue={isOwner ? "private" : "public"} aria-label="Visibility">
@@ -84,7 +93,7 @@ export function FeedbackComposer({ projectId, viewerName, isOwner }: FeedbackCom
             type="submit"
             className="bg-primary px-4 py-1.5 text-xs font-medium leading-4 text-primary-foreground hover:bg-primary/90"
           >
-            Post
+            {loginRequired ? "Log in to post" : "Post"}
           </button>
         </div>
       </div>

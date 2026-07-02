@@ -26,10 +26,11 @@ const emptyState: AuthFormState = {
 
 type LoginFormsProps = {
   credentialsError: boolean;
+  next?: string | null;
   notice?: string;
 };
 
-export function LoginForm({ credentialsError, notice }: LoginFormsProps) {
+export function LoginForm({ credentialsError, next, notice }: LoginFormsProps) {
   const loginInitialState: AuthFormState = credentialsError
     ? {
         status: "error",
@@ -45,6 +46,7 @@ export function LoginForm({ credentialsError, notice }: LoginFormsProps) {
 
   return (
     <form action={loginAction} className="border border-border bg-card p-6">
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <div className="flex flex-col gap-4">
         <FormMessage state={loginState} />
         <DevActionLink href={loginState.verificationUrl} label="Verify email" />
