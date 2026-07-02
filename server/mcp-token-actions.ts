@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { verificationTokens } from "@/db/schema";
-import { createMcpApiToken, mcpTokenPrefix } from "@/server/mcp-api";
+import {
+  createMcpApiToken,
+  mcpApiTokenNeverExpiresAt,
+  mcpTokenPrefix,
+} from "@/server/mcp-api";
 import { requireCurrentUser } from "@/server/current-user";
 
 export type McpTokenSummary = {
@@ -22,6 +26,8 @@ export type McpTokenActionState = {
   revokedTokenId?: string;
   revokedCount?: number;
 };
+
+const tokenExpirationOptions = new Set(["never", "1", "7", "30", "90", "365"]);
 
 export async function listCurrentUserMcpTokens(): Promise<McpTokenSummary[]> {
   const user = await requireCurrentUser();
@@ -62,7 +68,8 @@ export async function createCurrentUserMcpToken(
   }
 
   const user = await requireCurrentUser();
-  const token = await createMcpApiToken(user.id);
+  const expiresAt = resolveTokenExpiresAt(formData.get("expiresIn"));
+  const token = await createMcpApiToken(user.id, { expiresAt });
 
   revalidatePath("/settings");
   revalidatePath(`/p/${user.handle}`);
@@ -136,4 +143,18 @@ export async function revokeCurrentUserMcpTokens(
 
 function readRequiredString(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function resolveTokenExpiresAt(value: FormDataEntryValue | null) {
+  const expiresIn = typeof value === "string" && tokenExpirationOptions.has(value)
+    ? value
+    : "never";
+
+  if (expiresIn === "never") {
+    return mcpApiTokenNeverExpiresAt;
+  }
+
+  const days = Number.parseInt(expiresIn, 10);
+
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 }

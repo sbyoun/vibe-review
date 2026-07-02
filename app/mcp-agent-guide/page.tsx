@@ -55,11 +55,15 @@ Public read workflow:
 
 Authenticated workflow:
 - If write access is needed and I did not provide an apiToken, explain that vibearchive supports agent-created accounts.
-- Ask me for a handle and password, or propose a safe temporary handle. If I agree, create the account with vibe.auth_register.
+- Account decision flow:
+  1. If I provide apiToken, use it directly and call vibe.auth_check.
+  2. If I say I already have an account, ask for handle/email and password, then call vibe.auth_token. Do not create a new account.
+  3. If I say I do not have an account, ask for handle and password, optionally email, then call vibe.auth_register and vibe.auth_token.
+  4. If I am unsure whether I have an account, ask whether to log in to an existing account or create a new one. Do not guess.
+  5. After token issuance, call vibe.auth_check before creating projects or feedback.
 - Email is optional at signup and email verification is not required for MCP token issuance.
-- Explain this to the user: "You can use vibearchive with just a handle and password. Adding and verifying an email later in Settings is recommended because it enables password recovery."
+- Explain this to the user when account setup is needed: "You can use vibearchive with just a handle and password. Adding and verifying an email later in Settings is recommended because it enables password recovery."
 - If I provide an email during signup, still tell me that password recovery works only after the email is verified in web Settings.
-- After account creation or for an existing account, issue a token with vibe.auth_token.
 - Use Authorization: Bearer <apiToken> when your client supports headers.
 - Pass apiToken in tool arguments if your MCP client cannot set Authorization headers.
 - Do not ask the user to open the browser just to create the account or token. Use MCP tools first.

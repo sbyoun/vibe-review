@@ -22,7 +22,7 @@ export class ApiError extends Error {
 }
 
 export const mcpTokenPrefix = "mcp-api";
-const mcpApiTokenTtlDays = Number.parseInt(process.env.MCP_API_TOKEN_TTL_DAYS ?? "365", 10);
+export const mcpApiTokenNeverExpiresAt = new Date("9999-12-31T23:59:59.000Z");
 
 export async function requireMcpUser(request: Request): Promise<McpUser> {
   const token = readBearerToken(request);
@@ -45,10 +45,13 @@ export async function getMcpUserForToken(token?: string | null): Promise<McpUser
   return (await findEnvTokenUser(token)) ?? (await findIssuedTokenUser(token));
 }
 
-export async function createMcpApiToken(userId: string) {
+export async function createMcpApiToken(
+  userId: string,
+  options: { expiresAt?: Date } = {},
+) {
   const token = `vibe_mcp_${randomUUID().replaceAll("-", "")}_${randomUUID().replaceAll("-", "")}`;
   const tokenId = randomUUID();
-  const expires = new Date(Date.now() + getMcpApiTokenTtlMs());
+  const expires = options.expiresAt ?? mcpApiTokenNeverExpiresAt;
 
   await db.insert(verificationTokens).values({
     identifier: packMcpApiTokenIdentifier(userId, tokenId),
@@ -216,12 +219,4 @@ function unpackMcpApiTokenIdentifier(identifier: string) {
 
 function packMcpApiTokenHash(token: string) {
   return `${mcpTokenPrefix}:${createHash("sha256").update(token).digest("base64url")}`;
-}
-
-function getMcpApiTokenTtlMs() {
-  const safeDays = Number.isFinite(mcpApiTokenTtlDays)
-    ? Math.max(1, Math.min(3650, mcpApiTokenTtlDays))
-    : 365;
-
-  return safeDays * 24 * 60 * 60 * 1000;
 }

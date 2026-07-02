@@ -105,13 +105,24 @@ export function McpTokenPanel({ tokens, endpoint, embedded = false }: McpTokenPa
             readOnly
           />
           <p className="text-xs text-emerald-800">
-            Expires {formatDate(createState.expiresAt)}
+            {formatExpiration(createState.expiresAt)}
           </p>
         </div>
       ) : null}
 
-      <form action={createAction} className="mt-4">
+      <form action={createAction} className="mt-4 flex flex-wrap items-end gap-3">
         <input type="hidden" name="intent" value="create" />
+        <label className="grid min-w-40 gap-1">
+          <span className="text-xs font-medium leading-4 text-muted-foreground">Expiration</span>
+          <select className="vc-input-compact" name="expiresIn" defaultValue="never">
+            <option value="never">Never</option>
+            <option value="1">1 day</option>
+            <option value="7">7 days</option>
+            <option value="30">30 days</option>
+            <option value="90">90 days</option>
+            <option value="365">1 year</option>
+          </select>
+        </label>
         <TokenSubmitButton intent="create" />
       </form>
 
@@ -130,7 +141,7 @@ export function McpTokenPanel({ tokens, endpoint, embedded = false }: McpTokenPa
                     {token.label}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Expires {formatDate(token.expiresAt)}
+                    {formatExpiration(token.expiresAt)}
                   </p>
                 </div>
                 <form action={revokeAction}>
@@ -193,14 +204,20 @@ function TokenSubmitButton({ intent }: { intent: "create" | "revoke" }) {
   );
 }
 
-function formatDate(value?: string) {
+function formatExpiration(value?: string) {
   if (!value) {
-    return "unknown";
+    return "Expiration unknown";
   }
 
-  return new Intl.DateTimeFormat("en", {
+  const date = new Date(value);
+
+  if (date.getUTCFullYear() >= 9999) {
+    return "Never expires";
+  }
+
+  return `Expires ${new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
     year: "numeric",
-  }).format(new Date(value));
+  }).format(date)}`;
 }
