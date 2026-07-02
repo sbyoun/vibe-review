@@ -63,7 +63,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
 
           {projects.length > 0 ? (
             <div>
-              <div className="hidden grid-cols-[48px_minmax(0,1fr)_100px_100px] gap-4 border-b border-border px-2 py-2 text-[11px] font-medium leading-[14px] text-muted-foreground md:grid">
+              <div className="hidden grid-cols-[48px_minmax(0,1fr)_100px] gap-4 border-b border-border px-2 py-2 text-[11px] font-medium leading-[14px] text-muted-foreground md:grid">
                 <span className="text-center">Rank</span>
                 <SortHeader
                   label="Project"
@@ -73,14 +73,13 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                   align="start"
                 />
                 <SortHeader label="Discuss" sortKey="feedback" currentSort={sort} order={order} />
-                <span className="text-right">Favorites</span>
               </div>
 
               <div className="flex flex-col">
                 {projects.map(({ project, owner }, index) => (
                   <div
                     key={project.id}
-                    className="grid grid-cols-[32px_minmax(0,1fr)] gap-2 border-b border-border px-1 py-2 md:grid-cols-[48px_minmax(0,1fr)_100px_100px] md:gap-4 md:px-2"
+                    className="grid grid-cols-[32px_minmax(0,1fr)] gap-2 border-b border-border px-1 py-2 md:grid-cols-[48px_minmax(0,1fr)_100px] md:gap-4 md:px-2"
                   >
                     <div className="flex flex-col items-center pt-1">
                       <span className="mb-1 text-xs leading-4 text-muted-foreground">
@@ -174,7 +173,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                             <span>{formatShortDate(project.lastActivityAt)}</span>
                           </div>
                           <span className="md:hidden">
-                            {project.feedbackCount} comments · {project.favoriteCount} favorites
+                            {project.feedbackCount} comments
                           </span>
                         </div>
                       </div>
@@ -189,14 +188,6 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                       </Link>
                       <span className="text-[11px] leading-[14px] text-muted-foreground">
                         comments
-                      </span>
-                    </div>
-                    <div className="hidden flex-col items-end justify-center md:flex">
-                      <span className="text-base font-semibold leading-[22px] text-foreground">
-                        {project.favoriteCount}
-                      </span>
-                      <span className="text-[11px] leading-[14px] text-muted-foreground">
-                        favorites
                       </span>
                     </div>
                   </div>
