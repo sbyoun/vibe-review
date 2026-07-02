@@ -57,6 +57,7 @@ export async function updateCurrentUserProfile(formData: FormData) {
 
   const name = readRequiredString(formData, "name").slice(0, 120);
   const handle = createProfileHandle(readRequiredString(formData, "handle"));
+  const email = createProfileEmail(readOptionalString(formData, "email"));
   const bio = readOptionalString(formData, "bio")?.slice(0, 600);
   const primaryRoles = parseCommaList(formData.get("primaryRoles"));
   const toolsUsed = parseCommaList(formData.get("toolsUsed"));
@@ -71,16 +72,31 @@ export async function updateCurrentUserProfile(formData: FormData) {
     throw new Error("Handle is already taken");
   }
 
+  if (email) {
+    const [emailOwner] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (emailOwner && emailOwner.id !== currentUser.id) {
+      throw new Error("Email is already in use");
+    }
+  }
+
   const projectRows = await db
     .select({ slug: projects.slug })
     .from(projects)
     .where(eq(projects.ownerId, currentUser.id));
+  const emailChanged = email !== (currentUser.email?.toLowerCase() ?? null);
 
   await db
     .update(users)
     .set({
       name,
       handle,
+      email,
+      emailVerified: emailChanged ? null : currentUser.emailVerified,
       bio,
       primaryRoles,
       toolsUsed,
@@ -946,6 +962,20 @@ function createProfileHandle(input: string) {
   }
 
   return handle;
+}
+
+function createProfileEmail(input: string | undefined) {
+  if (!input) {
+    return null;
+  }
+
+  const email = input.trim().toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Valid email is required");
+  }
+
+  return email;
 }
 
 function revalidateWorkspace(

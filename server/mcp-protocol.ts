@@ -103,7 +103,7 @@ const tools = [
     name: "vibe.auth_register",
     title: "Register Vibe Workspace Account",
     description:
-      "Create a vibearchive account and send an email verification link. Call vibe.auth_token after verification.",
+      "Create a vibearchive account. Email is optional; verify it later in web Settings to enable password recovery.",
     inputSchema: {
       type: "object",
       properties: {
@@ -112,7 +112,7 @@ const tools = [
         name: { type: "string", maxLength: 120 },
         password: { type: "string", minLength: 8, maxLength: 128 },
       },
-      required: ["email", "handle", "password"],
+      required: ["handle", "password"],
       additionalProperties: false,
     },
   },
@@ -120,7 +120,7 @@ const tools = [
     name: "vibe.auth_token",
     title: "Issue Vibe Workspace API Token",
     description:
-      "Issue a new MCP API token for an email-verified account using handle/email and password.",
+      "Issue a new MCP API token using handle/email and password. Email verification is not required for token issuance.",
     inputSchema: {
       type: "object",
       properties: {
@@ -157,15 +157,16 @@ const tools = [
     name: "vibe.auth_account_delete",
     title: "Delete Vibe Workspace Account",
     description:
-      "Delete the authenticated account, its projects, and its MCP API tokens. Requires confirm: true and confirmEmail.",
+      "Delete the authenticated account, its projects, and its MCP API tokens. Requires confirm: true and confirmEmail or confirmHandle.",
     inputSchema: {
       type: "object",
       properties: {
         ...authInputProperties(),
         confirmEmail: { type: "string", format: "email" },
+        confirmHandle: { type: "string" },
         confirm: { type: "boolean", const: true },
       },
-      required: ["confirmEmail", "confirm"],
+      required: ["confirm"],
       additionalProperties: false,
     },
   },

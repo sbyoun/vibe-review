@@ -55,7 +55,7 @@ https://vibe.foldalpha.com/mcp
 
 ## Auth
 
-새 계정 생성 및 이메일 인증 요청:
+새 계정 생성:
 
 ```bash
 curl -X POST https://vibe.foldalpha.com/api/mcp/auth/register \
@@ -68,10 +68,10 @@ curl -X POST https://vibe.foldalpha.com/api/mcp/auth/register \
   }'
 ```
 
-응답에 `emailVerification.required: true`가 오면 사용자가 이메일 인증 링크를 열 때까지 기다린다.
-개발 환경에서 SMTP가 없으면 `emailVerification.verificationUrl`이 같이 올 수 있지만, 운영 환경에서는 메일함의 링크를 사용한다.
+이메일은 선택값이다. 이메일 인증은 MCP 토큰 발급 조건이 아니며, 나중에 웹 Settings에서
+복구 이메일로 인증하면 비밀번호 찾기를 사용할 수 있다.
 
-이메일 인증이 끝난 계정의 토큰 발급:
+토큰 발급:
 
 ```bash
 curl -X POST https://vibe.foldalpha.com/api/mcp/auth/token \

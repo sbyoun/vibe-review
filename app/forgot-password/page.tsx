@@ -18,7 +18,7 @@ export default async function ForgotPasswordPage() {
         <header className="mb-6 flex flex-col gap-1">
           <h1 className="text-xl font-semibold leading-7 text-foreground">Forgot Password</h1>
           <p className="text-sm leading-5 text-muted-foreground">
-            Enter your email address and we&apos;ll send you a link to reset your password.
+            Enter your verified email address and we&apos;ll send you a link to reset your password.
           </p>
         </header>
         <ForgotPasswordForm />

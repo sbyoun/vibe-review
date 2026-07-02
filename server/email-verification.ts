@@ -32,7 +32,7 @@ export async function issueEmailVerification(input: {
 
   await db.insert(verificationTokens).values({
     identifier: verificationId,
-    token: packEmailVerificationToken(input.userId, token),
+    token: packEmailVerificationToken(input.userId, input.email, token),
     expires: new Date(Date.now() + tokenTtlMs),
   });
 
@@ -76,6 +76,21 @@ export async function verifyEmailToken(verificationId: string, token: string) {
     };
   }
 
+  if (parsedToken.emailHash) {
+    const [user] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, parsedToken.userId))
+      .limit(1);
+
+    if (!user?.email || !safeEqual(hashToken(user.email.toLowerCase()), parsedToken.emailHash)) {
+      return {
+        ok: false,
+        message: "Verification link is invalid or expired.",
+      };
+    }
+  }
+
   const verifiedAt = new Date();
 
   await db.transaction(async (tx) => {
@@ -96,7 +111,7 @@ export async function verifyEmailToken(verificationId: string, token: string) {
 
   return {
     ok: true,
-    message: "Email verified. You can log in now.",
+    message: "Email verified. Password recovery is now enabled.",
   };
 }
 
@@ -106,18 +121,35 @@ function createEmailVerificationUrl(verificationId: string, token: string) {
   return `/verify-email?${params.toString()}`;
 }
 
-function packEmailVerificationToken(userId: string, token: string) {
-  return `${tokenPrefix}:${userId}:${hashToken(token)}`;
+function packEmailVerificationToken(userId: string, email: string, token: string) {
+  return `${tokenPrefix}:${userId}:${hashToken(email.toLowerCase())}:${hashToken(token)}`;
 }
 
 function unpackEmailVerificationToken(value: string) {
-  const [prefix, userId, tokenHash] = value.split(":");
+  const parts = value.split(":");
+  const [prefix, userId] = parts;
 
-  if (prefix !== tokenPrefix || !userId || !tokenHash) {
+  if (prefix !== tokenPrefix || !userId) {
     return null;
   }
 
-  return { userId, tokenHash };
+  if (parts.length === 3) {
+    const [, , tokenHash] = parts;
+
+    if (!tokenHash) {
+      return null;
+    }
+
+    return { userId, tokenHash, emailHash: null };
+  }
+
+  const [, , emailHash, tokenHash] = parts;
+
+  if (!emailHash || !tokenHash) {
+    return null;
+  }
+
+  return { userId, tokenHash, emailHash };
 }
 
 function hashToken(token: string) {

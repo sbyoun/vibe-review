@@ -44,10 +44,6 @@ export const authConfig = {
           return null;
         }
 
-        if (!existingUser.emailVerified) {
-          return null;
-        }
-
         return {
           id: existingUser.id,
           name: existingUser.name ?? existingUser.handle ?? handle,

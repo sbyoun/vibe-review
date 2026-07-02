@@ -101,16 +101,18 @@ export function SignupForm() {
         <DevActionLink href={registerState.verificationUrl} label="Verify email" />
 
       <label className="grid gap-1">
-        <span className={labelClass}>Email</span>
+        <span className={labelClass}>Recovery Email</span>
         <input
           className={inputClass}
           name="email"
           type="email"
           placeholder="you@example.com"
-          required
           autoComplete="email"
           defaultValue={registerState.fields?.email ?? ""}
         />
+        <span className="text-[11px] leading-[14px] text-muted-foreground">
+          Optional. Verify it later in Settings to enable password recovery.
+        </span>
       </label>
 
       <label className="grid gap-1">

@@ -12,7 +12,7 @@ import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/server/current-user";
 import { absoluteUrl, sendPasswordResetMail } from "@/server/email";
-import { issueEmailVerification, type EmailVerificationDelivery } from "@/server/email-verification";
+import { issueEmailVerification } from "@/server/email-verification";
 
 export type AuthFormState = {
   status: "idle" | "error" | "success";
@@ -52,23 +52,6 @@ export async function loginWithPassword(
     };
   }
 
-  const localUser = await findLocalAuthUserForLogin(loginResult.login);
-  const passwordMatches = await verifyPassword(password, localUser?.passwordHash);
-
-  if (localUser && passwordMatches && !localUser.emailVerified) {
-    const verification = await issueEmailVerification({
-      userId: localUser.id,
-      email: localUser.email,
-    });
-
-    return {
-      status: "error",
-      message: emailVerificationRequiredMessage(verification),
-      verificationUrl: verification.verificationUrl,
-      fields: { handle: loginResult.login },
-    };
-  }
-
   const signInResult = await signInWithLocalPassword(loginResult.login, password);
 
   if (signInResult === "invalid") {
@@ -89,7 +72,10 @@ export async function registerWithPassword(
   formData: FormData,
 ): Promise<AuthFormState> {
   const handleResult = createAuthHandle(readRequiredString(formData, "handle"));
-  const emailResult = createAuthEmail(readRequiredString(formData, "email"));
+  const emailInput = readOptionalString(formData, "email");
+  const emailResult = emailInput
+    ? createAuthEmail(emailInput)
+    : { ok: true as const, email: undefined };
   const name = readOptionalString(formData, "name")?.slice(0, 120);
   const password = readRequiredString(formData, "password");
   const confirmPassword = readRequiredString(formData, "confirmPassword");
@@ -150,18 +136,10 @@ export async function registerWithPassword(
       passwordHash: users.passwordHash,
     })
     .from(users)
-    .where(eq(users.email, emailResult.email))
+    .where(eq(users.email, emailResult.email ?? ""))
     .limit(1);
 
-  if (existingEmail) {
-    if (!existingEmail.emailVerified && existingEmail.passwordHash) {
-      return {
-        status: "error",
-        message: "This email is already waiting for verification. Log in to resend the link.",
-        fields: { email: emailResult.email, handle: handleResult.handle, name },
-      };
-    }
-
+  if (emailResult.email && existingEmail) {
     return {
       status: "error",
       message: "Email is already in use.",
@@ -178,7 +156,7 @@ export async function registerWithPassword(
       .values({
         id: `local-${crypto.randomUUID()}`,
         name: name ?? handleResult.handle,
-        email: emailResult.email,
+        email: emailResult.email ?? null,
         handle: handleResult.handle,
         passwordHash,
         bio: "Building and reviewing vibe-coded projects.",
@@ -204,15 +182,11 @@ export async function registerWithPassword(
     throw new Error("Account creation failed.");
   }
 
-  const verification = await issueEmailVerification({
-    userId: createdUser.id,
-    email: createdUser.email,
-  });
-
   return {
     status: "success",
-    message: accountCreatedMessage(verification),
-    verificationUrl: verification.verificationUrl,
+    message: createdUser.email
+      ? "Account created. You can log in now. Verify your email later in Settings to enable password recovery."
+      : "Account created. You can log in now. Add and verify an email later in Settings to enable password recovery.",
     fields: { email: emailResult.email, handle: handleResult.handle, name },
   };
 }
@@ -233,15 +207,15 @@ export async function requestPasswordReset(
   await deleteExpiredResetTokens();
 
   const [user] = await db
-    .select({ id: users.id, email: users.email })
+    .select({ id: users.id, email: users.email, emailVerified: users.emailVerified })
     .from(users)
     .where(eq(users.email, emailResult.email))
     .limit(1);
 
-  if (!user) {
+  if (!user || !user.emailVerified) {
     return {
       status: "success",
-      message: "If the email exists, a reset link has been sent.",
+      message: "If a verified account exists for that email, a reset link has been sent.",
       fields: { email: emailResult.email },
     };
   }
@@ -262,7 +236,7 @@ export async function requestPasswordReset(
 
   return {
     status: "success",
-    message: "If the email exists, a reset link has been sent.",
+    message: "If a verified account exists for that email, a reset link has been sent.",
     resetUrl: delivery.delivered || process.env.NODE_ENV === "production" ? undefined : resetPath,
     fields: { email: emailResult.email },
   };
@@ -307,6 +281,16 @@ export async function resetPasswordWithToken(
   }
 
   if (!safeEqual(hashResetToken(token), parsedToken.tokenHash)) {
+    return { status: "error", message: "Reset link is invalid or expired." };
+  }
+
+  const [resetUser] = await db
+    .select({ emailVerified: users.emailVerified })
+    .from(users)
+    .where(eq(users.id, parsedToken.userId))
+    .limit(1);
+
+  if (!resetUser?.emailVerified) {
     return { status: "error", message: "Reset link is invalid or expired." };
   }
 
@@ -372,6 +356,66 @@ export async function changeCurrentUserPassword(
     status: "success",
     message: "Password changed.",
   };
+}
+
+export async function sendCurrentUserEmailVerification(formData: FormData) {
+  const currentUser = await requireCurrentUser();
+  const emailInput = readOptionalString(formData, "email") ?? currentUser.email;
+
+  if (!emailInput) {
+    redirect("/settings?emailVerification=no_email#account");
+  }
+
+  const emailResult = createAuthEmail(emailInput);
+
+  if (!emailResult.ok) {
+    redirect("/settings?emailVerification=invalid_email#account");
+  }
+
+  const normalizedCurrentEmail = currentUser.email?.toLowerCase() ?? null;
+  const emailChanged = emailResult.email !== normalizedCurrentEmail;
+
+  if (!emailChanged && currentUser.emailVerified) {
+    redirect("/settings?emailVerification=already_verified#account");
+  }
+
+  if (emailChanged) {
+    const [existingEmail] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, emailResult.email))
+      .limit(1);
+
+    if (existingEmail && existingEmail.id !== currentUser.id) {
+      redirect("/settings?emailVerification=email_taken#account");
+    }
+
+    await db
+      .update(users)
+      .set({
+        email: emailResult.email,
+        emailVerified: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, currentUser.id));
+  }
+
+  const delivery = await issueEmailVerification({
+    userId: currentUser.id,
+    email: emailResult.email,
+  });
+  const status = delivery.delivered
+    ? "sent"
+    : process.env.NODE_ENV === "production"
+      ? "delivery_failed"
+      : "dev_link";
+  const params = new URLSearchParams({ emailVerification: status });
+
+  if (delivery.verificationUrl) {
+    params.set("verificationUrl", delivery.verificationUrl);
+  }
+
+  redirect(`/settings?${params.toString()}#account`);
 }
 
 export async function logout() {
@@ -483,46 +527,6 @@ async function findHandleForLogin(login: string) {
     .limit(1);
 
   return user?.handle ?? null;
-}
-
-async function findLocalAuthUserForLogin(login: string) {
-  const [user] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      emailVerified: users.emailVerified,
-      handle: users.handle,
-      passwordHash: users.passwordHash,
-    })
-    .from(users)
-    .where(login.includes("@") ? eq(users.email, login) : eq(users.handle, login))
-    .limit(1);
-
-  return user ?? null;
-}
-
-function accountCreatedMessage(verification: EmailVerificationDelivery) {
-  if (verification.delivered) {
-    return "Account created. Check your email to verify it before logging in.";
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    return "Account created, but the verification email could not be sent. Try logging in later to resend it.";
-  }
-
-  return "Account created. Development verification link is available below.";
-}
-
-function emailVerificationRequiredMessage(verification: EmailVerificationDelivery) {
-  if (verification.delivered) {
-    return "Email verification is required before login. We sent a new verification link.";
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    return "Email verification is required before login. The verification email could not be sent right now.";
-  }
-
-  return "Email verification is required before login. Development verification link is available below.";
 }
 
 function isUniqueViolation(error: unknown) {

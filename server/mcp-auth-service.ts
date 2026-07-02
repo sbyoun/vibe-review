@@ -15,10 +15,15 @@ import {
   serializeMcpUser,
   type McpUser,
 } from "@/server/mcp-api";
-import { issueEmailVerification } from "@/server/email-verification";
 
 export const registerMcpAccountSchema = z.object({
-  email: z.string().trim().email().transform((value) => value.toLowerCase()),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .transform((value) => value.toLowerCase())
+    .optional()
+    .nullable(),
   handle: z
     .string()
     .trim()
@@ -45,10 +50,28 @@ export const revokeMcpTokensSchema = z.object({
   confirm: z.literal(true),
 });
 
-export const deleteMcpAccountSchema = z.object({
-  confirmEmail: z.string().trim().email().transform((value) => value.toLowerCase()),
-  confirm: z.literal(true),
-});
+export const deleteMcpAccountSchema = z
+  .object({
+    confirmEmail: z
+      .string()
+      .trim()
+      .email()
+      .transform((value) => value.toLowerCase())
+      .optional()
+      .nullable(),
+    confirmHandle: z
+      .string()
+      .trim()
+      .min(2)
+      .max(48)
+      .transform((value) => slugify(value).slice(0, 48))
+      .optional()
+      .nullable(),
+    confirm: z.literal(true),
+  })
+  .refine((value) => value.confirmEmail || value.confirmHandle, {
+    message: "confirmEmail or confirmHandle is required.",
+  });
 
 export async function registerMcpAccount(input: z.output<typeof registerMcpAccountSchema>) {
   try {
@@ -64,10 +87,14 @@ export async function registerMcpAccount(input: z.output<typeof registerMcpAccou
   const [existing] = await db
     .select({ id: users.id, email: users.email, handle: users.handle })
     .from(users)
-    .where(or(eq(users.email, input.email), eq(users.handle, input.handle)))
+    .where(
+      input.email
+        ? or(eq(users.email, input.email), eq(users.handle, input.handle))
+        : eq(users.handle, input.handle),
+    )
     .limit(1);
 
-  if (existing?.email === input.email) {
+  if (input.email && existing?.email === input.email) {
     throw new ApiError(409, "email_taken", "Email is already in use.");
   }
 
@@ -80,7 +107,7 @@ export async function registerMcpAccount(input: z.output<typeof registerMcpAccou
     .values({
       id: `local-${randomUUID()}`,
       name: input.name ?? input.handle,
-      email: input.email,
+      email: input.email ?? null,
       handle: input.handle,
       passwordHash: await hashPassword(input.password),
       bio: "Building and reviewing vibe-coded projects.",
@@ -95,20 +122,15 @@ export async function registerMcpAccount(input: z.output<typeof registerMcpAccou
     throw new ApiError(500, "registration_failed", "Account was created without a handle.");
   }
 
-  const verification = await issueEmailVerification({
-    userId: user.id,
-    email: user.email,
-  });
-
   return {
     user: serializeMcpUser(user as McpUser),
     emailVerification: {
-      required: true,
-      delivered: verification.delivered,
-      verificationUrl: verification.verificationUrl,
-      message: verification.delivered
-        ? "Verification email sent. Verify the email, then call vibe.auth_token."
-        : "Email verification is required. Verify the email, then call vibe.auth_token.",
+      required: false,
+      delivered: false,
+      verificationUrl: undefined,
+      message: user.email
+        ? "Email verification is optional and can be completed later in web Settings to enable password recovery."
+        : "No email was attached. Add and verify an email later in web Settings to enable password recovery.",
     },
   };
 }
@@ -135,23 +157,6 @@ export async function createMcpToken(input: z.output<typeof createMcpTokenSchema
 
   if (!passwordMatches) {
     throw new ApiError(401, "invalid_credentials", "Invalid login or password.");
-  }
-
-  if (!user.emailVerified) {
-    const verification = await issueEmailVerification({
-      userId: user.id,
-      email: user.email,
-    });
-
-    throw new ApiError(
-      409,
-      "email_not_verified",
-      "Email verification is required before issuing an MCP token.",
-      {
-        delivered: verification.delivered,
-        verificationUrl: verification.verificationUrl,
-      },
-    );
   }
 
   const apiToken = await createMcpApiToken(user.id);
@@ -181,8 +186,15 @@ export async function deleteMcpAccount(
   owner: McpUser,
   input: z.output<typeof deleteMcpAccountSchema>,
 ) {
-  if (owner.email?.toLowerCase() !== input.confirmEmail) {
-    throw new ApiError(422, "email_confirmation_mismatch", "confirmEmail must match the account email.");
+  const emailMatches = Boolean(input.confirmEmail && owner.email?.toLowerCase() === input.confirmEmail);
+  const handleMatches = Boolean(input.confirmHandle && owner.handle === input.confirmHandle);
+
+  if (!emailMatches && !handleMatches) {
+    throw new ApiError(
+      422,
+      "account_confirmation_mismatch",
+      "confirmEmail or confirmHandle must match the account.",
+    );
   }
 
   const ownedProjects = await db

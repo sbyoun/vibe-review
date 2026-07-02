@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const params = await searchParams;
   const hasCredentialsError = params?.error === "CredentialsSignin";
-  const notice = params?.verified === "1" ? "Email verified. You can log in now." : undefined;
+  const notice = params?.verified === "1" ? "Email verified. Password recovery is now enabled." : undefined;
 
   return (
     <main className="flex min-h-screen items-center justify-center px-3 py-6">

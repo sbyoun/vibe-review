@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { KeyRound, Save } from "lucide-react";
+import { KeyRound, MailCheck, Save } from "lucide-react";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
+import { sendCurrentUserEmailVerification } from "@/server/auth-actions";
 import { updateCurrentUserProfile } from "@/server/actions";
 import { getWorkspaceData } from "@/server/data";
 import { listCurrentUserMcpTokens } from "@/server/mcp-token-actions";
@@ -17,10 +18,16 @@ const inputClass =
   "w-full rounded-sm border border-border bg-card px-3 py-2 text-sm leading-5 text-foreground outline-none transition-colors focus:border-primary focus:ring-0 disabled:text-muted-foreground";
 const labelClass = "text-xs leading-4 text-muted-foreground";
 
-export default async function SettingsPage() {
+type SettingsPageProps = {
+  searchParams?: Promise<{ emailVerification?: string; verificationUrl?: string }>;
+};
+
+export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const data = await getWorkspaceData();
   const mcpTokens = await listCurrentUserMcpTokens();
   const mcpEndpoint = `${await getPublicOrigin()}/mcp`;
+  const params = await searchParams;
+  const emailVerificationNotice = getEmailVerificationNotice(params?.emailVerification);
 
   return (
     <>
@@ -77,20 +84,49 @@ export default async function SettingsPage() {
                   <span className={labelClass}>Email Address</span>
                   <input
                     className={inputClass}
+                    name="email"
                     type="email"
                     defaultValue={data.owner.email ?? ""}
-                    disabled
+                    placeholder="you@example.com"
+                    autoComplete="email"
                   />
+                  <span className="mt-1 text-[11px] leading-[14px] text-muted-foreground">
+                    {data.owner.emailVerified
+                      ? "Verified. Email password recovery is enabled."
+                      : "Unverified. Email password recovery is disabled until verified."}
+                  </span>
                 </label>
               </div>
+              {emailVerificationNotice ? (
+                <div className="border border-border bg-muted p-3 text-sm leading-5 text-foreground">
+                  {emailVerificationNotice}
+                  {params?.verificationUrl ? (
+                    <>
+                      {" "}
+                      <a href={params.verificationUrl} className="font-medium text-primary hover:underline">
+                        Open verification link
+                      </a>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="border border-border bg-muted p-6">
-                <h3 className="mb-4 text-base font-semibold leading-[22px]">Change Password</h3>
-                <Button type="button" variant="outline" asChild>
-                  <Link href="/settings/password">
-                    <KeyRound className="size-4" aria-hidden="true" />
-                    Update Password
-                  </Link>
-                </Button>
+                <h3 className="text-base font-semibold leading-[22px]">Account Recovery</h3>
+                <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                  Unverified accounts can still log in and use MCP. Password reset by email only works after verification.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" asChild>
+                    <Link href="/settings/password">
+                      <KeyRound className="size-4" aria-hidden="true" />
+                      Update Password
+                    </Link>
+                  </Button>
+                  <Button type="submit" variant="outline" formAction={sendCurrentUserEmailVerification}>
+                    <MailCheck className="size-4" aria-hidden="true" />
+                    {data.owner.emailVerified ? "Verify Another Email" : "Verify Email"}
+                  </Button>
+                </div>
               </div>
             </section>
 
@@ -209,4 +245,25 @@ async function getPublicOrigin() {
     (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
 
   return `${proto}://${host}`.replace(/\/$/, "");
+}
+
+function getEmailVerificationNotice(status: string | undefined) {
+  switch (status) {
+    case "sent":
+      return "Verification email sent. Open the link in your mailbox to enable email password recovery.";
+    case "dev_link":
+      return "Verification email could not be delivered in this environment. Development verification link is available.";
+    case "delivery_failed":
+      return "Verification email could not be sent right now. Try again later.";
+    case "already_verified":
+      return "This email is already verified.";
+    case "email_taken":
+      return "That email is already used by another account.";
+    case "invalid_email":
+      return "Enter a valid email address before requesting verification.";
+    case "no_email":
+      return "Add an email address before requesting verification.";
+    default:
+      return null;
+  }
 }

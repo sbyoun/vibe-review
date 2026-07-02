@@ -76,8 +76,8 @@ export async function GET(request: Request) {
       "Do not use Playwright or browser automation.",
       "Read GET /api/mcp or /llms.txt for the short agent contract.",
       "Read a public project post without login through vibe.public_projects_get or GET /api/mcp/public/projects?handle={handle}&slug={slug}.",
-      "If the user has no account, create one with vibe.auth_register or POST /api/mcp/auth/register, then wait for the user to verify the email.",
-      "After email verification, issue a token with vibe.auth_token or POST /api/mcp/auth/token.",
+      "If the user has no account, create one with vibe.auth_register or POST /api/mcp/auth/register. Email is optional and only needed for password recovery after web Settings verification.",
+      "Issue a token with vibe.auth_token or POST /api/mcp/auth/token. Email verification is not required.",
       "Call GET /api/mcp/auth/check with the bearer token before any write.",
       "If authenticated is true, call GET /api/mcp/projects to avoid duplicate project creation.",
       "Create a project with POST /api/mcp/projects only when no existing project matches. summary and description support Markdown.",
@@ -95,10 +95,10 @@ export async function GET(request: Request) {
         path: "/api/mcp/auth/register",
         url: `${baseUrl}/api/mcp/auth/register`,
         description:
-          "Create a local account and send an email verification link. No bearer token required. Call /api/mcp/auth/token after verification.",
+          "Create a local account. No bearer token required. Email is optional and can be verified later in web Settings for password recovery.",
         authRequired: false,
         body: {
-          email: "string, required",
+          email: "string, optional",
           handle: "string, required",
           name: "string, optional",
           password: "string, required, 8-128 chars",
@@ -109,7 +109,7 @@ export async function GET(request: Request) {
         path: "/api/mcp/auth/token",
         url: `${baseUrl}/api/mcp/auth/token`,
         description:
-          "Issue a new MCP API token for an email-verified account using login and password. No bearer token required.",
+          "Issue a new MCP API token using login and password. No bearer token or email verification required.",
         authRequired: false,
         body: {
           login: "handle or email",
