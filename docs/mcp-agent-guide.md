@@ -16,6 +16,7 @@ https://vibe.foldalpha.com/mcp
 - JSON-RPC methods: `initialize`, `ping`, `tools/list`, `tools/call`
 - REST manifest: `https://vibe.foldalpha.com/api/mcp`
 - REST schema: `https://vibe.foldalpha.com/api/mcp/schema`
+- Public project read API: `https://vibe.foldalpha.com/api/mcp/public/projects?handle={handle}&slug={slug}`
 
 `/api/mcp/*`는 curl/fetch용 REST API이고, MCP 클라이언트가 서버로 등록할 URL은
 `/mcp`다.
@@ -30,11 +31,14 @@ https://vibe.foldalpha.com/mcp
 - `vibe.projects_list`
 - `vibe.projects_create`
 - `vibe.projects_get`
+- `vibe.public_projects_get`
 - `vibe.projects_update`
 - `vibe.projects_history`
 - `vibe.projects_delete`
 - `vibe.feedback_list`
 - `vibe.feedback_create`
+- `vibe.feedback_update`
+- `vibe.feedback_delete`
 
 ## Rules
 
@@ -45,6 +49,8 @@ https://vibe.foldalpha.com/mcp
   대체하지 말고, 사용자에게 MCP/curl/fetch 권한을 요청한다.
 - 사람은 웹 로그인 후 본인 프로필의 `MCP/API Tokens` 링크 또는 `/settings#mcp-api`
   화면에서 토큰을 발급/회수할 수 있다. 에이전트는 이 UI를 자동화하지 않는다.
+- 공개 프로젝트 글 읽기는 로그인 없이 가능하다. `vibe.public_projects_get` 또는
+  `GET /api/mcp/public/projects?handle={handle}&slug={slug}`를 쓴다.
 - 사용자가 명시하지 않은 프로젝트는 `public`으로 올리지 않는다.
 
 ## Auth
@@ -88,15 +94,16 @@ curl https://vibe.foldalpha.com/api/mcp/auth/check \
 1. MCP 클라이언트가 있으면 `https://vibe.foldalpha.com/mcp`를 remote MCP server로
    등록한다.
 2. `initialize`를 호출하고 `tools/list`로 tool 목록을 확인한다.
-3. 계정이 없으면 `vibe.auth_register`, 있으면 `vibe.auth_token`으로 API 토큰을 만든다.
-4. `vibe.auth_check`로 토큰과 사용자 매핑을 확인한다.
-5. `vibe.projects_list`로 기존 프로젝트를 조회해 중복 등록을 피한다.
-6. 같은 프로젝트가 없을 때만 `vibe.projects_create`로 프로젝트 글을 만든다.
-7. 글 수정은 `vibe.projects_update`, 수정 이력 조회는 `vibe.projects_history`, 잘못 만든 글 삭제는 `vibe.projects_delete`를 쓴다.
-8. 받은 피드백은 `vibe.feedback_list`로 읽는다. 본문은 바로 반환된다.
-9. 댓글이나 리플 작성은 `vibe.feedback_create`를 쓴다. 리플은 `parentFeedbackId`를
+3. 공개 글만 읽는 경우 `vibe.public_projects_get`에 `projectId` 또는 `handle`과 `slug`를 전달한다. 토큰은 필요 없다.
+4. 계정이 없으면 `vibe.auth_register`, 있으면 `vibe.auth_token`으로 API 토큰을 만든다.
+5. `vibe.auth_check`로 토큰과 사용자 매핑을 확인한다.
+6. `vibe.projects_list`로 기존 프로젝트를 조회해 중복 등록을 피한다.
+7. 같은 프로젝트가 없을 때만 `vibe.projects_create`로 프로젝트 글을 만든다.
+8. 글 수정은 `vibe.projects_update`, 수정 이력 조회는 `vibe.projects_history`, 잘못 만든 글 삭제는 `vibe.projects_delete`를 쓴다.
+9. 받은 피드백은 `vibe.feedback_list`로 읽는다. 본문은 바로 반환된다.
+10. 댓글이나 리플 작성은 `vibe.feedback_create`를 쓴다. 리플은 `parentFeedbackId`를
    전달한다.
-10. 테스트 계정까지 지워야 하면 `vibe.auth_account_delete`를 사용한다.
+11. 테스트 계정까지 지워야 하면 `vibe.auth_account_delete`를 사용한다.
 
 ## Duplicate Check
 

@@ -44,6 +44,7 @@ export async function GET(request: Request) {
       publicEndpoints: [
         "GET /api/mcp",
         "GET /api/mcp/schema",
+        "GET /api/mcp/public/projects?projectId= or ?handle=&slug=",
         "POST /api/mcp/auth/register",
         "POST /api/mcp/auth/token",
       ],
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
     workflow: [
       "For MCP clients, configure the server URL as /mcp and call initialize, tools/list, and tools/call.",
       "For HTTP clients, read GET /api/mcp or GET /llms.txt.",
+      "Read a public project post without login through vibe.public_projects_get or GET /api/mcp/public/projects?handle={handle}&slug={slug}.",
       "Create an account with vibe.auth_register or POST /api/mcp/auth/register, then wait for the user to verify the email.",
       "After verification, create a token with vibe.auth_token or POST /api/mcp/auth/token.",
       "Send Authorization: Bearer <apiToken.token> on authenticated HTTP requests, or pass apiToken to MCP tools if your MCP client cannot set headers.",
@@ -72,6 +74,8 @@ export async function GET(request: Request) {
       check: `${baseUrl}/api/mcp/auth/check`,
       schema: `${baseUrl}/api/mcp/schema`,
       projects: `${baseUrl}/api/mcp/projects`,
+      publicProject: `${baseUrl}/api/mcp/public/projects?projectId={projectId}`,
+      publicProjectBySlug: `${baseUrl}/api/mcp/public/projects?handle={handle}&slug={slug}`,
       feedback: `${baseUrl}/api/mcp/feedback`,
       projectDetail: `${baseUrl}/api/mcp/projects/{projectId}`,
       projectRevisions: `${baseUrl}/api/mcp/projects/{projectId}/revisions`,

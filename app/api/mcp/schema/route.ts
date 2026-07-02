@@ -21,6 +21,7 @@ export async function GET(request: Request) {
         "vibe.projects_list",
         "vibe.projects_create",
         "vibe.projects_get",
+        "vibe.public_projects_get",
         "vibe.projects_update",
         "vibe.projects_history",
         "vibe.projects_delete",
@@ -57,6 +58,7 @@ export async function GET(request: Request) {
       publicEndpoints: [
         "GET /api/mcp",
         "GET /api/mcp/schema",
+        "GET /api/mcp/public/projects?projectId= or ?handle=&slug=",
         "POST /api/mcp/auth/register",
         "POST /api/mcp/auth/token",
       ],
@@ -73,6 +75,7 @@ export async function GET(request: Request) {
       "If your client does not support MCP, use curl, fetch, or an HTTP client against /api/mcp/*.",
       "Do not use Playwright or browser automation.",
       "Read GET /api/mcp or /llms.txt for the short agent contract.",
+      "Read a public project post without login through vibe.public_projects_get or GET /api/mcp/public/projects?handle={handle}&slug={slug}.",
       "If the user has no account, create one with vibe.auth_register or POST /api/mcp/auth/register, then wait for the user to verify the email.",
       "After email verification, issue a token with vibe.auth_token or POST /api/mcp/auth/token.",
       "Call GET /api/mcp/auth/check with the bearer token before any write.",
@@ -168,6 +171,19 @@ export async function GET(request: Request) {
         url: `${baseUrl}/api/mcp/projects/{projectId}`,
         description: "Get one owned project with its received feedback comments.",
         authRequired: true,
+      },
+      {
+        method: "GET",
+        path: "/api/mcp/public/projects?projectId=&handle=&slug=",
+        url: `${baseUrl}/api/mcp/public/projects?handle={handle}&slug={slug}`,
+        description:
+          "Get one public project post with public comments only. No bearer token is required. Pass projectId, or pass handle and slug from /p/{handle}/{slug}.",
+        authRequired: false,
+        query: {
+          projectId: "uuid, optional if handle and slug are provided",
+          handle: "owner handle from /p/{handle}/{slug}, optional if projectId is provided",
+          slug: "project slug from /p/{handle}/{slug}, optional if projectId is provided",
+        },
       },
       {
         method: "PATCH",

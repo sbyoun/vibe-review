@@ -20,6 +20,8 @@ import {
   deleteMcpFeedbackSchema,
   deleteMcpProject,
   getMcpProject,
+  getPublicMcpProject,
+  getPublicMcpProjectSchema,
   listMcpProjectRevisions,
   listMcpProjectRevisionsSchema,
   listMcpFeedback,
@@ -65,6 +67,8 @@ const apiTokenSchema = z.object({
 const projectIdSchema = apiTokenSchema.extend({
   projectId: z.string().trim().min(1),
 });
+
+const publicProjectGetSchema = apiTokenSchema.and(getPublicMcpProjectSchema);
 
 const feedbackListSchema = apiTokenSchema.extend({
   projectId: z.string().trim().min(1).optional(),
@@ -276,6 +280,25 @@ const tools = [
         projectId: { type: "string" },
       },
       required: ["projectId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.public_projects_get",
+    title: "Get Public Vibe Project",
+    description:
+      "Read one public project post and its public comments by projectId, or by public URL handle and slug. No auth is required.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        apiToken: {
+          type: "string",
+          description: "Optional and ignored for this public read-only tool.",
+        },
+        projectId: { type: "string", format: "uuid" },
+        handle: { type: "string", description: "Owner handle from /p/{handle}/{slug}." },
+        slug: { type: "string", description: "Project slug from /p/{handle}/{slug}." },
+      },
       additionalProperties: false,
     },
   },
@@ -606,6 +629,8 @@ async function callTool(request: Request, params: unknown) {
         return toolSuccess(await projectsCreate(request, args));
       case "vibe.projects_get":
         return toolSuccess(await projectsGet(request, args));
+      case "vibe.public_projects_get":
+        return toolSuccess(await publicProjectsGet(args));
       case "vibe.projects_update":
         return toolSuccess(await projectsUpdate(request, args));
       case "vibe.projects_history":
@@ -657,6 +682,7 @@ async function authCheck(request: Request, args: JsonObject) {
       "projects:delete",
       "projects:history",
       "projects:read",
+      "public_projects:read",
       "projects:update",
       "auth_tokens:revoke",
       "auth_account:delete",
@@ -695,6 +721,16 @@ async function projectsGet(request: Request, args: JsonObject) {
   const input = parseToolInput(projectIdSchema, args);
 
   return getMcpProject(user, input.projectId);
+}
+
+async function publicProjectsGet(args: JsonObject) {
+  const input = parseToolInput(publicProjectGetSchema, args);
+
+  return getPublicMcpProject({
+    projectId: input.projectId,
+    handle: input.handle,
+    slug: input.slug,
+  });
 }
 
 async function projectsUpdate(request: Request, args: JsonObject) {
@@ -828,7 +864,7 @@ function initializeResult(params: unknown) {
       version: "0.1.0",
     },
     instructions:
-      "Use tools/list and tools/call on this MCP endpoint. Do not use browser automation. Register or issue a token first, then pass Authorization: Bearer <token> or apiToken in tool arguments.",
+      "Use tools/list and tools/call on this MCP endpoint. Do not use browser automation. Public project reads require no auth. For writes and private reads, register or issue a token first, then pass Authorization: Bearer <token> or apiToken in tool arguments.",
   };
 }
 

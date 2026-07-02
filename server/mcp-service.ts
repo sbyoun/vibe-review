@@ -186,6 +186,16 @@ export const listMcpProjectRevisionsSchema = z.object({
   limit: z.number().int().min(1).max(100).default(30),
 });
 
+export const getPublicMcpProjectSchema = z
+  .object({
+    projectId: z.string().trim().uuid().optional(),
+    handle: z.string().trim().min(1).max(80).optional(),
+    slug: z.string().trim().min(1).max(240).optional(),
+  })
+  .refine((value) => value.projectId || (value.handle && value.slug), {
+    message: "Pass projectId, or pass handle and slug together.",
+  });
+
 export async function listMcpProjects(owner: McpUser) {
   const projectRows = await db
     .select()
@@ -251,6 +261,66 @@ export async function getMcpProject(owner: McpUser, projectId: string) {
 
   return {
     project: serializeProject(project, feedbackRows, owner.handle),
+    feedback: feedbackRows.map(serializeFeedback),
+  };
+}
+
+export async function getPublicMcpProject(input: z.output<typeof getPublicMcpProjectSchema>) {
+  const conditions = [eq(projects.visibility, "public")];
+
+  if (input.projectId) {
+    conditions.push(eq(projects.id, input.projectId));
+  } else if (input.handle && input.slug) {
+    conditions.push(inArray(users.handle, routeParamCandidates(input.handle, { lowercase: true })));
+    conditions.push(inArray(projects.slug, routeParamCandidates(input.slug, { lowercase: true })));
+  }
+
+  const [row] = await db
+    .select({
+      project: projects,
+      owner: users,
+    })
+    .from(projects)
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(and(...conditions))
+    .limit(1);
+
+  if (!row) {
+    throw new ApiError(404, "public_project_not_found", "Public project was not found.");
+  }
+
+  const feedbackRows = await db
+    .select({
+      id: feedback.id,
+      projectId: feedback.projectId,
+      requestId: feedback.requestId,
+      parentFeedbackId: feedback.parentFeedbackId,
+      authorId: feedback.authorId,
+      feedbackType: feedback.feedbackType,
+      body: feedback.body,
+      rating: feedback.rating,
+      helpfulStatus: feedback.helpfulStatus,
+      implementedStatus: feedback.implementedStatus,
+      visibility: feedback.visibility,
+      kind: feedback.kind,
+      createdAt: feedback.createdAt,
+      authorName: users.name,
+      authorHandle: users.handle,
+    })
+    .from(feedback)
+    .innerJoin(users, eq(feedback.authorId, users.id))
+    .where(and(eq(feedback.projectId, row.project.id), eq(feedback.visibility, "public")))
+    .orderBy(asc(feedback.createdAt));
+
+  const ownerHandle = row.owner.handle ?? row.owner.id;
+
+  return {
+    project: serializeProject(row.project, feedbackRows, ownerHandle),
+    owner: {
+      id: row.owner.id,
+      handle: row.owner.handle,
+      name: row.owner.name,
+    },
     feedback: feedbackRows.map(serializeFeedback),
   };
 }
@@ -1045,6 +1115,33 @@ function parseThumbnailBase64(
 
 function parseThumbnailMimeType(value: string | undefined) {
   return thumbnailMimeTypes.find((mimeType) => mimeType === value);
+}
+
+function routeParamCandidates(value: string, options: { lowercase?: boolean } = {}) {
+  const decodedValues = [value];
+  let current = value;
+
+  for (let index = 0; index < 2; index += 1) {
+    if (!/%[0-9a-f]{2}/i.test(current)) {
+      break;
+    }
+
+    try {
+      current = decodeURIComponent(current);
+      decodedValues.push(current);
+    } catch {
+      break;
+    }
+  }
+
+  const candidates = decodedValues.flatMap((item) => {
+    const normalized = [item, item.normalize("NFC"), item.normalize("NFKC")];
+    return options.lowercase
+      ? normalized.flatMap((entry) => [entry, entry.toLowerCase()])
+      : normalized;
+  });
+
+  return Array.from(new Set(candidates.filter(Boolean)));
 }
 
 async function createUniqueProjectSlug(title: string, ownerId: string) {
