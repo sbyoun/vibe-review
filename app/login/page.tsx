@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <main className="flex min-h-screen items-center justify-center px-3 py-6">
       <section className="w-full max-w-[400px]">
         <header className="mb-4 text-center">
-          <h1 className="mb-1 text-xl font-bold leading-7 text-foreground">VibeReview</h1>
+          <h1 className="mb-1 text-xl font-bold leading-7 text-foreground">vibearchive</h1>
           <p className="text-sm leading-5 text-muted-foreground">Log in to your account</p>
         </header>
         <LoginForm credentialsError={hasCredentialsError} notice={notice} />

@@ -99,7 +99,7 @@ const tools = [
     name: "vibe.auth_register",
     title: "Register Vibe Workspace Account",
     description:
-      "Create a VibeReview account and send an email verification link. Call vibe.auth_token after verification.",
+      "Create a vibearchive account and send an email verification link. Call vibe.auth_token after verification.",
     inputSchema: {
       type: "object",
       properties: {
@@ -824,7 +824,7 @@ function initializeResult(params: unknown) {
     },
     serverInfo: {
       name: "vibe-code-workspace",
-      title: "VibeReview",
+      title: "vibearchive",
       version: "0.1.0",
     },
     instructions:

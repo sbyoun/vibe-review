@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: VibeReview
+name: vibearchive
 description: A lightweight project board for vibe-coded apps, external project reviews, and threaded feedback.
 colors:
   primary: "#0057C2"
@@ -169,7 +169,7 @@ components:
 
 ## Overview
 
-VibeReview should feel like a focused project board, not a dashboard, CRM, or marketing site. The main workflow is simple: browse public projects, open a project post, read or write threaded feedback, and manage your own profile and project archive.
+vibearchive should feel like a focused project board, not a dashboard, CRM, or marketing site. The main workflow is simple: browse public projects, open a project post, read or write threaded feedback, and manage your own profile and project archive.
 
 The product should preserve a bulletin-board rhythm. Pages are mostly text-first, row-first, and link-first. Use dense but readable spacing, visible separators, and restrained controls. The UI should make project ownership, external review ownership, visibility, and feedback activity clear without adding management-tool weight.
 

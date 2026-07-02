@@ -1,4 +1,4 @@
-# VibeReview
+# vibearchive
 
 AI/vibe coding으로 만든 프로젝트를 게시판처럼 올리고, 개인 프로필에 모아두고, 프로젝트 글에서 댓글형 피드백을 주고받는 가벼운 아카이브 서비스.
 

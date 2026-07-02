@@ -158,7 +158,7 @@ export default async function SettingsPage() {
             <div className="border border-border bg-muted p-4">
               <h3 className="text-base font-semibold leading-[22px]">Agent Access Tokens</h3>
               <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                Generate tokens for coding agents that use the VibeReview MCP server and JSON API.
+                Generate tokens for coding agents that use the vibearchive MCP server and JSON API.
               </p>
             </div>
             <McpTokenPanel tokens={mcpTokens} endpoint={mcpEndpoint} />

@@ -4,7 +4,7 @@ export async function GET(request: Request) {
   const baseUrl = getRequestOrigin(request);
 
   return apiJson({
-    name: "VibeReview MCP Agent API",
+    name: "vibearchive MCP Agent API",
     kind: "http_json_agent_api",
     baseUrl,
     manifestVersion: 1,

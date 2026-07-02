@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
   return apiJson(
     {
-      name: "VibeReview MCP Server",
+      name: "vibearchive MCP Server",
       endpoint: `${baseUrl}/mcp`,
       transport: "streamable_http",
       protocol: "model_context_protocol",

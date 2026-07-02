@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "VibeReview",
+  title: "vibearchive",
   description: "A lightweight board for posting AI-built projects and collecting feedback.",
 };
 

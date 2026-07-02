@@ -30,7 +30,7 @@ export async function generateMetadata({
   const data = await getPublicProfileData(handle);
 
   return {
-    title: data ? `${data.profile.name} · VibeReview` : "Profile",
+    title: data ? `${data.profile.name} · vibearchive` : "Profile",
   };
 }
 

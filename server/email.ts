@@ -64,7 +64,7 @@ export async function sendMail(input: MailInput): Promise<MailDelivery> {
 
   try {
     await tx.sendMail({
-      from: process.env.SMTP_FROM ?? "VibeReview <no-reply@auth.foldalpha.com>",
+      from: process.env.SMTP_FROM ?? "vibearchive <no-reply@auth.foldalpha.com>",
       ...input,
     });
 
@@ -78,12 +78,12 @@ export async function sendMail(input: MailInput): Promise<MailDelivery> {
 export async function sendEmailVerificationMail(email: string, link: string) {
   return sendMail({
     to: email,
-    subject: "Verify your VibeReview email",
+    subject: "Verify your vibearchive email",
     text:
-      "Open this link to verify your VibeReview email address. The link is valid for 24 hours.\n\n" +
+      "Open this link to verify your vibearchive email address. The link is valid for 24 hours.\n\n" +
       `${link}\n\nIf you did not create this account, you can ignore this email.`,
     html:
-      `<p>Open this link to verify your VibeReview email address. The link is valid for 24 hours.</p>` +
+      `<p>Open this link to verify your vibearchive email address. The link is valid for 24 hours.</p>` +
       `<p><a href="${link}" style="background:#2563eb;color:#fff;padding:10px 16px;text-decoration:none;display:inline-block">Verify email</a></p>` +
       `<p style="color:#64748b;font-size:12px">If you did not create this account, you can ignore this email.</p>`,
   });
@@ -92,12 +92,12 @@ export async function sendEmailVerificationMail(email: string, link: string) {
 export async function sendPasswordResetMail(email: string, link: string) {
   return sendMail({
     to: email,
-    subject: "Reset your VibeReview password",
+    subject: "Reset your vibearchive password",
     text:
-      "Open this link to set a new VibeReview password. The link is valid for 30 minutes.\n\n" +
+      "Open this link to set a new vibearchive password. The link is valid for 30 minutes.\n\n" +
       `${link}\n\nIf you did not request this, your password has not been changed.`,
     html:
-      `<p>Open this link to set a new VibeReview password. The link is valid for 30 minutes.</p>` +
+      `<p>Open this link to set a new vibearchive password. The link is valid for 30 minutes.</p>` +
       `<p><a href="${link}" style="background:#2563eb;color:#fff;padding:10px 16px;text-decoration:none;display:inline-block">Reset password</a></p>` +
       `<p style="color:#64748b;font-size:12px">If you did not request this, your password has not been changed.</p>`,
   });

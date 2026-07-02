@@ -37,8 +37,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
           <header className="mb-4 border-b border-border pb-1">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <h1 className="text-xl font-semibold leading-7 text-foreground">Show Vibe Project</h1>
-                <p className="mt-1 text-xs leading-4 text-muted-foreground">
+                <p className="text-xs leading-4 text-muted-foreground">
                   Community projects, experiments, and tools.
                 </p>
               </div>

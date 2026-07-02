@@ -38,7 +38,7 @@ export async function generateMetadata({
   const data = await getPublicProjectData(handle, slug);
 
   return {
-    title: data ? `${data.project.title} · VibeReview` : "Project",
+    title: data ? `${data.project.title} · vibearchive` : "Project",
   };
 }
 

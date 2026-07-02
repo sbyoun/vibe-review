@@ -67,7 +67,7 @@ export function SiteNavClient({
           href="/discover"
           className="shrink-0 text-base font-bold leading-[22px] text-foreground hover:text-primary hover:underline"
         >
-          VibeReview
+          vibearchive
         </Link>
         <nav className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto text-sm leading-5 md:gap-4">
           {items.map((item) => (

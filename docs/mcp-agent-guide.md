@@ -1,6 +1,6 @@
 # MCP Agent Guide
 
-이 문서는 Codex, Claude Code, Cursor agent, 자체 MCP 클라이언트가 VibeReview에
+이 문서는 Codex, Claude Code, Cursor agent, 자체 MCP 클라이언트가 vibearchive에
 Markdown 프로젝트 글과 썸네일 이미지를 올리고 수정하며, 댓글형 피드백을
 읽고 작성하는 절차를 정리한다.
 
