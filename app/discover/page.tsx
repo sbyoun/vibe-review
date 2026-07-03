@@ -14,6 +14,7 @@ const discoverSortKeys = ["updated", "title", "owner", "status", "feedback"] as 
 type DiscoverSortKey = (typeof discoverSortKeys)[number];
 type SortOrder = "asc" | "desc";
 
+const discoverPageSize = 10;
 const collator = new Intl.Collator("ko", { numeric: true, sensitivity: "base" });
 
 type DiscoverPageProps = {
@@ -24,10 +25,16 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const params = await searchParams;
   const sort = coerceSortKey(readSearchParam(params, "sort"));
   const order = coerceSortOrder(readSearchParam(params, "order"), sort);
+  const requestedPage = coercePage(readSearchParam(params, "page"));
   const data = await getDiscoverData();
   const projects = [...data.projects].sort((left, right) =>
     compareDiscoverRows(left, right, sort, order),
   );
+  const totalPages = Math.max(1, Math.ceil(projects.length / discoverPageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const pageStart = (page - 1) * discoverPageSize;
+  const visibleProjects = projects.slice(pageStart, pageStart + discoverPageSize);
+  const paginationPages = getPaginationPages(page, totalPages);
 
   return (
     <>
@@ -63,6 +70,16 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
 
           {projects.length > 0 ? (
             <div>
+              <div className="flex items-center justify-between border-b border-border px-2 py-2 text-[11px] font-medium leading-[14px] text-muted-foreground">
+                <span>
+                  {pageStart + 1}-{Math.min(pageStart + discoverPageSize, projects.length)} of{" "}
+                  {projects.length} projects
+                </span>
+                <span>
+                  Page {page} / {totalPages}
+                </span>
+              </div>
+
               <div className="hidden grid-cols-[48px_minmax(0,1fr)_100px] gap-4 border-b border-border px-2 py-2 text-[11px] font-medium leading-[14px] text-muted-foreground md:grid">
                 <span className="text-center">Rank</span>
                 <SortHeader
@@ -76,14 +93,14 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               </div>
 
               <div className="flex flex-col">
-                {projects.map(({ project, owner }, index) => (
+                {visibleProjects.map(({ project, owner }, index) => (
                   <div
                     key={project.id}
                     className="grid grid-cols-[32px_minmax(0,1fr)] gap-2 border-b border-border px-1 py-2 md:grid-cols-[48px_minmax(0,1fr)_100px] md:gap-4 md:px-2"
                   >
                     <div className="flex flex-col items-center pt-1">
                       <span className="mb-1 text-xs leading-4 text-muted-foreground">
-                        {index + 1}.
+                        {pageStart + index + 1}.
                       </span>
                       <ChevronUp className="size-4 text-muted-foreground" aria-hidden="true" />
                     </div>
@@ -193,6 +210,61 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                   </div>
                 ))}
               </div>
+
+              {totalPages > 1 ? (
+                <nav
+                  className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs leading-4"
+                  aria-label="Discover pagination"
+                >
+                  {page > 1 ? (
+                    <Link
+                      href={discoverHref({ sort, order, page: page - 1 })}
+                      className="border border-border px-3 py-2 font-medium text-foreground hover:bg-muted"
+                    >
+                      Previous
+                    </Link>
+                  ) : (
+                    <span className="border border-border px-3 py-2 font-medium text-muted-foreground">
+                      Previous
+                    </span>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-1">
+                    {paginationPages.map((pageNumber, index) => (
+                      <span key={pageNumber} className="contents">
+                        {index > 0 && pageNumber - paginationPages[index - 1] > 1 ? (
+                          <span className="px-2 text-muted-foreground">...</span>
+                        ) : null}
+                        {pageNumber === page ? (
+                          <span className="border border-primary bg-primary px-3 py-2 font-semibold text-primary-foreground">
+                            {pageNumber}
+                          </span>
+                        ) : (
+                          <Link
+                            href={discoverHref({ sort, order, page: pageNumber })}
+                            className="border border-border px-3 py-2 font-medium text-foreground hover:bg-muted"
+                          >
+                            {pageNumber}
+                          </Link>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+
+                  {page < totalPages ? (
+                    <Link
+                      href={discoverHref({ sort, order, page: page + 1 })}
+                      className="border border-border px-3 py-2 font-medium text-foreground hover:bg-muted"
+                    >
+                      Next
+                    </Link>
+                  ) : (
+                    <span className="border border-border px-3 py-2 font-medium text-muted-foreground">
+                      Next
+                    </span>
+                  )}
+                </nav>
+              ) : null}
             </div>
           ) : (
             <div className="vc-panel p-6">
@@ -249,7 +321,7 @@ function SortHeader({
 
   return (
     <Link
-      href={`/discover?sort=${sortKey}&order=${nextOrder}`}
+      href={discoverHref({ sort: sortKey, order: nextOrder, page: 1 })}
       className={`inline-flex items-center gap-1 hover:text-foreground ${
         align === "start" ? "justify-start" : "justify-end"
       }`}
@@ -333,4 +405,43 @@ function coerceSortOrder(value: string | undefined, sort: DiscoverSortKey): Sort
   }
 
   return sort === "updated" || sort === "feedback" ? "desc" : "asc";
+}
+
+function coercePage(value: string | undefined) {
+  const parsed = value ? Number.parseInt(value, 10) : Number.NaN;
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function discoverHref({
+  sort,
+  order,
+  page,
+}: {
+  sort: DiscoverSortKey;
+  order: SortOrder;
+  page: number;
+}) {
+  const params = new URLSearchParams({
+    sort,
+    order,
+  });
+
+  if (page > 1) {
+    params.set("page", String(page));
+  }
+
+  return `/discover?${params.toString()}` as Route;
+}
+
+function getPaginationPages(page: number, totalPages: number) {
+  const pages = new Set([1, totalPages]);
+
+  for (let candidate = page - 2; candidate <= page + 2; candidate += 1) {
+    if (candidate >= 1 && candidate <= totalPages) {
+      pages.add(candidate);
+    }
+  }
+
+  return Array.from(pages).sort((left, right) => left - right);
 }
