@@ -151,6 +151,25 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                         </Link>
                       </Button>
                     ) : null}
+                    {canClaimExternal ? (
+                      viewer ? (
+                        <form action={claimExternalProjectOwnership}>
+                          <input type="hidden" name="projectId" value={project.id} />
+                          <input type="hidden" name="returnTo" value={projectPath} />
+                          <Button type="submit" size="sm">
+                            <BadgeCheck className="size-4" aria-hidden="true" />
+                            Claim
+                          </Button>
+                        </form>
+                      ) : (
+                        <Button type="button" size="sm" asChild>
+                          <Link href={`/login?next=${encodeURIComponent(projectPath)}`}>
+                            <BadgeCheck className="size-4" aria-hidden="true" />
+                            Claim
+                          </Link>
+                        </Button>
+                      )
+                    ) : null}
                   </div>
                 </div>
               </div>
