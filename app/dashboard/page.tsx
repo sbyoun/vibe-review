@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   ArrowUpRight,
+  Check,
   FileText,
   Inbox,
   MessageSquareReply,
@@ -13,6 +14,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
 import { feedbackKindLabel, formatShortDate, statusLabel } from "@/lib/domain";
+import { dismissFeedbackFromInbox } from "@/server/actions";
 import { getWorkspaceData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +43,7 @@ type NeedsReplyItem = {
   projectTitle: string;
   authorLabel: string;
   body: string;
+  returnTo: string;
 };
 
 type FeedItem =
@@ -76,6 +79,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const needsReply = buildNeedsReply(data, selectedProjectId);
   const allNeedsReply = buildNeedsReply(data, null);
   const projectOptions = buildProjectOptions(data, allNeedsReply);
+  const totalActivity = buildFeed(data, null).length;
   const feedbackCount = feed.filter((item) => item.type === "feedback").length;
   const title = selectedProject ? selectedProject.title : "All projects";
 
@@ -105,7 +109,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           projectOptions={projectOptions}
           selectedProjectId={selectedProjectId}
           totalNeedsReply={allNeedsReply.length}
-          totalActivity={buildFeed(data, null).length}
+          totalActivity={totalActivity}
         />
 
         <div className="grid gap-8 md:grid-cols-[280px_minmax(0,1fr)]">
@@ -113,7 +117,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             projectOptions={projectOptions}
             selectedProjectId={selectedProjectId}
             totalNeedsReply={allNeedsReply.length}
-            totalActivity={buildFeed(data, null).length}
+            totalActivity={totalActivity}
           />
 
           <div className="min-w-0">
@@ -124,7 +128,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     Needs reply
                   </h2>
                   <p className="text-xs leading-4 text-muted-foreground">
-                    {title} · 외부 작성자의 root 피드백 중 아직 내가 답하지 않은 항목
+                    {title} · 소유자가 아닌 댓글 이후 아직 내 댓글이나 확인 처리가 없는 항목
                   </p>
                 </div>
                 {selectedProject ? (
@@ -357,6 +361,14 @@ function NeedsReplyFeedItem({ item }: { item: NeedsReplyItem }) {
         <div className="mt-2 max-h-40 overflow-auto whitespace-pre-line border-l-2 border-primary pl-3 text-sm leading-6 text-foreground">
           {item.body}
         </div>
+        <form action={dismissFeedbackFromInbox} className="mt-3">
+          <input type="hidden" name="feedbackId" value={item.id} />
+          <input type="hidden" name="returnTo" value={item.returnTo} />
+          <Button type="submit" size="sm" variant="outline">
+            <Check className="size-4" aria-hidden="true" />
+            Dismiss
+          </Button>
+        </form>
       </div>
     </article>
   );
@@ -456,7 +468,11 @@ function buildProjectOptions(data: WorkspaceData, allNeedsReply: NeedsReplyItem[
 function buildNeedsReply(data: WorkspaceData, selectedProjectId: string | null): NeedsReplyItem[] {
   const allProjects = [...data.projects, ...data.externalReviews];
   const projectById = new Map(allProjects.map((project) => [project.id, project]));
-  const repliesByParent = groupReplies(data.feedback);
+  const dismissedFeedbackIds = new Set(data.dismissedFeedbackIds);
+  const ownerEntriesByProject = groupOwnerEntriesByProject(data.feedback, data.owner.id);
+  const returnTo = selectedProjectId
+    ? `/dashboard?project=${encodeURIComponent(selectedProjectId)}`
+    : "/dashboard";
 
   return data.feedback
     .filter((entry) => {
@@ -470,11 +486,15 @@ function buildNeedsReply(data: WorkspaceData, selectedProjectId: string | null):
         return false;
       }
 
-      if (entry.parentFeedbackId || entry.authorId === data.owner.id || entry.kind !== "feedback") {
+      if (entry.authorId === data.owner.id || entry.kind !== "feedback") {
         return false;
       }
 
-      return !hasOwnerReplyAfter(entry.id, entry.createdAt, repliesByParent, data.owner.id);
+      if (dismissedFeedbackIds.has(entry.id)) {
+        return false;
+      }
+
+      return !hasOwnerEntryAfter(entry.projectId, entry.createdAt, ownerEntriesByProject);
     })
     .map((entry) => {
       const project = projectById.get(entry.projectId);
@@ -487,6 +507,7 @@ function buildNeedsReply(data: WorkspaceData, selectedProjectId: string | null):
         projectTitle: project?.title ?? "Unknown project",
         authorLabel: entry.authorHandle ?? entry.authorName ?? "user",
         body: entry.body,
+        returnTo,
       };
     })
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
@@ -555,39 +576,28 @@ function buildFeed(data: WorkspaceData, selectedProjectId: string | null): FeedI
   );
 }
 
-function groupReplies(feedback: ReceivedFeedback[]) {
+function groupOwnerEntriesByProject(feedback: ReceivedFeedback[], ownerId: string) {
   const map = new Map<string, ReceivedFeedback[]>();
 
   for (const entry of feedback) {
-    if (!entry.parentFeedbackId) {
+    if (entry.authorId !== ownerId) {
       continue;
     }
 
-    const replies = map.get(entry.parentFeedbackId) ?? [];
-    replies.push(entry);
-    map.set(entry.parentFeedbackId, replies);
+    const entries = map.get(entry.projectId) ?? [];
+    entries.push(entry);
+    map.set(entry.projectId, entries);
   }
 
   return map;
 }
 
-function hasOwnerReplyAfter(
-  parentId: string,
-  parentCreatedAt: Date,
-  repliesByParent: Map<string, ReceivedFeedback[]>,
-  ownerId: string,
+function hasOwnerEntryAfter(
+  projectId: string,
+  createdAt: Date,
+  ownerEntriesByProject: Map<string, ReceivedFeedback[]>,
 ) {
-  const replies = repliesByParent.get(parentId) ?? [];
-
-  for (const reply of replies) {
-    if (reply.authorId === ownerId && reply.createdAt.getTime() >= parentCreatedAt.getTime()) {
-      return true;
-    }
-
-    if (hasOwnerReplyAfter(reply.id, parentCreatedAt, repliesByParent, ownerId)) {
-      return true;
-    }
-  }
-
-  return false;
+  return (ownerEntriesByProject.get(projectId) ?? []).some(
+    (entry) => entry.createdAt.getTime() > createdAt.getTime(),
+  );
 }

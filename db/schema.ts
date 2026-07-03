@@ -428,6 +428,23 @@ export const feedback = pgTable(
   ],
 );
 
+export const feedbackDismissals = pgTable(
+  "feedback_dismissals",
+  {
+    feedbackId: uuid("feedback_id")
+      .notNull()
+      .references(() => feedback.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    dismissedAt: timestamp("dismissed_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.feedbackId, table.userId] }),
+    index("feedback_dismissals_user_id_idx").on(table.userId),
+  ],
+);
+
 export const projectFavorites = pgTable(
   "project_favorites",
   {
@@ -590,6 +607,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
   authoredFeedback: many(feedback),
   favoriteProjects: many(projectFavorites),
+  feedbackDismissals: many(feedbackDismissals),
   feedbackClaims: many(feedbackClaims),
   creditLedgerEntries: many(creditLedger),
   notifications: many(notifications),
@@ -655,7 +673,19 @@ export const feedbackRelations = relations(feedback, ({ one, many }) => ({
     relationName: "feedback_replies",
   }),
   reactions: many(feedbackReactions),
+  dismissals: many(feedbackDismissals),
   implementationEvents: many(feedbackImplementationEvents),
+}));
+
+export const feedbackDismissalsRelations = relations(feedbackDismissals, ({ one }) => ({
+  feedback: one(feedback, {
+    fields: [feedbackDismissals.feedbackId],
+    references: [feedback.id],
+  }),
+  user: one(users, {
+    fields: [feedbackDismissals.userId],
+    references: [users.id],
+  }),
 }));
 
 export const projectFavoritesRelations = relations(projectFavorites, ({ one }) => ({
@@ -698,6 +728,8 @@ export type Feedback = InferSelectModel<typeof feedback>;
 export type NewFeedback = InferInsertModel<typeof feedback>;
 export type ProjectFavorite = InferSelectModel<typeof projectFavorites>;
 export type NewProjectFavorite = InferInsertModel<typeof projectFavorites>;
+export type FeedbackDismissal = InferSelectModel<typeof feedbackDismissals>;
+export type NewFeedbackDismissal = InferInsertModel<typeof feedbackDismissals>;
 export type FeedbackClaim = InferSelectModel<typeof feedbackClaims>;
 export type NewFeedbackClaim = InferInsertModel<typeof feedbackClaims>;
 export type CreditLedgerEntry = InferSelectModel<typeof creditLedger>;

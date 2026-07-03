@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   creditLedger,
   feedback,
+  feedbackDismissals,
   feedbackClaims,
   projectOwnershipClaims,
   feedbackRequests,
@@ -193,6 +194,20 @@ async function ensureAppSchema() {
   `);
 
   await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "feedback_dismissals" (
+      "feedback_id" uuid NOT NULL REFERENCES "feedback"("id") ON DELETE CASCADE,
+      "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+      "dismissed_at" timestamp DEFAULT now() NOT NULL,
+      PRIMARY KEY ("feedback_id", "user_id")
+    )
+  `);
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS "feedback_dismissals_user_id_idx"
+      ON "feedback_dismissals" ("user_id")
+  `);
+
+  await db.execute(sql`
     CREATE TABLE IF NOT EXISTS "project_favorites" (
       "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
       "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
@@ -377,6 +392,19 @@ export async function getWorkspaceData() {
           .orderBy(desc(feedback.createdAt))
       : [];
   const authoredFeedbackRows = await getAuthoredFeedbackRows(owner.id);
+  const dismissedFeedbackRows =
+    feedProjectIds.length > 0
+      ? await db
+          .select({ feedbackId: feedbackDismissals.feedbackId })
+          .from(feedbackDismissals)
+          .innerJoin(feedback, eq(feedbackDismissals.feedbackId, feedback.id))
+          .where(
+            and(
+              eq(feedbackDismissals.userId, owner.id),
+              inArray(feedback.projectId, feedProjectIds),
+            ),
+          )
+      : [];
 
   const ledgerRows = await db
     .select()
@@ -414,6 +442,7 @@ export async function getWorkspaceData() {
       decorateRequest(request, projectRows, feedbackRows),
     ).filter((request) => request.status !== "cancelled"),
     feedback: feedbackRows,
+    dismissedFeedbackIds: dismissedFeedbackRows.map((row) => row.feedbackId),
     authoredFeedback: authoredFeedbackRows,
     creditLedger: ledgerRows,
     statusEvents: statusRows,

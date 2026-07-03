@@ -14,6 +14,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import {
   feedback,
+  feedbackDismissals,
   feedbackImplementationEvents,
   projectFavorites,
   projectRevisions,
@@ -751,6 +752,45 @@ export async function deleteFeedback(formData: FormData) {
 
   revalidateWorkspace(project.ownerHandle, project.slug, project.id);
   revalidatePath(`/p/${author.handle}`);
+}
+
+export async function dismissFeedbackFromInbox(formData: FormData) {
+  await ensureDemoData();
+  const owner = await requireCurrentUser();
+
+  const feedbackId = readRequiredString(formData, "feedbackId");
+  const returnTo = safeRedirectPath(readOptionalString(formData, "returnTo"));
+
+  const [row] = await db
+    .select({
+      feedbackId: feedback.id,
+      projectId: feedback.projectId,
+      authorId: feedback.authorId,
+      projectOwnerId: projects.ownerId,
+      projectSlug: projects.slug,
+      ownerHandle: users.handle,
+    })
+    .from(feedback)
+    .innerJoin(projects, eq(feedback.projectId, projects.id))
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(eq(feedback.id, feedbackId))
+    .limit(1);
+
+  if (!row || row.projectOwnerId !== owner.id || row.authorId === owner.id) {
+    throw new Error("Feedback not found");
+  }
+
+  await db
+    .insert(feedbackDismissals)
+    .values({
+      feedbackId: row.feedbackId,
+      userId: owner.id,
+    })
+    .onConflictDoNothing();
+
+  revalidateWorkspace(row.ownerHandle, row.projectSlug, row.projectId);
+  revalidatePath("/dashboard");
+  redirect((returnTo ?? "/dashboard") as Route);
 }
 
 export async function updateFeedbackImplementation(formData: FormData) {
