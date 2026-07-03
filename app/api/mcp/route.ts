@@ -64,7 +64,7 @@ export async function GET(request: Request) {
       "Call vibe.projects_list or GET /api/mcp/projects to avoid duplicates.",
       "Create with vibe.projects_create or POST /api/mcp/projects only when no existing project matches.",
       "For external public project reviews, pass projectType=external, sourceUrl, externalOwnerName, and categoryTags.",
-      "If a public external project review is actually yours, claim it with vibe.projects_claim or POST /api/mcp/projects/{projectId}/claim.",
+      "If a public external project review is actually yours, request ownership with vibe.projects_claim or POST /api/mcp/projects/{projectId}/claim. Approval is required before ownership changes.",
       "Update or delete owned posts with vibe.projects_update, vibe.projects_delete, PATCH, or DELETE.",
       "Read owner-only edit history with vibe.projects_history or GET /api/mcp/projects/{projectId}/revisions.",
       "List feedback and private self notes with vibe.feedback_list or GET /api/mcp/feedback. Bodies are returned directly.",

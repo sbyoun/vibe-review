@@ -102,7 +102,7 @@ curl https://vibe.foldalpha.com/api/mcp/auth/check \
 5. `vibe.auth_check`로 토큰과 사용자 매핑을 확인한다.
 6. `vibe.projects_list`로 기존 프로젝트를 조회해 중복 등록을 피한다.
 7. 같은 프로젝트가 없을 때만 `vibe.projects_create`로 프로젝트 글을 만든다.
-8. 공개 외부 프로젝트 리뷰가 실제 사용자 본인의 프로젝트라면 `vibe.projects_claim`으로 소유권을 가져온다.
+8. 공개 외부 프로젝트 리뷰가 실제 사용자 본인의 프로젝트라면 `vibe.projects_claim`으로 소유권 요청을 만든다. 승인 전에는 owner가 바뀌지 않는다.
 9. 글 수정은 `vibe.projects_update`, 수정 이력 조회는 `vibe.projects_history`, 잘못 만든 글 삭제는 `vibe.projects_delete`를 쓴다.
 10. 받은 피드백은 `vibe.feedback_list`로 읽는다. 본문은 바로 반환된다.
 11. 댓글이나 리플 작성은 `vibe.feedback_create`를 쓴다. 리플은 `parentFeedbackId`를
@@ -208,7 +208,8 @@ curl -X PATCH https://vibe.foldalpha.com/api/mcp/projects/{projectId} \
 ## Claim External Project
 
 다른 사용자가 외부 공개 프로젝트 리뷰로 올린 글이 실제 사용자 본인의 프로젝트라면
-`projects_claim`을 사용한다. 클레임하면 프로젝트는 본인 프로필의 owned project로 이동하고,
+`projects_claim`을 사용한다. 이 호출은 즉시 소유권을 바꾸지 않고 pending 요청을 만든다.
+현재 글 owner가 승인한 뒤에만 프로젝트가 본인 프로필의 owned project로 이동하고,
 수정/삭제/비공개 메모 권한도 본인에게 넘어간다. 원 등록자는 `submittedBy` 기록으로 남는다.
 
 ```bash

@@ -36,7 +36,11 @@ import {
 import { safeRedirectPath } from "@/lib/redirects";
 import { ensureDemoData } from "@/server/data";
 import { requireCurrentUser } from "@/server/current-user";
-import { claimExternalProjectOwnershipForUser } from "@/server/project-claims";
+import {
+  approveExternalProjectOwnershipClaimForUser,
+  rejectExternalProjectOwnershipClaimForUser,
+  requestExternalProjectOwnershipForUser,
+} from "@/server/project-claims";
 import { projectRevisionValues } from "@/server/project-revisions";
 
 const execFileAsync = promisify(execFile);
@@ -454,7 +458,7 @@ export async function captureProjectCover(formData: FormData) {
   redirect(`/dashboard/projects/${project.id}?cover=captured` as Route);
 }
 
-export async function claimExternalProjectOwnership(formData: FormData) {
+export async function requestExternalProjectOwnershipClaim(formData: FormData) {
   await ensureDemoData();
 
   const projectId = readRequiredString(formData, "projectId");
@@ -462,9 +466,32 @@ export async function claimExternalProjectOwnership(formData: FormData) {
   const claimant = await requireCurrentUser(
     (returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login") as Route,
   );
-  const result = await claimExternalProjectOwnershipForUser(claimant, projectId, "web_claim");
+  const result = await requestExternalProjectOwnershipForUser(claimant, projectId);
 
-  redirect(`${result.publicPath}?claimed=1` as Route);
+  redirect(`${result.publicPath}?claim=requested` as Route);
+}
+
+export async function approveExternalProjectOwnershipClaim(formData: FormData) {
+  await ensureDemoData();
+
+  const claimId = readRequiredString(formData, "claimId");
+  const owner = await requireCurrentUser();
+  const result = await approveExternalProjectOwnershipClaimForUser(owner, claimId, "web_claim");
+
+  redirect(`${result.publicPath}?claim=approved` as Route);
+}
+
+export async function rejectExternalProjectOwnershipClaim(formData: FormData) {
+  await ensureDemoData();
+
+  const claimId = readRequiredString(formData, "claimId");
+  const returnTo = safeRedirectPath(readOptionalString(formData, "returnTo"));
+  const owner = await requireCurrentUser(
+    (returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login") as Route,
+  );
+  const result = await rejectExternalProjectOwnershipClaimForUser(owner, claimId);
+
+  redirect(`${returnTo ?? result.publicPath}?claim=rejected` as Route);
 }
 
 export async function createFeedback(formData: FormData) {

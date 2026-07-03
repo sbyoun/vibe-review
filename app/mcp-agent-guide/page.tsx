@@ -71,7 +71,7 @@ Authenticated workflow:
 Project workflow:
 - Before creating a project, call vibe.projects_list to avoid duplicates.
 - Use vibe.projects_create for a new owned project or an external public project review.
-- If an external public project review is actually my project, use vibe.projects_claim with the projectId to move ownership and edit permissions to my account.
+- If an external public project review is actually my project, use vibe.projects_claim with the projectId to create an ownership request. Ownership changes only after the current post owner approves it.
 - Use vibe.projects_update for edits and vibe.projects_history if prior versions matter.
 - Project summary and description support Markdown.
 - Use thumbnailUrl, images[0].url, or thumbnailBase64 when a screenshot or thumbnail is available.

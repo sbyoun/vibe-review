@@ -20,7 +20,9 @@ import {
 } from "@/lib/domain";
 import { getPublicProjectData } from "@/server/data";
 import {
-  claimExternalProjectOwnership,
+  approveExternalProjectOwnershipClaim,
+  rejectExternalProjectOwnershipClaim,
+  requestExternalProjectOwnershipClaim,
   toggleProjectFavorite,
 } from "@/server/actions";
 
@@ -53,12 +55,20 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
     notFound();
   }
 
-  const { profile, project, viewer, feedback, viewerHasFavorited } = data;
+  const {
+    profile,
+    project,
+    viewer,
+    feedback,
+    viewerHasFavorited,
+    viewerOwnershipClaim,
+    ownershipClaimRequests,
+  } = data;
   const isOwner = viewer?.id === profile.id;
   const projectPath = `/p/${profile.handle}/${project.slug}`;
   const projectUrl = project.sourceUrl ?? project.repoUrl ?? project.demoUrl;
   const isExternal = project.projectType === "external";
-  const canClaimExternal = isExternal && !project.claimedById && viewer?.id !== project.ownerId;
+  const canStartClaim = isExternal && !project.claimedById && viewer?.id !== project.ownerId;
   const publicFeedback = feedback.filter((entry) => entry.visibility === "public" && entry.kind === "feedback");
   const externalOwnerLabel =
     project.externalOwnerName ??
@@ -151,21 +161,26 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                         </Link>
                       </Button>
                     ) : null}
-                    {canClaimExternal ? (
-                      viewer ? (
-                        <form action={claimExternalProjectOwnership}>
+                    {canStartClaim ? (
+                      viewerOwnershipClaim ? (
+                        <Button type="button" size="sm" disabled>
+                          <BadgeCheck className="size-4" aria-hidden="true" />
+                          Claim requested
+                        </Button>
+                      ) : viewer ? (
+                        <form action={requestExternalProjectOwnershipClaim}>
                           <input type="hidden" name="projectId" value={project.id} />
                           <input type="hidden" name="returnTo" value={projectPath} />
                           <Button type="submit" size="sm">
                             <BadgeCheck className="size-4" aria-hidden="true" />
-                            Claim
+                            Request claim
                           </Button>
                         </form>
                       ) : (
                         <Button type="button" size="sm" asChild>
                           <Link href={`/login?next=${encodeURIComponent(projectPath)}`}>
                             <BadgeCheck className="size-4" aria-hidden="true" />
-                            Claim
+                            Request claim
                           </Link>
                         </Button>
                       )
@@ -264,28 +279,65 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                 <dd>{project.favoriteCount}</dd>
               </div>
             </dl>
-            {canClaimExternal ? (
+            {canStartClaim ? (
               <div className="border-t border-border pt-4">
                 <p className="text-xs leading-5 text-muted-foreground">
-                  Own this project? Claim it to move this post to your profile and manage future updates.
+                  Own this project? Request ownership transfer. The current reviewer must approve before this post moves to your profile.
                 </p>
-                {viewer ? (
-                  <form action={claimExternalProjectOwnership} className="mt-3">
+                {viewerOwnershipClaim ? (
+                  <Button type="button" size="sm" className="mt-3 w-full" disabled>
+                    <BadgeCheck className="size-4" aria-hidden="true" />
+                    Claim requested
+                  </Button>
+                ) : viewer ? (
+                  <form action={requestExternalProjectOwnershipClaim} className="mt-3">
                     <input type="hidden" name="projectId" value={project.id} />
                     <input type="hidden" name="returnTo" value={projectPath} />
                     <Button type="submit" size="sm" className="w-full">
                       <BadgeCheck className="size-4" aria-hidden="true" />
-                      Claim project
+                      Request claim
                     </Button>
                   </form>
                 ) : (
                   <Button type="button" size="sm" className="mt-3 w-full" asChild>
                     <Link href={`/login?next=${encodeURIComponent(projectPath)}`}>
                       <BadgeCheck className="size-4" aria-hidden="true" />
-                      Log in to claim
+                      Log in to request
                     </Link>
                   </Button>
                 )}
+              </div>
+            ) : null}
+            {ownershipClaimRequests.length > 0 ? (
+              <div className="border-t border-border pt-4">
+                <h4 className="text-xs font-semibold leading-4 text-foreground">
+                  Ownership Requests
+                </h4>
+                <div className="mt-3 flex flex-col gap-3">
+                  {ownershipClaimRequests.map((claim) => (
+                    <div key={claim.id} className="border border-border bg-muted p-3">
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        @{claim.claimantHandle ?? claim.claimantName ?? "user"} requested ownership on{" "}
+                        {formatShortDate(claim.createdAt)}.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <form action={approveExternalProjectOwnershipClaim}>
+                          <input type="hidden" name="claimId" value={claim.id} />
+                          <Button type="submit" size="sm">
+                            Approve
+                          </Button>
+                        </form>
+                        <form action={rejectExternalProjectOwnershipClaim}>
+                          <input type="hidden" name="claimId" value={claim.id} />
+                          <input type="hidden" name="returnTo" value={projectPath} />
+                          <Button type="submit" size="sm" variant="outline">
+                            Reject
+                          </Button>
+                        </form>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : null}
           </div>

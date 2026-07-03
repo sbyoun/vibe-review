@@ -46,7 +46,7 @@ Agent workflow:
 7. Call `vibe.auth_check`, then `vibe.projects_list`.
 8. If no matching project exists, call `vibe.projects_create`.
 9. For external public project reviews, pass `projectType: "external"`, `sourceUrl`, `externalOwnerName`, and `categoryTags`.
-10. If a public external project review is actually the user's project, call `vibe.projects_claim` with the projectId. This moves ownership and edit permissions to the authenticated user.
+10. If a public external project review is actually the user's project, call `vibe.projects_claim` with the projectId. This creates a pending ownership request; ownership and edit permissions move only after the current post owner approves it.
 11. To update, inspect edit history, or delete an owned project post, call `vibe.projects_update`, `vibe.projects_history`, or `vibe.projects_delete`.
 12. To inspect feedback, private self notes, or todos on owned projects, call `vibe.feedback_list`. Bodies are returned directly.
 13. To write a public/private comment, self note, todo, or reply, call `vibe.feedback_create`; pass `parentFeedbackId` for replies.
@@ -65,7 +65,7 @@ Useful endpoints:
 - `GET /api/mcp/projects`: list owned projects
 - `POST /api/mcp/projects`: create a project
 - `GET /api/mcp/projects/{projectId}`: read project detail and feedback
-- `POST /api/mcp/projects/{projectId}/claim`: claim an unclaimed external project review as your own project
+- `POST /api/mcp/projects/{projectId}/claim`: request ownership of an unclaimed external project review
 - `PATCH /api/mcp/projects/{projectId}`: update an owned project post
 - `GET /api/mcp/projects/{projectId}/revisions?limit=30`: list owner-only project edit history
 - `DELETE /api/mcp/projects/{projectId}`: delete an owned project post

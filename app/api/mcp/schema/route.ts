@@ -86,7 +86,7 @@ export async function GET(request: Request) {
       "If authenticated is true, call GET /api/mcp/projects to avoid duplicate project creation.",
       "Create a project with POST /api/mcp/projects only when no existing project matches. summary and description support Markdown.",
       "Use projectType=owned for your own projects. Use projectType=external plus sourceUrl/externalOwnerName for public projects you are reviewing or bookmarking.",
-      "If a public external project review is actually yours, claim it with vibe.projects_claim or POST /api/mcp/projects/{projectId}/claim. Ownership and edit permissions move to your account.",
+      "If a public external project review is actually yours, request ownership with vibe.projects_claim or POST /api/mcp/projects/{projectId}/claim. This creates a pending request; ownership changes only after approval.",
       "Provide a screenshot with thumbnailUrl, images[0].url, or thumbnailBase64 plus thumbnailMimeType.",
       "Update or delete owned project posts with PATCH or DELETE /api/mcp/projects/{projectId}.",
       "Read saved project edit history with vibe.projects_history or GET /api/mcp/projects/{projectId}/revisions.",
@@ -182,7 +182,7 @@ export async function GET(request: Request) {
         path: "/api/mcp/projects/{projectId}/claim",
         url: `${baseUrl}/api/mcp/projects/{projectId}/claim`,
         description:
-          "Claim an unclaimed external public project review as the authenticated user's own project. The original submitter remains recorded; ownership and edit permissions move to the claimant.",
+          "Request ownership of an unclaimed external public project review. The request remains pending until the current post owner approves it.",
         authRequired: true,
       },
       {

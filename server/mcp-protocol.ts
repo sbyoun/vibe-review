@@ -290,9 +290,9 @@ const tools = [
   },
   {
     name: "vibe.projects_claim",
-    title: "Claim External Vibe Project",
+    title: "Request External Vibe Project Ownership",
     description:
-      "Claim an unclaimed external public project review as the authenticated user's own project. The original submitter remains recorded, and ownership/edit permissions move to the claimant.",
+      "Request ownership of an unclaimed external public project review. This creates a pending request; ownership and edit permissions move only after the current post owner approves it.",
     inputSchema: {
       type: "object",
       properties: {

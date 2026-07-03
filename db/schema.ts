@@ -233,6 +233,30 @@ export const projects = pgTable(
   ],
 );
 
+export const projectOwnershipClaims = pgTable(
+  "project_ownership_claims",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    claimantId: text("claimant_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    note: text("note"),
+    evidenceUrl: text("evidence_url"),
+    resolvedById: text("resolved_by_id").references(() => users.id, { onDelete: "set null" }),
+    resolvedAt: timestamp("resolved_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("project_ownership_claims_project_status_idx").on(table.projectId, table.status),
+    index("project_ownership_claims_claimant_status_idx").on(table.claimantId, table.status),
+  ],
+);
+
 export const projectLinks = pgTable(
   "project_links",
   {
@@ -584,6 +608,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     fields: [projects.claimedById],
     references: [users.id],
   }),
+  ownershipClaims: many(projectOwnershipClaims),
   links: many(projectLinks),
   assets: many(projectAssets),
   revisions: many(projectRevisions),

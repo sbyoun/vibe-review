@@ -5,6 +5,7 @@ import {
   creditLedger,
   feedback,
   feedbackClaims,
+  projectOwnershipClaims,
   feedbackRequests,
   projectFavorites,
   projectRevisions,
@@ -244,6 +245,31 @@ async function ensureAppSchema() {
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS "project_revisions_actor_id_idx"
       ON "project_revisions" ("actor_id")
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "project_ownership_claims" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "project_id" uuid NOT NULL REFERENCES "projects"("id") ON DELETE CASCADE,
+      "claimant_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+      "status" varchar(20) DEFAULT 'pending' NOT NULL,
+      "note" text,
+      "evidence_url" text,
+      "resolved_by_id" text REFERENCES "users"("id") ON DELETE SET NULL,
+      "resolved_at" timestamp,
+      "created_at" timestamp DEFAULT now() NOT NULL,
+      "updated_at" timestamp DEFAULT now() NOT NULL
+    )
+  `);
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS "project_ownership_claims_project_status_idx"
+      ON "project_ownership_claims" ("project_id", "status")
+  `);
+
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS "project_ownership_claims_claimant_status_idx"
+      ON "project_ownership_claims" ("claimant_id", "status")
   `);
 }
 
@@ -838,6 +864,28 @@ export async function getPublicProjectData(handle: string, slug: string) {
     .from(projectFavorites)
     .where(eq(projectFavorites.projectId, row.project.id));
 
+  const ownershipClaimRows = await db
+    .select({
+      id: projectOwnershipClaims.id,
+      projectId: projectOwnershipClaims.projectId,
+      claimantId: projectOwnershipClaims.claimantId,
+      status: projectOwnershipClaims.status,
+      note: projectOwnershipClaims.note,
+      evidenceUrl: projectOwnershipClaims.evidenceUrl,
+      createdAt: projectOwnershipClaims.createdAt,
+      claimantName: users.name,
+      claimantHandle: users.handle,
+    })
+    .from(projectOwnershipClaims)
+    .innerJoin(users, eq(projectOwnershipClaims.claimantId, users.id))
+    .where(
+      and(
+        eq(projectOwnershipClaims.projectId, row.project.id),
+        eq(projectOwnershipClaims.status, "pending"),
+      ),
+    )
+    .orderBy(asc(projectOwnershipClaims.createdAt));
+
   const project = decorateProject(row.project, requestRows, feedbackRows, favoriteRows);
   const visibleRequestRows = requestRows.filter((request) => request.status !== "cancelled");
   const decoratedRequests = visibleRequestRows.map((request) =>
@@ -871,6 +919,11 @@ export async function getPublicProjectData(handle: string, slug: string) {
     viewerHasFavorited: viewer
       ? favoriteRows.some((favorite) => favorite.userId === viewer.id)
       : false,
+    viewerOwnershipClaim: viewer
+      ? ownershipClaimRows.find((claim) => claim.claimantId === viewer.id) ?? null
+      : null,
+    ownershipClaimRequests:
+      viewer?.id === row.project.ownerId ? ownershipClaimRows : [],
     feedback: feedbackRows,
   };
 }
