@@ -6,7 +6,7 @@ MCP endpoint:
 - Remote MCP server URL: `https://vibe.foldalpha.com/mcp`
 - Transport: Streamable HTTP
 - Protocol methods: `initialize`, `tools/list`, `tools/call`
-- Available MCP tools: `vibe.auth_register`, `vibe.auth_token`, `vibe.auth_check`, `vibe.auth_tokens_revoke`, `vibe.auth_account_delete`, `vibe.projects_list`, `vibe.projects_create`, `vibe.projects_get`, `vibe.projects_claim`, `vibe.public_projects_list`, `vibe.public_projects_get`, `vibe.projects_update`, `vibe.projects_history`, `vibe.projects_delete`, `vibe.feedback_list`, `vibe.feedback_create`, `vibe.feedback_update`, `vibe.feedback_delete`
+- Available MCP tools: `vibe.auth_register`, `vibe.auth_token`, `vibe.auth_check`, `vibe.auth_tokens_revoke`, `vibe.auth_account_delete`, `vibe.projects_list`, `vibe.projects_create`, `vibe.projects_get`, `vibe.projects_claim`, `vibe.ownership_claims_list`, `vibe.ownership_claims_approve`, `vibe.ownership_claims_reject`, `vibe.ownership_claims_withdraw`, `vibe.public_projects_list`, `vibe.public_projects_get`, `vibe.projects_update`, `vibe.projects_history`, `vibe.projects_delete`, `vibe.feedback_list`, `vibe.feedback_create`, `vibe.feedback_update`, `vibe.feedback_delete`
 
 Critical instruction:
 - This is an API workflow, not a browser workflow.
@@ -47,11 +47,12 @@ Agent workflow:
 8. If no matching project exists, call `vibe.projects_create`.
 9. For external public project reviews, pass `projectType: "external"`, `sourceUrl`, `externalOwnerName`, and `categoryTags`.
 10. If a public external project review is actually the user's project, call `vibe.projects_claim` with the projectId. This creates a pending ownership request; ownership and edit permissions move only after the current post owner approves it.
-11. To update, inspect edit history, or delete an owned project post, call `vibe.projects_update`, `vibe.projects_history`, or `vibe.projects_delete`.
-12. To inspect feedback, private self notes, or todos on owned projects, call `vibe.feedback_list`. Bodies are returned directly.
-13. To write a public/private comment, self note, todo, or reply, call `vibe.feedback_create`; pass `parentFeedbackId` for replies.
-14. To edit your own comment, call `vibe.feedback_update`. To delete your own comment, call `vibe.feedback_delete`.
-15. To clean up, call `vibe.projects_delete`, `vibe.auth_tokens_revoke`, or `vibe.auth_account_delete` with the required confirmation fields.
+11. To manage ownership requests, call `vibe.ownership_claims_list`; current project post owners can call `vibe.ownership_claims_approve` or `vibe.ownership_claims_reject`, and claimants can call `vibe.ownership_claims_withdraw`.
+12. To update, inspect edit history, or delete an owned project post, call `vibe.projects_update`, `vibe.projects_history`, or `vibe.projects_delete`.
+13. To inspect feedback, private self notes, or todos on owned projects, call `vibe.feedback_list`. Bodies are returned directly.
+14. To write a public/private comment, self note, todo, or reply, call `vibe.feedback_create`; pass `parentFeedbackId` for replies.
+15. To edit your own comment, call `vibe.feedback_update`. To delete your own comment, call `vibe.feedback_delete`.
+16. To clean up, call `vibe.projects_delete`, `vibe.auth_tokens_revoke`, or `vibe.auth_account_delete` with the required confirmation fields.
 
 Do not create duplicate projects. Always list projects first and compare by title, repoUrl, demoUrl, or slug.
 
@@ -66,6 +67,8 @@ Useful endpoints:
 - `POST /api/mcp/projects`: create a project
 - `GET /api/mcp/projects/{projectId}`: read project detail and feedback
 - `POST /api/mcp/projects/{projectId}/claim`: request ownership of an unclaimed external project review
+- `GET /api/mcp/ownership-claims`: list incoming pending and outgoing ownership claims
+- `PATCH /api/mcp/ownership-claims`: approve, reject, or withdraw a claim with `{ "claimId": "...", "action": "approve|reject|withdraw" }`
 - `PATCH /api/mcp/projects/{projectId}`: update an owned project post
 - `GET /api/mcp/projects/{projectId}/revisions?limit=30`: list owner-only project edit history
 - `DELETE /api/mcp/projects/{projectId}`: delete an owned project post

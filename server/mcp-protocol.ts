@@ -12,6 +12,7 @@ import {
   revokeMcpTokensSchema,
 } from "@/server/mcp-auth-service";
 import {
+  approveMcpOwnershipClaim,
   createMcpFeedback,
   createMcpFeedbackSchema,
   createMcpProject,
@@ -23,16 +24,20 @@ import {
   getMcpProject,
   getPublicMcpProject,
   getPublicMcpProjectSchema,
+  listMcpOwnershipClaims,
   listPublicMcpProjects,
   listPublicMcpProjectsSchema,
   listMcpProjectRevisions,
   listMcpProjectRevisionsSchema,
   listMcpFeedback,
   listMcpProjects,
+  mcpOwnershipClaimIdSchema,
+  rejectMcpOwnershipClaim,
   updateMcpFeedback,
   updateMcpFeedbackSchema,
   updateMcpProject,
   updateMcpProjectSchema,
+  withdrawMcpOwnershipClaim,
 } from "@/server/mcp-service";
 
 const protocolVersion = "2025-11-25";
@@ -91,6 +96,8 @@ const projectHistorySchema = apiTokenSchema.extend({
   projectId: z.string().trim().min(1),
   limit: z.number().int().min(1).max(100).optional(),
 });
+
+const ownershipClaimIdSchema = apiTokenSchema.and(mcpOwnershipClaimIdSchema);
 
 const feedbackCreateSchema = createMcpFeedbackSchema.extend({
   apiToken: z.string().trim().min(1).optional(),
@@ -300,6 +307,58 @@ const tools = [
         projectId: { type: "string" },
       },
       required: ["projectId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.ownership_claims_list",
+    title: "List Vibe Ownership Claims",
+    description:
+      "List incoming pending ownership requests for projects you manage and outgoing ownership requests you created.",
+    inputSchema: authInputSchema(),
+  },
+  {
+    name: "vibe.ownership_claims_approve",
+    title: "Approve Vibe Ownership Claim",
+    description:
+      "Approve a pending ownership claim on an external project post you currently manage. This transfers ownership to the claimant.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        claimId: { type: "string", format: "uuid" },
+      },
+      required: ["claimId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.ownership_claims_reject",
+    title: "Reject Vibe Ownership Claim",
+    description:
+      "Reject a pending ownership claim on an external project post you currently manage.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        claimId: { type: "string", format: "uuid" },
+      },
+      required: ["claimId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.ownership_claims_withdraw",
+    title: "Withdraw Vibe Ownership Claim",
+    description:
+      "Withdraw your own pending ownership claim before the current project post owner approves or rejects it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        claimId: { type: "string", format: "uuid" },
+      },
+      required: ["claimId"],
       additionalProperties: false,
     },
   },
@@ -678,6 +737,14 @@ async function callTool(request: Request, params: unknown) {
         return toolSuccess(await projectsGet(request, args));
       case "vibe.projects_claim":
         return toolSuccess(await projectsClaim(request, args));
+      case "vibe.ownership_claims_list":
+        return toolSuccess(await ownershipClaimsList(request, args));
+      case "vibe.ownership_claims_approve":
+        return toolSuccess(await ownershipClaimsApprove(request, args));
+      case "vibe.ownership_claims_reject":
+        return toolSuccess(await ownershipClaimsReject(request, args));
+      case "vibe.ownership_claims_withdraw":
+        return toolSuccess(await ownershipClaimsWithdraw(request, args));
       case "vibe.public_projects_list":
         return toolSuccess(await publicProjectsList(args));
       case "vibe.public_projects_get":
@@ -733,6 +800,10 @@ async function authCheck(request: Request, args: JsonObject) {
       "projects:delete",
       "projects:history",
       "projects:claim",
+      "ownership_claims:list",
+      "ownership_claims:approve",
+      "ownership_claims:reject",
+      "ownership_claims:withdraw",
       "projects:read",
       "public_projects:read",
       "projects:update",
@@ -780,6 +851,33 @@ async function projectsClaim(request: Request, args: JsonObject) {
   const input = parseToolInput(projectIdSchema, args);
 
   return claimMcpProject(user, input.projectId);
+}
+
+async function ownershipClaimsList(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+
+  return listMcpOwnershipClaims(user);
+}
+
+async function ownershipClaimsApprove(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(ownershipClaimIdSchema, args);
+
+  return approveMcpOwnershipClaim(user, input.claimId);
+}
+
+async function ownershipClaimsReject(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(ownershipClaimIdSchema, args);
+
+  return rejectMcpOwnershipClaim(user, input.claimId);
+}
+
+async function ownershipClaimsWithdraw(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(ownershipClaimIdSchema, args);
+
+  return withdrawMcpOwnershipClaim(user, input.claimId);
 }
 
 async function publicProjectsList(args: JsonObject) {

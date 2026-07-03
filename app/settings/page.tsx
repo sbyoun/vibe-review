@@ -19,6 +19,7 @@ import {
   approveExternalProjectOwnershipClaim,
   rejectExternalProjectOwnershipClaim,
   updateCurrentUserProfile,
+  withdrawExternalProjectOwnershipClaim,
 } from "@/server/actions";
 import { getOwnershipClaimSettingsData, getWorkspaceData } from "@/server/data";
 import { listCurrentUserMcpTokens } from "@/server/mcp-token-actions";
@@ -317,13 +318,27 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                               ? `Resolved ${formatShortDate(claim.resolvedAt)}`
                               : "Waiting for owner review"}
                           </span>
-                          <Link
-                            href={projectHref(claim.ownerHandle ?? claim.ownerId, claim.projectSlug)}
-                            className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                          >
-                            Open
-                            <ExternalLink className="size-3" aria-hidden="true" />
-                          </Link>
+                          <div className="flex items-center gap-3">
+                            {claim.status === "pending" ? (
+                              <form action={withdrawExternalProjectOwnershipClaim}>
+                                <input type="hidden" name="claimId" value={claim.id} />
+                                <input type="hidden" name="returnTo" value="/settings#ownership-claims" />
+                                <button
+                                  type="submit"
+                                  className="font-medium text-destructive hover:underline"
+                                >
+                                  Withdraw
+                                </button>
+                              </form>
+                            ) : null}
+                            <Link
+                              href={projectHref(claim.ownerHandle ?? claim.ownerId, claim.projectSlug)}
+                              className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                            >
+                              Open
+                              <ExternalLink className="size-3" aria-hidden="true" />
+                            </Link>
+                          </div>
                         </div>
                       </article>
                     ))}
@@ -382,6 +397,8 @@ function claimStatusLabel(status: string) {
       return "Approved";
     case "rejected":
       return "Rejected";
+    case "withdrawn":
+      return "Withdrawn";
     default:
       return "Pending";
   }
@@ -396,6 +413,8 @@ function claimStatusClass(status: string) {
       return `${base} border-primary/30 bg-primary/10 text-primary`;
     case "rejected":
       return `${base} border-destructive/30 bg-destructive/10 text-destructive`;
+    case "withdrawn":
+      return `${base} border-border bg-card text-muted-foreground`;
     default:
       return `${base} border-border bg-muted text-muted-foreground`;
   }
@@ -407,6 +426,8 @@ function getClaimNotice(status: string | undefined) {
       return "Ownership claim approved. The project post has been transferred.";
     case "rejected":
       return "Ownership claim rejected.";
+    case "withdrawn":
+      return "Ownership claim withdrawn.";
     default:
       return null;
   }

@@ -40,6 +40,7 @@ import {
   approveExternalProjectOwnershipClaimForUser,
   rejectExternalProjectOwnershipClaimForUser,
   requestExternalProjectOwnershipForUser,
+  withdrawExternalProjectOwnershipClaimForUser,
 } from "@/server/project-claims";
 import { projectRevisionValues } from "@/server/project-revisions";
 
@@ -495,6 +496,19 @@ export async function rejectExternalProjectOwnershipClaim(formData: FormData) {
   const result = await rejectExternalProjectOwnershipClaimForUser(owner, claimId);
 
   redirect(withClaimStatus(returnTo ?? result.publicPath, "rejected"));
+}
+
+export async function withdrawExternalProjectOwnershipClaim(formData: FormData) {
+  await ensureDemoData();
+
+  const claimId = readRequiredString(formData, "claimId");
+  const returnTo = safeRedirectPath(readOptionalString(formData, "returnTo"));
+  const claimant = await requireCurrentUser(
+    (returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login") as Route,
+  );
+  const result = await withdrawExternalProjectOwnershipClaimForUser(claimant, claimId);
+
+  redirect(withClaimStatus(returnTo ?? result.publicPath, "withdrawn"));
 }
 
 export async function createFeedback(formData: FormData) {
@@ -1057,7 +1071,7 @@ function projectPublicPath(ownerHandle: string, projectSlug: string) {
   return `${profilePath(ownerHandle)}/${encodeURIComponent(projectSlug)}` as Route;
 }
 
-function withClaimStatus(path: string, status: "approved" | "rejected") {
+function withClaimStatus(path: string, status: "approved" | "rejected" | "withdrawn") {
   const hashIndex = path.indexOf("#");
   const base = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
   const hash = hashIndex >= 0 ? path.slice(hashIndex) : "";

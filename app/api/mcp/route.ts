@@ -65,6 +65,7 @@ export async function GET(request: Request) {
       "Create with vibe.projects_create or POST /api/mcp/projects only when no existing project matches.",
       "For external public project reviews, pass projectType=external, sourceUrl, externalOwnerName, and categoryTags.",
       "If a public external project review is actually yours, request ownership with vibe.projects_claim or POST /api/mcp/projects/{projectId}/claim. Approval is required before ownership changes.",
+      "Manage ownership requests with vibe.ownership_claims_list, vibe.ownership_claims_approve, vibe.ownership_claims_reject, vibe.ownership_claims_withdraw, or GET/PATCH /api/mcp/ownership-claims.",
       "Update or delete owned posts with vibe.projects_update, vibe.projects_delete, PATCH, or DELETE.",
       "Read owner-only edit history with vibe.projects_history or GET /api/mcp/projects/{projectId}/revisions.",
       "List feedback and private self notes with vibe.feedback_list or GET /api/mcp/feedback. Bodies are returned directly.",
@@ -84,6 +85,7 @@ export async function GET(request: Request) {
       feedback: `${baseUrl}/api/mcp/feedback`,
       projectDetail: `${baseUrl}/api/mcp/projects/{projectId}`,
       projectClaim: `${baseUrl}/api/mcp/projects/{projectId}/claim`,
+      ownershipClaims: `${baseUrl}/api/mcp/ownership-claims`,
       projectRevisions: `${baseUrl}/api/mcp/projects/{projectId}/revisions`,
     },
   });

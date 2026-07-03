@@ -88,6 +88,7 @@ export async function requestExternalProjectOwnershipForUser(
 
   revalidateWorkspace(row.owner.handle, row.project.slug, row.project.id);
   revalidatePath(profilePath(actor.handle));
+  revalidatePath("/settings");
 
   return {
     requested: true,
@@ -154,6 +155,22 @@ export async function approveExternalProjectOwnershipClaimForUser(
       .where(eq(projectOwnershipClaims.id, row.claim.id));
 
     await tx
+      .update(projectOwnershipClaims)
+      .set({
+        status: "rejected",
+        resolvedById: actor.id,
+        resolvedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(projectOwnershipClaims.projectId, row.project.id),
+          eq(projectOwnershipClaims.status, "pending"),
+          ne(projectOwnershipClaims.id, row.claim.id),
+        ),
+      );
+
+    await tx
       .insert(feedback)
       .values({
         projectId: row.project.id,
@@ -174,6 +191,7 @@ export async function approveExternalProjectOwnershipClaimForUser(
 
   revalidateWorkspace(previousOwnerHandle, row.project.slug, row.project.id);
   revalidateWorkspace(claimant.handle, updatedProject.slug, updatedProject.id);
+  revalidatePath("/settings");
 
   return {
     approved: true,
@@ -213,11 +231,51 @@ export async function rejectExternalProjectOwnershipClaimForUser(
     .returning();
 
   revalidateWorkspace(row.owner.handle, row.project.slug, row.project.id);
+  revalidatePath("/settings");
 
   return {
     rejected: true,
     claim,
     project: row.project,
+    publicPath: projectPublicPath(row.owner.handle ?? row.owner.id, row.project.slug),
+  };
+}
+
+export async function withdrawExternalProjectOwnershipClaimForUser(
+  actor: ProjectClaimActor,
+  claimId: string,
+) {
+  const row = await getClaimProjectRow(claimId);
+
+  if (row.claim.claimantId !== actor.id) {
+    throw new ApiError(403, "claim_withdrawal_forbidden", "Only the claimant can withdraw this ownership claim.");
+  }
+
+  if (row.claim.status !== "pending") {
+    throw new ApiError(409, "claim_not_pending", "Only pending ownership claims can be withdrawn.");
+  }
+
+  const now = new Date();
+  const [claim] = await db
+    .update(projectOwnershipClaims)
+    .set({
+      status: "withdrawn",
+      resolvedById: actor.id,
+      resolvedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(projectOwnershipClaims.id, row.claim.id))
+    .returning();
+
+  revalidateWorkspace(row.owner.handle, row.project.slug, row.project.id);
+  revalidatePath(profilePath(actor.handle));
+  revalidatePath("/settings");
+
+  return {
+    withdrawn: true,
+    claim,
+    project: row.project,
+    owner: row.owner,
     publicPath: projectPublicPath(row.owner.handle ?? row.owner.id, row.project.slug),
   };
 }

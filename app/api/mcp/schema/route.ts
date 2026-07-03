@@ -22,6 +22,10 @@ export async function GET(request: Request) {
         "vibe.projects_create",
         "vibe.projects_get",
         "vibe.projects_claim",
+        "vibe.ownership_claims_list",
+        "vibe.ownership_claims_approve",
+        "vibe.ownership_claims_reject",
+        "vibe.ownership_claims_withdraw",
         "vibe.public_projects_list",
         "vibe.public_projects_get",
         "vibe.projects_update",
@@ -87,6 +91,7 @@ export async function GET(request: Request) {
       "Create a project with POST /api/mcp/projects only when no existing project matches. summary and description support Markdown.",
       "Use projectType=owned for your own projects. Use projectType=external plus sourceUrl/externalOwnerName for public projects you are reviewing or bookmarking.",
       "If a public external project review is actually yours, request ownership with vibe.projects_claim or POST /api/mcp/projects/{projectId}/claim. This creates a pending request; ownership changes only after approval.",
+      "Manage ownership requests with vibe.ownership_claims_list, vibe.ownership_claims_approve, vibe.ownership_claims_reject, vibe.ownership_claims_withdraw, or GET/PATCH /api/mcp/ownership-claims.",
       "Provide a screenshot with thumbnailUrl, images[0].url, or thumbnailBase64 plus thumbnailMimeType.",
       "Update or delete owned project posts with PATCH or DELETE /api/mcp/projects/{projectId}.",
       "Read saved project edit history with vibe.projects_history or GET /api/mcp/projects/{projectId}/revisions.",
@@ -184,6 +189,26 @@ export async function GET(request: Request) {
         description:
           "Request ownership of an unclaimed external public project review. The request remains pending until the current post owner approves it.",
         authRequired: true,
+      },
+      {
+        method: "GET",
+        path: "/api/mcp/ownership-claims",
+        url: `${baseUrl}/api/mcp/ownership-claims`,
+        description:
+          "List incoming pending ownership requests for projects you manage and outgoing ownership requests you created.",
+        authRequired: true,
+      },
+      {
+        method: "PATCH",
+        path: "/api/mcp/ownership-claims",
+        url: `${baseUrl}/api/mcp/ownership-claims`,
+        description:
+          "Approve, reject, or withdraw an ownership claim. approve/reject require current project post ownership; withdraw requires claimant ownership.",
+        authRequired: true,
+        body: {
+          claimId: "uuid, required",
+          action: "approve | reject | withdraw",
+        },
       },
       {
         method: "GET",

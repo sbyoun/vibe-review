@@ -10,6 +10,7 @@ import { db } from "@/db";
 import {
   feedback,
   projectFavorites,
+  projectOwnershipClaims,
   projectRevisions,
   projectStatusEvents,
   projects,
@@ -30,7 +31,12 @@ import {
   type ProjectVisibility,
 } from "@/lib/domain";
 import { ApiError, type McpUser } from "@/server/mcp-api";
-import { requestExternalProjectOwnershipForUser } from "@/server/project-claims";
+import {
+  approveExternalProjectOwnershipClaimForUser,
+  rejectExternalProjectOwnershipClaimForUser,
+  requestExternalProjectOwnershipForUser,
+  withdrawExternalProjectOwnershipClaimForUser,
+} from "@/server/project-claims";
 import { projectRevisionValues } from "@/server/project-revisions";
 
 const maxThumbnailBytes = 5 * 1024 * 1024;
@@ -217,6 +223,10 @@ export const listPublicMcpProjectsSchema = z.object({
   query: optionalListFilter,
   tag: optionalListFilter,
   tool: optionalListFilter,
+});
+
+export const mcpOwnershipClaimIdSchema = z.object({
+  claimId: z.string().trim().uuid(),
 });
 
 export async function listMcpProjects(owner: McpUser) {
@@ -705,6 +715,153 @@ export async function claimMcpProject(owner: McpUser, projectId: string) {
       claimantId: result.claim.claimantId,
       status: result.claim.status,
       createdAt: result.claim.createdAt,
+    },
+    projectId: result.project.id,
+    owner: {
+      id: result.owner.id,
+      handle: result.owner.handle,
+      name: result.owner.name,
+    },
+    publicUrl: result.publicPath,
+  };
+}
+
+export async function listMcpOwnershipClaims(user: McpUser) {
+  const incoming = await db
+    .select({
+      id: projectOwnershipClaims.id,
+      status: projectOwnershipClaims.status,
+      createdAt: projectOwnershipClaims.createdAt,
+      updatedAt: projectOwnershipClaims.updatedAt,
+      resolvedAt: projectOwnershipClaims.resolvedAt,
+      projectId: projects.id,
+      projectTitle: projects.title,
+      projectSlug: projects.slug,
+      claimantId: users.id,
+      claimantName: users.name,
+      claimantHandle: users.handle,
+    })
+    .from(projectOwnershipClaims)
+    .innerJoin(projects, eq(projectOwnershipClaims.projectId, projects.id))
+    .innerJoin(users, eq(projectOwnershipClaims.claimantId, users.id))
+    .where(and(eq(projects.ownerId, user.id), eq(projectOwnershipClaims.status, "pending")))
+    .orderBy(asc(projectOwnershipClaims.createdAt));
+
+  const outgoing = await db
+    .select({
+      id: projectOwnershipClaims.id,
+      status: projectOwnershipClaims.status,
+      createdAt: projectOwnershipClaims.createdAt,
+      updatedAt: projectOwnershipClaims.updatedAt,
+      resolvedAt: projectOwnershipClaims.resolvedAt,
+      projectId: projects.id,
+      projectTitle: projects.title,
+      projectSlug: projects.slug,
+      ownerId: users.id,
+      ownerName: users.name,
+      ownerHandle: users.handle,
+    })
+    .from(projectOwnershipClaims)
+    .innerJoin(projects, eq(projectOwnershipClaims.projectId, projects.id))
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(eq(projectOwnershipClaims.claimantId, user.id))
+    .orderBy(desc(projectOwnershipClaims.createdAt))
+    .limit(50);
+
+  return {
+    incoming: incoming.map((claim) => ({
+      id: claim.id,
+      status: claim.status,
+      project: {
+        id: claim.projectId,
+        title: claim.projectTitle,
+        slug: claim.projectSlug,
+        publicUrl: projectPublicPath(user.handle, claim.projectSlug),
+      },
+      claimant: {
+        id: claim.claimantId,
+        handle: claim.claimantHandle,
+        name: claim.claimantName,
+      },
+      availableActions: ["approve", "reject"],
+      createdAt: claim.createdAt,
+      updatedAt: claim.updatedAt,
+      resolvedAt: claim.resolvedAt,
+    })),
+    outgoing: outgoing.map((claim) => ({
+      id: claim.id,
+      status: claim.status,
+      project: {
+        id: claim.projectId,
+        title: claim.projectTitle,
+        slug: claim.projectSlug,
+        publicUrl: projectPublicPath(claim.ownerHandle ?? claim.ownerId, claim.projectSlug),
+      },
+      owner: {
+        id: claim.ownerId,
+        handle: claim.ownerHandle,
+        name: claim.ownerName,
+      },
+      availableActions: claim.status === "pending" ? ["withdraw"] : [],
+      createdAt: claim.createdAt,
+      updatedAt: claim.updatedAt,
+      resolvedAt: claim.resolvedAt,
+    })),
+  };
+}
+
+export async function approveMcpOwnershipClaim(user: McpUser, claimId: string) {
+  const result = await approveExternalProjectOwnershipClaimForUser(user, claimId, "mcp_claim");
+
+  return {
+    approved: true,
+    claimId: result.claimId,
+    project: serializeProject(result.project, [], result.claimant.handle),
+    claimant: {
+      id: result.claimant.id,
+      handle: result.claimant.handle,
+      name: result.claimant.name,
+    },
+    previousOwner: {
+      id: result.previousOwner.id,
+      handle: result.previousOwner.handle,
+      name: result.previousOwner.name,
+    },
+    publicUrl: result.publicPath,
+    previousPublicUrl: result.previousPublicPath,
+  };
+}
+
+export async function rejectMcpOwnershipClaim(user: McpUser, claimId: string) {
+  const result = await rejectExternalProjectOwnershipClaimForUser(user, claimId);
+
+  return {
+    rejected: true,
+    claim: {
+      id: result.claim.id,
+      projectId: result.claim.projectId,
+      claimantId: result.claim.claimantId,
+      status: result.claim.status,
+      resolvedAt: result.claim.resolvedAt,
+      updatedAt: result.claim.updatedAt,
+    },
+    projectId: result.project.id,
+    publicUrl: result.publicPath,
+  };
+}
+
+export async function withdrawMcpOwnershipClaim(user: McpUser, claimId: string) {
+  const result = await withdrawExternalProjectOwnershipClaimForUser(user, claimId);
+
+  return {
+    withdrawn: true,
+    claim: {
+      id: result.claim.id,
+      projectId: result.claim.projectId,
+      claimantId: result.claim.claimantId,
+      status: result.claim.status,
+      resolvedAt: result.claim.resolvedAt,
+      updatedAt: result.claim.updatedAt,
     },
     projectId: result.project.id,
     owner: {

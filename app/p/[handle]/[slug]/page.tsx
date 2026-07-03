@@ -8,6 +8,7 @@ import {
   GitBranch,
   Settings,
   Star,
+  X,
 } from "lucide-react";
 
 import { MarkdownContent } from "@/components/markdown-content";
@@ -24,6 +25,7 @@ import {
   rejectExternalProjectOwnershipClaim,
   requestExternalProjectOwnershipClaim,
   toggleProjectFavorite,
+  withdrawExternalProjectOwnershipClaim,
 } from "@/server/actions";
 
 import { FeedbackComposer } from "./feedback-composer";
@@ -163,10 +165,14 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                     ) : null}
                     {canStartClaim ? (
                       viewerOwnershipClaim ? (
-                        <Button type="button" size="sm" disabled>
-                          <BadgeCheck className="size-4" aria-hidden="true" />
-                          Claim requested
-                        </Button>
+                        <form action={withdrawExternalProjectOwnershipClaim}>
+                          <input type="hidden" name="claimId" value={viewerOwnershipClaim.id} />
+                          <input type="hidden" name="returnTo" value={projectPath} />
+                          <Button type="submit" size="sm" variant="outline">
+                            <X className="size-4" aria-hidden="true" />
+                            Withdraw claim
+                          </Button>
+                        </form>
                       ) : viewer ? (
                         <form action={requestExternalProjectOwnershipClaim}>
                           <input type="hidden" name="projectId" value={project.id} />
@@ -285,10 +291,14 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                   Own this project? Request ownership transfer. The current reviewer must approve before this post moves to your profile.
                 </p>
                 {viewerOwnershipClaim ? (
-                  <Button type="button" size="sm" className="mt-3 w-full" disabled>
-                    <BadgeCheck className="size-4" aria-hidden="true" />
-                    Claim requested
-                  </Button>
+                  <form action={withdrawExternalProjectOwnershipClaim} className="mt-3">
+                    <input type="hidden" name="claimId" value={viewerOwnershipClaim.id} />
+                    <input type="hidden" name="returnTo" value={projectPath} />
+                    <Button type="submit" size="sm" variant="outline" className="w-full">
+                      <X className="size-4" aria-hidden="true" />
+                      Withdraw claim
+                    </Button>
+                  </form>
                 ) : viewer ? (
                   <form action={requestExternalProjectOwnershipClaim} className="mt-3">
                     <input type="hidden" name="projectId" value={project.id} />

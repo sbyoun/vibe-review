@@ -85,6 +85,10 @@ MCP tools:
 - `vibe.projects_create`
 - `vibe.projects_get`
 - `vibe.projects_claim`
+- `vibe.ownership_claims_list`
+- `vibe.ownership_claims_approve`
+- `vibe.ownership_claims_reject`
+- `vibe.ownership_claims_withdraw`
 - `vibe.public_projects_list`
 - `vibe.public_projects_get`
 - `vibe.projects_update`
