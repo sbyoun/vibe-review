@@ -10,7 +10,7 @@ import { getDiscoverData } from "@/server/data";
 
 export const dynamic = "force-dynamic";
 
-const discoverSortKeys = ["updated", "title", "owner", "status", "feedback"] as const;
+const discoverSortKeys = ["recent", "hot", "title"] as const;
 type DiscoverSortKey = (typeof discoverSortKeys)[number];
 type SortOrder = "asc" | "desc";
 
@@ -61,9 +61,16 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               </div>
               <div className="hidden gap-2 text-[11px] font-medium leading-[14px] text-muted-foreground md:flex">
                 <span>Sorted by:</span>
-                <SortMode label="Hot" active />
-                <SortMode label="Recent" href="/discover?sort=updated&order=desc" />
-                <SortMode label="Top" href="/discover?sort=feedback&order=desc" />
+                <SortMode
+                  label="Recent"
+                  href={discoverHref({ sort: "recent", order: "desc", page: 1 })}
+                  active={sort === "recent"}
+                />
+                <SortMode
+                  label="Hot"
+                  href={discoverHref({ sort: "hot", order: "desc", page: 1 })}
+                  active={sort === "hot"}
+                />
               </div>
             </div>
           </header>
@@ -89,7 +96,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                   order={order}
                   align="start"
                 />
-                <SortHeader label="Discuss" sortKey="feedback" currentSort={sort} order={order} />
+                <SortHeader label="Discuss" sortKey="hot" currentSort={sort} order={order} />
               </div>
 
               <div className="flex flex-col">
@@ -187,7 +194,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                               </span>
                             )}
                             <span className="text-border">•</span>
-                            <span>{formatShortDate(project.lastActivityAt)}</span>
+                            <span>{formatShortDate(project.createdAt)}</span>
                           </div>
                           <span className="md:hidden">
                             {project.feedbackCount} comments
@@ -355,14 +362,10 @@ function compareDiscoverRows(
 
   if (sort === "title") {
     value = collator.compare(left.project.title, right.project.title);
-  } else if (sort === "owner") {
-    value = collator.compare(projectOwnerLabel(left), projectOwnerLabel(right));
-  } else if (sort === "status") {
-    value = collator.compare(statusLabel[left.project.status], statusLabel[right.project.status]);
-  } else if (sort === "feedback") {
+  } else if (sort === "hot") {
     value = left.project.feedbackCount - right.project.feedbackCount;
   } else {
-    value = left.project.updatedAt.getTime() - right.project.updatedAt.getTime();
+    value = left.project.createdAt.getTime() - right.project.createdAt.getTime();
   }
 
   if (value === 0) {
@@ -370,18 +373,6 @@ function compareDiscoverRows(
   }
 
   return value * direction;
-}
-
-function projectOwnerLabel(row: Awaited<ReturnType<typeof getDiscoverData>>["projects"][number]) {
-  if (row.project.projectType === "external") {
-    return (
-      row.project.externalOwnerName ??
-      projectHost(row.project.externalOwnerUrl ?? row.project.sourceUrl) ??
-      ""
-    );
-  }
-
-  return row.owner.handle ?? row.owner.name ?? "";
 }
 
 function readSearchParam(
@@ -394,9 +385,17 @@ function readSearchParam(
 }
 
 function coerceSortKey(value: string | undefined): DiscoverSortKey {
+  if (value === "updated") {
+    return "recent";
+  }
+
+  if (value === "feedback") {
+    return "hot";
+  }
+
   return discoverSortKeys.includes(value as DiscoverSortKey)
     ? (value as DiscoverSortKey)
-    : "updated";
+    : "recent";
 }
 
 function coerceSortOrder(value: string | undefined, sort: DiscoverSortKey): SortOrder {
@@ -404,7 +403,7 @@ function coerceSortOrder(value: string | undefined, sort: DiscoverSortKey): Sort
     return value;
   }
 
-  return sort === "updated" || sort === "feedback" ? "desc" : "asc";
+  return sort === "recent" || sort === "hot" ? "desc" : "asc";
 }
 
 function coercePage(value: string | undefined) {
