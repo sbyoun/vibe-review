@@ -475,10 +475,13 @@ export async function approveExternalProjectOwnershipClaim(formData: FormData) {
   await ensureDemoData();
 
   const claimId = readRequiredString(formData, "claimId");
-  const owner = await requireCurrentUser();
+  const returnTo = safeRedirectPath(readOptionalString(formData, "returnTo"));
+  const owner = await requireCurrentUser(
+    (returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login") as Route,
+  );
   const result = await approveExternalProjectOwnershipClaimForUser(owner, claimId, "web_claim");
 
-  redirect(`${result.publicPath}?claim=approved` as Route);
+  redirect(withClaimStatus(returnTo ?? result.publicPath, "approved"));
 }
 
 export async function rejectExternalProjectOwnershipClaim(formData: FormData) {
@@ -491,7 +494,7 @@ export async function rejectExternalProjectOwnershipClaim(formData: FormData) {
   );
   const result = await rejectExternalProjectOwnershipClaimForUser(owner, claimId);
 
-  redirect(`${returnTo ?? result.publicPath}?claim=rejected` as Route);
+  redirect(withClaimStatus(returnTo ?? result.publicPath, "rejected"));
 }
 
 export async function createFeedback(formData: FormData) {
@@ -1052,4 +1055,13 @@ function profilePath(ownerHandle: string) {
 
 function projectPublicPath(ownerHandle: string, projectSlug: string) {
   return `${profilePath(ownerHandle)}/${encodeURIComponent(projectSlug)}` as Route;
+}
+
+function withClaimStatus(path: string, status: "approved" | "rejected") {
+  const hashIndex = path.indexOf("#");
+  const base = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
+  const hash = hashIndex >= 0 ? path.slice(hashIndex) : "";
+  const separator = base.includes("?") ? "&" : "?";
+
+  return `${base}${separator}claim=${status}${hash}` as Route;
 }

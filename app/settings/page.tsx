@@ -1,14 +1,28 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { headers } from "next/headers";
-import { KeyRound, MailCheck, Save } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  GitPullRequest,
+  KeyRound,
+  MailCheck,
+  Save,
+  X,
+} from "lucide-react";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { Button } from "@/components/ui/button";
 import { sendCurrentUserEmailVerification } from "@/server/auth-actions";
-import { updateCurrentUserProfile } from "@/server/actions";
-import { getWorkspaceData } from "@/server/data";
+import {
+  approveExternalProjectOwnershipClaim,
+  rejectExternalProjectOwnershipClaim,
+  updateCurrentUserProfile,
+} from "@/server/actions";
+import { getOwnershipClaimSettingsData, getWorkspaceData } from "@/server/data";
 import { listCurrentUserMcpTokens } from "@/server/mcp-token-actions";
+import { formatShortDate } from "@/lib/domain";
 
 import { McpTokenPanel } from "./mcp-token-panel";
 
@@ -19,15 +33,21 @@ const inputClass =
 const labelClass = "text-xs leading-4 text-muted-foreground";
 
 type SettingsPageProps = {
-  searchParams?: Promise<{ emailVerification?: string; verificationUrl?: string }>;
+  searchParams?: Promise<{
+    claim?: string;
+    emailVerification?: string;
+    verificationUrl?: string;
+  }>;
 };
 
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const data = await getWorkspaceData();
+  const ownershipClaims = await getOwnershipClaimSettingsData(data.owner.id);
   const mcpTokens = await listCurrentUserMcpTokens();
   const mcpEndpoint = `${await getPublicOrigin()}/mcp`;
   const params = await searchParams;
   const emailVerificationNotice = getEmailVerificationNotice(params?.emailVerification);
+  const claimNotice = getClaimNotice(params?.claim);
 
   return (
     <>
@@ -43,6 +63,9 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </a>
             <a className="-ml-2 rounded-sm p-2 text-sm text-muted-foreground hover:bg-muted" href="#profile">
               Profile
+            </a>
+            <a className="-ml-2 rounded-sm p-2 text-sm text-muted-foreground hover:bg-muted" href="#ownership-claims">
+              Ownership
             </a>
             <a className="-ml-2 rounded-sm p-2 text-sm text-muted-foreground hover:bg-muted" href="#mcp-api">
               MCP/API
@@ -187,6 +210,133 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </section>
           </form>
 
+          <section id="ownership-claims" className="flex flex-col gap-6">
+            <div className="border-b border-border pb-2">
+              <h2 className="text-base font-semibold leading-[22px]">Ownership Claims</h2>
+            </div>
+            <div className="border border-border bg-muted p-4">
+              <div className="flex items-start gap-3">
+                <GitPullRequest className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div>
+                  <h3 className="text-base font-semibold leading-[22px]">External Project Transfers</h3>
+                  <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                    Claims stay pending until the current post owner approves them. Requested claims are tracked here.
+                  </p>
+                </div>
+              </div>
+              {claimNotice ? (
+                <div className="mt-4 border border-border bg-card p-3 text-sm leading-5 text-foreground">
+                  {claimNotice}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold leading-5 text-foreground">Requests To Review</h3>
+                  <p className="text-xs leading-4 text-muted-foreground">
+                    Claims on external project posts you currently manage.
+                  </p>
+                </div>
+                {ownershipClaims.incoming.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {ownershipClaims.incoming.map((claim) => (
+                      <article key={claim.id} className="border border-border bg-card p-4">
+                        <div className="flex flex-col gap-2">
+                          <Link
+                            href={projectHref(data.owner.handle ?? data.owner.id, claim.projectSlug)}
+                            className="text-sm font-semibold leading-5 text-foreground hover:text-primary hover:underline"
+                          >
+                            {claim.projectTitle}
+                          </Link>
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            @{claim.claimantHandle ?? claim.claimantName ?? "user"} requested ownership on{" "}
+                            {formatShortDate(claim.createdAt)}.
+                          </p>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <form action={approveExternalProjectOwnershipClaim}>
+                            <input type="hidden" name="claimId" value={claim.id} />
+                            <input type="hidden" name="returnTo" value="/settings#ownership-claims" />
+                            <Button type="submit" size="sm">
+                              <Check className="size-4" aria-hidden="true" />
+                              Approve
+                            </Button>
+                          </form>
+                          <form action={rejectExternalProjectOwnershipClaim}>
+                            <input type="hidden" name="claimId" value={claim.id} />
+                            <input type="hidden" name="returnTo" value="/settings#ownership-claims" />
+                            <Button type="submit" size="sm" variant="outline">
+                              <X className="size-4" aria-hidden="true" />
+                              Reject
+                            </Button>
+                          </form>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border border-dashed border-border bg-card p-4 text-sm leading-5 text-muted-foreground">
+                    No pending ownership requests.
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold leading-5 text-foreground">Your Requests</h3>
+                  <p className="text-xs leading-4 text-muted-foreground">
+                    Claims you asked another project post owner to approve.
+                  </p>
+                </div>
+                {ownershipClaims.outgoing.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {ownershipClaims.outgoing.map((claim) => (
+                      <article key={claim.id} className="border border-border bg-card p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <Link
+                              href={projectHref(claim.ownerHandle ?? claim.ownerId, claim.projectSlug)}
+                              className="text-sm font-semibold leading-5 text-foreground hover:text-primary hover:underline"
+                            >
+                              {claim.projectTitle}
+                            </Link>
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                              Requested {formatShortDate(claim.createdAt)} from @
+                              {claim.ownerHandle ?? claim.ownerName ?? "owner"}.
+                            </p>
+                          </div>
+                          <span className={claimStatusClass(claim.status)}>
+                            {claimStatusLabel(claim.status)}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-3 text-xs leading-4 text-muted-foreground">
+                          <span>
+                            {claim.resolvedAt
+                              ? `Resolved ${formatShortDate(claim.resolvedAt)}`
+                              : "Waiting for owner review"}
+                          </span>
+                          <Link
+                            href={projectHref(claim.ownerHandle ?? claim.ownerId, claim.projectSlug)}
+                            className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                          >
+                            Open
+                            <ExternalLink className="size-3" aria-hidden="true" />
+                          </Link>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border border-dashed border-border bg-card p-4 text-sm leading-5 text-muted-foreground">
+                    You have not requested ownership of any external projects.
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
           <section id="mcp-api" className="flex flex-col gap-6">
             <div className="border-b border-border pb-2">
               <h2 className="text-base font-semibold leading-[22px]">MCP/API Tokens</h2>
@@ -220,6 +370,46 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
       <SiteFooter />
     </>
   );
+}
+
+function projectHref(ownerHandle: string, projectSlug: string) {
+  return `/p/${encodeURIComponent(ownerHandle)}/${encodeURIComponent(projectSlug)}` as Route;
+}
+
+function claimStatusLabel(status: string) {
+  switch (status) {
+    case "approved":
+      return "Approved";
+    case "rejected":
+      return "Rejected";
+    default:
+      return "Pending";
+  }
+}
+
+function claimStatusClass(status: string) {
+  const base =
+    "shrink-0 rounded-sm border px-2 py-1 text-[11px] font-medium leading-[14px]";
+
+  switch (status) {
+    case "approved":
+      return `${base} border-primary/30 bg-primary/10 text-primary`;
+    case "rejected":
+      return `${base} border-destructive/30 bg-destructive/10 text-destructive`;
+    default:
+      return `${base} border-border bg-muted text-muted-foreground`;
+  }
+}
+
+function getClaimNotice(status: string | undefined) {
+  switch (status) {
+    case "approved":
+      return "Ownership claim approved. The project post has been transferred.";
+    case "rejected":
+      return "Ownership claim rejected.";
+    default:
+      return null;
+  }
 }
 
 async function getPublicOrigin() {

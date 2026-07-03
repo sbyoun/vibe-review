@@ -420,6 +420,55 @@ export async function getWorkspaceData() {
   };
 }
 
+export async function getOwnershipClaimSettingsData(userId: string) {
+  const incoming = await db
+    .select({
+      id: projectOwnershipClaims.id,
+      status: projectOwnershipClaims.status,
+      createdAt: projectOwnershipClaims.createdAt,
+      updatedAt: projectOwnershipClaims.updatedAt,
+      projectId: projects.id,
+      projectTitle: projects.title,
+      projectSlug: projects.slug,
+      claimantId: users.id,
+      claimantName: users.name,
+      claimantHandle: users.handle,
+    })
+    .from(projectOwnershipClaims)
+    .innerJoin(projects, eq(projectOwnershipClaims.projectId, projects.id))
+    .innerJoin(users, eq(projectOwnershipClaims.claimantId, users.id))
+    .where(
+      and(
+        eq(projects.ownerId, userId),
+        eq(projectOwnershipClaims.status, "pending"),
+      ),
+    )
+    .orderBy(asc(projectOwnershipClaims.createdAt));
+
+  const outgoing = await db
+    .select({
+      id: projectOwnershipClaims.id,
+      status: projectOwnershipClaims.status,
+      createdAt: projectOwnershipClaims.createdAt,
+      updatedAt: projectOwnershipClaims.updatedAt,
+      resolvedAt: projectOwnershipClaims.resolvedAt,
+      projectId: projects.id,
+      projectTitle: projects.title,
+      projectSlug: projects.slug,
+      ownerId: users.id,
+      ownerName: users.name,
+      ownerHandle: users.handle,
+    })
+    .from(projectOwnershipClaims)
+    .innerJoin(projects, eq(projectOwnershipClaims.projectId, projects.id))
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(eq(projectOwnershipClaims.claimantId, userId))
+    .orderBy(desc(projectOwnershipClaims.createdAt))
+    .limit(20);
+
+  return { incoming, outgoing };
+}
+
 export async function getWorkspaceProjectData(projectId: string) {
   await ensureDemoData();
 
