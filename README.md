@@ -55,6 +55,7 @@ MCP 서버나 자동화 도구가 세션 쿠키 없이 Markdown 프로젝트 글
 - `GET /api/mcp/projects`: 내 프로젝트 목록
 - `POST /api/mcp/projects`: 프로젝트 생성
 - `GET /api/mcp/projects/{projectId}`: 프로젝트와 받은 피드백 상세
+- `POST /api/mcp/projects/{projectId}/claim`: 외부 공개 프로젝트 리뷰를 실제 소유자 계정으로 클레임
 - `PATCH /api/mcp/projects/{projectId}`: 프로젝트 수정
 - `GET /api/mcp/projects/{projectId}/revisions?limit=30`: 프로젝트 수정 이력 조회
 - `DELETE /api/mcp/projects/{projectId}`: 프로젝트 삭제

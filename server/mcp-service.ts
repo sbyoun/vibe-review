@@ -30,6 +30,7 @@ import {
   type ProjectVisibility,
 } from "@/lib/domain";
 import { ApiError, type McpUser } from "@/server/mcp-api";
+import { claimExternalProjectOwnershipForUser } from "@/server/project-claims";
 import { projectRevisionValues } from "@/server/project-revisions";
 
 const maxThumbnailBytes = 5 * 1024 * 1024;
@@ -689,6 +690,25 @@ export async function deleteMcpProject(owner: McpUser, projectId: string) {
   return {
     deleted: true,
     project: serializeProject(project, [], owner.handle),
+  };
+}
+
+export async function claimMcpProject(owner: McpUser, projectId: string) {
+  const result = await claimExternalProjectOwnershipForUser(owner, projectId, "mcp_claim");
+  const feedbackRows = await db
+    .select({
+      projectId: feedback.projectId,
+      implementedStatus: feedback.implementedStatus,
+    })
+    .from(feedback)
+    .where(eq(feedback.projectId, result.project.id));
+
+  return {
+    claimed: true,
+    project: serializeProject(result.project, feedbackRows, owner.handle),
+    previousOwner: result.previousOwner,
+    previousPublicUrl: result.previousPublicPath,
+    publicUrl: result.publicPath,
   };
 }
 

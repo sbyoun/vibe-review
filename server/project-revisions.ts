@@ -6,7 +6,13 @@ import {
 type ProjectRow = typeof projects.$inferSelect;
 type ProjectRevisionInsert = typeof projectRevisions.$inferInsert;
 
-export type ProjectRevisionSource = "web_update" | "web_status" | "web_restore" | "mcp_update";
+export type ProjectRevisionSource =
+  | "web_update"
+  | "web_status"
+  | "web_restore"
+  | "web_claim"
+  | "mcp_update"
+  | "mcp_claim";
 
 export function projectRevisionValues(
   project: ProjectRow,

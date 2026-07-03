@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  BadgeCheck,
   ChevronUp,
   ExternalLink,
   GitBranch,
@@ -18,7 +19,10 @@ import {
   statusLabel,
 } from "@/lib/domain";
 import { getPublicProjectData } from "@/server/data";
-import { toggleProjectFavorite } from "@/server/actions";
+import {
+  claimExternalProjectOwnership,
+  toggleProjectFavorite,
+} from "@/server/actions";
 
 import { FeedbackComposer } from "./feedback-composer";
 import { FeedbackThread } from "./feedback-thread";
@@ -54,6 +58,7 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
   const projectPath = `/p/${profile.handle}/${project.slug}`;
   const projectUrl = project.sourceUrl ?? project.repoUrl ?? project.demoUrl;
   const isExternal = project.projectType === "external";
+  const canClaimExternal = isExternal && !project.claimedById && viewer?.id !== project.ownerId;
   const publicFeedback = feedback.filter((entry) => entry.visibility === "public" && entry.kind === "feedback");
   const externalOwnerLabel =
     project.externalOwnerName ??
@@ -240,6 +245,30 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                 <dd>{project.favoriteCount}</dd>
               </div>
             </dl>
+            {canClaimExternal ? (
+              <div className="border-t border-border pt-4">
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Own this project? Claim it to move this post to your profile and manage future updates.
+                </p>
+                {viewer ? (
+                  <form action={claimExternalProjectOwnership} className="mt-3">
+                    <input type="hidden" name="projectId" value={project.id} />
+                    <input type="hidden" name="returnTo" value={projectPath} />
+                    <Button type="submit" size="sm" className="w-full">
+                      <BadgeCheck className="size-4" aria-hidden="true" />
+                      Claim project
+                    </Button>
+                  </form>
+                ) : (
+                  <Button type="button" size="sm" className="mt-3 w-full" asChild>
+                    <Link href={`/login?next=${encodeURIComponent(projectPath)}`}>
+                      <BadgeCheck className="size-4" aria-hidden="true" />
+                      Log in to claim
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-4 rounded-sm border border-border bg-card p-4">

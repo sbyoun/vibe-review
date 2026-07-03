@@ -36,6 +36,7 @@ import {
 import { safeRedirectPath } from "@/lib/redirects";
 import { ensureDemoData } from "@/server/data";
 import { requireCurrentUser } from "@/server/current-user";
+import { claimExternalProjectOwnershipForUser } from "@/server/project-claims";
 import { projectRevisionValues } from "@/server/project-revisions";
 
 const execFileAsync = promisify(execFile);
@@ -451,6 +452,19 @@ export async function captureProjectCover(formData: FormData) {
 
   revalidateWorkspace(owner.handle, project.slug, project.id);
   redirect(`/dashboard/projects/${project.id}?cover=captured` as Route);
+}
+
+export async function claimExternalProjectOwnership(formData: FormData) {
+  await ensureDemoData();
+
+  const projectId = readRequiredString(formData, "projectId");
+  const returnTo = safeRedirectPath(readOptionalString(formData, "returnTo"));
+  const claimant = await requireCurrentUser(
+    (returnTo ? `/login?next=${encodeURIComponent(returnTo)}` : "/login") as Route,
+  );
+  const result = await claimExternalProjectOwnershipForUser(claimant, projectId, "web_claim");
+
+  redirect(`${result.publicPath}?claimed=1` as Route);
 }
 
 export async function createFeedback(formData: FormData) {

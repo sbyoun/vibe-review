@@ -16,6 +16,7 @@ import {
   createMcpFeedbackSchema,
   createMcpProject,
   createMcpProjectSchema,
+  claimMcpProject,
   deleteMcpFeedback,
   deleteMcpFeedbackSchema,
   deleteMcpProject,
@@ -277,6 +278,21 @@ const tools = [
     name: "vibe.projects_get",
     title: "Get Vibe Project",
     description: "Read one owned project with its received feedback comments.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...authInputProperties(),
+        projectId: { type: "string" },
+      },
+      required: ["projectId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "vibe.projects_claim",
+    title: "Claim External Vibe Project",
+    description:
+      "Claim an unclaimed external public project review as the authenticated user's own project. The original submitter remains recorded, and ownership/edit permissions move to the claimant.",
     inputSchema: {
       type: "object",
       properties: {
@@ -660,6 +676,8 @@ async function callTool(request: Request, params: unknown) {
         return toolSuccess(await projectsCreate(request, args));
       case "vibe.projects_get":
         return toolSuccess(await projectsGet(request, args));
+      case "vibe.projects_claim":
+        return toolSuccess(await projectsClaim(request, args));
       case "vibe.public_projects_list":
         return toolSuccess(await publicProjectsList(args));
       case "vibe.public_projects_get":
@@ -714,6 +732,7 @@ async function authCheck(request: Request, args: JsonObject) {
       "projects:create",
       "projects:delete",
       "projects:history",
+      "projects:claim",
       "projects:read",
       "public_projects:read",
       "projects:update",
@@ -754,6 +773,13 @@ async function projectsGet(request: Request, args: JsonObject) {
   const input = parseToolInput(projectIdSchema, args);
 
   return getMcpProject(user, input.projectId);
+}
+
+async function projectsClaim(request: Request, args: JsonObject) {
+  const user = await requireToolUser(request, args);
+  const input = parseToolInput(projectIdSchema, args);
+
+  return claimMcpProject(user, input.projectId);
 }
 
 async function publicProjectsList(args: JsonObject) {
