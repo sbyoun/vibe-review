@@ -143,6 +143,11 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                             {projectHost(project.sourceUrl ?? project.demoUrl ?? project.repoUrl) ?? `@${owner.handle}`}
                           </span>
                         </div>
+                        {project.summary ? (
+                          <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground">
+                            {project.summary}
+                          </p>
+                        ) : null}
                         <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs leading-4 text-muted-foreground">
                           <div className="flex flex-wrap items-center gap-1">
                             {project.categoryTags.slice(0, 3).map((tag, tagIndex) => (
