@@ -16,6 +16,7 @@ import {
   feedback,
   feedbackDismissals,
   feedbackImplementationEvents,
+  feedbackReactions,
   projectFavorites,
   projectRevisions,
   projectStatusEvents,
@@ -871,6 +872,54 @@ export async function toggleProjectFavorite(formData: FormData) {
 
   revalidateWorkspace(row.ownerHandle, row.project.slug, row.project.id);
   revalidatePath(`/p/${user.handle}`);
+}
+
+export async function toggleFeedbackUpvote(formData: FormData) {
+  await ensureDemoData();
+  const user = await requireCurrentUser();
+  const feedbackId = readRequiredString(formData, "feedbackId");
+
+  const [row] = await db
+    .select({
+      entry: feedback,
+      project: projects,
+      ownerHandle: users.handle,
+    })
+    .from(feedback)
+    .innerJoin(projects, eq(feedback.projectId, projects.id))
+    .innerJoin(users, eq(projects.ownerId, users.id))
+    .where(eq(feedback.id, feedbackId))
+    .limit(1);
+
+  const canSeeEntry =
+    row &&
+    (row.project.visibility !== "private" || row.project.ownerId === user.id) &&
+    (row.entry.visibility !== "private" ||
+      row.project.ownerId === user.id ||
+      row.entry.authorId === user.id);
+
+  if (!row || !canSeeEntry) {
+    throw new Error("Comment not found");
+  }
+
+  const [existing] = await db
+    .select({ feedbackId: feedbackReactions.feedbackId })
+    .from(feedbackReactions)
+    .where(and(eq(feedbackReactions.feedbackId, feedbackId), eq(feedbackReactions.userId, user.id)))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .delete(feedbackReactions)
+      .where(and(eq(feedbackReactions.feedbackId, feedbackId), eq(feedbackReactions.userId, user.id)));
+  } else {
+    await db
+      .insert(feedbackReactions)
+      .values({ feedbackId, userId: user.id, helpful: true })
+      .onConflictDoNothing();
+  }
+
+  revalidateWorkspace(row.ownerHandle, row.project.slug, row.project.id);
 }
 
 async function createUniqueProjectSlug(title: string, ownerId: string) {

@@ -72,6 +72,7 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
   const isExternal = project.projectType === "external";
   const canStartClaim = isExternal && !project.claimedById && viewer?.id !== project.ownerId;
   const publicFeedback = feedback.filter((entry) => entry.visibility === "public" && entry.kind === "feedback");
+  const vibedByReviewers = groupVibedBy(publicFeedback);
   const externalOwnerLabel =
     project.externalOwnerName ??
     projectHost(project.externalOwnerUrl ?? project.sourceUrl) ??
@@ -149,7 +150,7 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
                       </form>
                     ) : (
                       <Button type="button" variant="outline" size="sm" asChild>
-                        <Link href="/login">
+                        <Link href={`/login?next=${encodeURIComponent(projectPath)}`}>
                           <Star className="size-4" aria-hidden="true" />
                           Favorite
                         </Link>
@@ -242,7 +243,12 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
           </section>
 
           <section id="comments" className="flex flex-col gap-6 pl-8">
-            <FeedbackThread feedback={feedback} viewerId={viewer?.id ?? null} isOwner={isOwner} />
+            <FeedbackThread
+              feedback={feedback}
+              viewerId={viewer?.id ?? null}
+              isOwner={isOwner}
+              projectPath={projectPath}
+            />
           </section>
         </div>
 
@@ -389,14 +395,17 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
               Vibed By
             </h3>
             <ul className="flex flex-col gap-2 text-xs leading-4">
-              {publicFeedback.slice(0, 4).map((entry) => (
-                <li key={entry.id}>
+              {vibedByReviewers.slice(0, 4).map((reviewer) => (
+                <li key={reviewer.authorId}>
                   <a
-                    href={`#feedback-${entry.id}`}
-                    className="-mx-1 flex justify-between rounded-sm p-1 hover:bg-muted"
+                    href={`#feedback-${reviewer.firstFeedbackId}`}
+                    className="-mx-1 flex justify-between gap-2 rounded-sm p-1 hover:bg-muted"
                   >
-                    <span className="text-foreground">{entry.authorName ?? "User"}</span>
-                    <span className="text-muted-foreground">{entry.rating ?? 0}.0</span>
+                    <span className="truncate text-foreground">{reviewer.authorName ?? "User"}</span>
+                    <span className="whitespace-nowrap text-muted-foreground">
+                      {reviewer.count > 1 ? `${reviewer.count} vibes · ` : ""}
+                      {reviewer.averageRating.toFixed(1)}
+                    </span>
                   </a>
                 </li>
               ))}
@@ -415,6 +424,43 @@ export default async function PublicProjectPage({ params }: PublicProjectPagePro
       <SiteFooter />
     </>
   );
+}
+
+function groupVibedBy(
+  entries: { id: string; authorId: string; authorName: string | null; rating: number | null }[],
+) {
+  const reviewers = new Map<
+    string,
+    {
+      authorId: string;
+      authorName: string | null;
+      firstFeedbackId: string;
+      count: number;
+      ratingSum: number;
+    }
+  >();
+
+  for (const entry of entries) {
+    const reviewer = reviewers.get(entry.authorId);
+
+    if (reviewer) {
+      reviewer.count += 1;
+      reviewer.ratingSum += entry.rating ?? 0;
+    } else {
+      reviewers.set(entry.authorId, {
+        authorId: entry.authorId,
+        authorName: entry.authorName,
+        firstFeedbackId: entry.id,
+        count: 1,
+        ratingSum: entry.rating ?? 0,
+      });
+    }
+  }
+
+  return Array.from(reviewers.values()).map((reviewer) => ({
+    ...reviewer,
+    averageRating: reviewer.ratingSum / reviewer.count,
+  }));
 }
 
 function projectHost(url: string | null | undefined) {

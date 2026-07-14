@@ -6,6 +6,7 @@ import {
   feedback,
   feedbackDismissals,
   feedbackClaims,
+  feedbackReactions,
   projectOwnershipClaims,
   feedbackRequests,
   projectFavorites,
@@ -934,6 +935,34 @@ export async function getPublicProjectData(handle: string, slug: string) {
     )
     .orderBy(asc(feedback.createdAt));
 
+  const feedbackIds = feedbackRows.map((entry) => entry.id);
+  const reactionRows =
+    feedbackIds.length > 0
+      ? await db
+          .select({
+            feedbackId: feedbackReactions.feedbackId,
+            userId: feedbackReactions.userId,
+          })
+          .from(feedbackReactions)
+          .where(
+            and(
+              inArray(feedbackReactions.feedbackId, feedbackIds),
+              eq(feedbackReactions.helpful, true),
+            ),
+          )
+      : [];
+  const feedbackWithVotes = feedbackRows.map((entry) => {
+    const reactions = reactionRows.filter((reaction) => reaction.feedbackId === entry.id);
+
+    return {
+      ...entry,
+      upvoteCount: reactions.length,
+      viewerHasUpvoted: viewer
+        ? reactions.some((reaction) => reaction.userId === viewer.id)
+        : false,
+    };
+  });
+
   const favoriteRows = await db
     .select({
       projectId: projectFavorites.projectId,
@@ -1002,7 +1031,7 @@ export async function getPublicProjectData(handle: string, slug: string) {
       : null,
     ownershipClaimRequests:
       viewer?.id === row.project.ownerId ? ownershipClaimRows : [],
-    feedback: feedbackRows,
+    feedback: feedbackWithVotes,
   };
 }
 

@@ -21,6 +21,7 @@ import {
 import {
   createFeedback,
   deleteFeedback,
+  toggleFeedbackUpvote,
   updateFeedbackDetails,
 } from "@/server/actions";
 
@@ -39,19 +40,22 @@ type FeedbackEntry = {
   visibility: FeedbackVisibility;
   kind: FeedbackKind;
   createdAt: Date | string;
+  upvoteCount: number;
+  viewerHasUpvoted: boolean;
 };
 
 type FeedbackThreadProps = {
   feedback: FeedbackEntry[];
   viewerId: string | null;
   isOwner: boolean;
+  projectPath: string;
 };
 
 type FeedbackFilter = "all" | "public" | "private";
 
 const ownerKindOptions: FeedbackKind[] = [...feedbackKinds];
 
-export function FeedbackThread({ feedback, viewerId, isOwner }: FeedbackThreadProps) {
+export function FeedbackThread({ feedback, viewerId, isOwner, projectPath }: FeedbackThreadProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FeedbackFilter>("all");
@@ -83,6 +87,11 @@ export function FeedbackThread({ feedback, viewerId, isOwner }: FeedbackThreadPr
     await deleteFeedback(formData);
     setEditingId(null);
     setReplyingId(null);
+    router.refresh();
+  }
+
+  async function upvoteFeedback(formData: FormData) {
+    await toggleFeedbackUpvote(formData);
     router.refresh();
   }
 
@@ -119,6 +128,7 @@ export function FeedbackThread({ feedback, viewerId, isOwner }: FeedbackThreadPr
               viewerId={viewerId}
               isOwner={isOwner}
               filter={filter}
+              projectPath={projectPath}
               editingId={editingId}
               replyingId={replyingId}
               onEdit={setEditingId}
@@ -126,6 +136,7 @@ export function FeedbackThread({ feedback, viewerId, isOwner }: FeedbackThreadPr
               onSave={saveFeedback}
               onReplySubmit={replyToFeedback}
               onDeleteSubmit={removeFeedback}
+              onUpvote={upvoteFeedback}
             />
           ))}
         </div>
@@ -142,6 +153,7 @@ function FeedbackItem({
   viewerId,
   isOwner,
   filter,
+  projectPath,
   editingId,
   replyingId,
   onEdit,
@@ -149,12 +161,14 @@ function FeedbackItem({
   onSave,
   onReplySubmit,
   onDeleteSubmit,
+  onUpvote,
 }: {
   entry: FeedbackEntry;
   repliesByParent: Map<string, FeedbackEntry[]>;
   viewerId: string | null;
   isOwner: boolean;
   filter: FeedbackFilter;
+  projectPath: string;
   editingId: string | null;
   replyingId: string | null;
   onEdit: (id: string | null) => void;
@@ -162,7 +176,9 @@ function FeedbackItem({
   onSave: (formData: FormData) => Promise<void>;
   onReplySubmit: (formData: FormData) => Promise<void>;
   onDeleteSubmit: (formData: FormData) => Promise<void>;
+  onUpvote: (formData: FormData) => Promise<void>;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   const canEditFeedback = viewerId === entry.authorId;
   const isEditing = editingId === entry.id;
   const isReplying = replyingId === entry.id;
@@ -253,23 +269,51 @@ function FeedbackItem({
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2 text-xs leading-4 text-muted-foreground">
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-secondary"
-              aria-label="Upvote"
-            >
-              <ChevronUp className="size-4" aria-hidden="true" />
-            </button>
+            {viewerId ? (
+              <form action={onUpvote} className="flex">
+                <input type="hidden" name="feedbackId" value={entry.id} />
+                <button
+                  type="submit"
+                  className={
+                    entry.viewerHasUpvoted
+                      ? "text-secondary"
+                      : "text-muted-foreground hover:text-secondary"
+                  }
+                  aria-pressed={entry.viewerHasUpvoted}
+                  aria-label={entry.viewerHasUpvoted ? "Remove upvote" : "Upvote"}
+                >
+                  <ChevronUp className="size-4" aria-hidden="true" />
+                </button>
+              </form>
+            ) : (
+              <a
+                href={`/login?next=${encodeURIComponent(`${projectPath}#feedback-${entry.id}`)}`}
+                className="text-muted-foreground hover:text-secondary"
+                aria-label="Log in to upvote"
+              >
+                <ChevronUp className="size-4" aria-hidden="true" />
+              </a>
+            )}
+            {entry.upvoteCount > 0 ? (
+              <span className="font-medium text-foreground">{entry.upvoteCount}</span>
+            ) : null}
             <a className="font-bold text-foreground hover:underline" href={`#feedback-${entry.id}`}>
               {entry.authorName ?? "User"}
             </a>
-            {entry.kind === "feedback" ? <span>({(entry.rating ?? 0) * 120})</span> : null}
             <span>{formatShortDate(entry.createdAt)}</span>
-            <span>[-]</span>
+            <button
+              type="button"
+              className="hover:text-foreground"
+              onClick={() => setCollapsed((value) => !value)}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? "Expand comment" : "Collapse comment"}
+            >
+              [{collapsed ? "+" : "-"}]
+            </button>
             <FeedbackBadges entry={entry} />
           </div>
 
-          <div className="mt-1 pl-6">
+          <div className={collapsed ? "hidden" : "mt-1 pl-6"}>
             <div className="vc-markdown">
               <MarkdownContent>{entry.body}</MarkdownContent>
             </div>
@@ -336,7 +380,7 @@ function FeedbackItem({
             ) : null}
           </div>
 
-          {replies.length > 0 ? (
+          {!collapsed && replies.length > 0 ? (
             <div className="mt-3 border-l border-border pl-4">
               <div className="flex flex-col gap-3">
                 {replies.map((reply) => (
@@ -347,6 +391,7 @@ function FeedbackItem({
                     viewerId={viewerId}
                     isOwner={isOwner}
                     filter={filter}
+                    projectPath={projectPath}
                     editingId={editingId}
                     replyingId={replyingId}
                     onEdit={onEdit}
@@ -354,6 +399,7 @@ function FeedbackItem({
                     onSave={onSave}
                     onReplySubmit={onReplySubmit}
                     onDeleteSubmit={onDeleteSubmit}
+                    onUpvote={onUpvote}
                   />
                 ))}
               </div>
