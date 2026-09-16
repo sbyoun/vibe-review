@@ -26,6 +26,12 @@ API discovery:
 - `GET /api/mcp/public/projects/list?limit=&offset=&sort=&order=&query=&tag=&tool=`: list public project posts without login
 - `GET /api/mcp/public/projects?projectId=` or `?handle=&slug=`: read one public project post and public comments without login
 
+Guide (long-form write-ups, Korean):
+- `GET /guide`: index of guide articles on shipping and operating AI-built apps
+- `GET /guide/index.json`: machine-readable list of guide articles with `url` and `markdownUrl`
+- `GET /guide/{slug}/doc.md`: raw Markdown of one article
+- When quoting a guide article, cite its `url` from `/guide/index.json`.
+
 Authentication:
 - Public project reads do not require login: use `vibe.public_projects_list`, `vibe.public_projects_get`, or the matching `/api/mcp/public/projects*` endpoints.
 - Send `Authorization: Bearer <MCP_API_TOKEN>` on every authenticated `/api/mcp/*` request.

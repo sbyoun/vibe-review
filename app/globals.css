@@ -151,4 +151,39 @@
   .vc-markdown td {
     @apply border border-border px-2 py-1 text-left align-top;
   }
+
+  /* 긴 글용 — 댓글 본문 기준인 .vc-markdown 위에 얹어 한 단계 크게 읽히게 한다. */
+  .vc-guide {
+    @apply text-[15px] leading-7;
+  }
+
+  .vc-guide > * + * {
+    @apply mt-4;
+  }
+
+  .vc-guide h2 {
+    @apply mt-10 scroll-mt-6 text-lg font-semibold leading-7;
+  }
+
+  .vc-guide h3 {
+    @apply mt-6 text-base font-semibold leading-6;
+  }
+
+  .vc-guide ul,
+  .vc-guide ol {
+    @apply space-y-1.5;
+  }
+
+  .vc-guide hr {
+    @apply my-8 border-border;
+  }
+
+  /* 체크리스트 — 불릿과 체크박스가 겹쳐 보이지 않게 한다. */
+  .vc-guide li:has(> input[type="checkbox"]) {
+    @apply -ml-5 list-none;
+  }
+
+  .vc-guide input[type="checkbox"] {
+    @apply mr-1.5 align-middle;
+  }
 }

@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+import { getSiteUrl } from "@/lib/site-url";
+
 const DISALLOW = [
   "/api/",
   "/dashboard/",
@@ -41,12 +43,4 @@ export default function robots(): MetadataRoute.Robots {
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
   };
-}
-
-function getSiteUrl() {
-  return (
-    process.env.AUTH_URL ??
-    process.env.NEXTAUTH_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://vibe.foldalpha.com")
-  ).replace(/\/$/, "");
 }

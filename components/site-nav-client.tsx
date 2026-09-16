@@ -38,6 +38,11 @@ export function SiteNavClient({
       href: "/discover",
       active: pathname === "/" || pathname.startsWith("/discover"),
     },
+    {
+      label: "Guide",
+      href: "/guide",
+      active: pathname.startsWith("/guide"),
+    },
   ];
 
   if (isAuthenticated) {
