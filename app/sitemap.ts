@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { projects, users } from "@/db/schema";
+import { getGuideArticles } from "@/lib/guide";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const revalidate = 3600;
 
@@ -20,6 +22,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/contact`, lastModified: STATIC_LAST_MODIFIED, changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/mcp-agent-guide`, lastModified: STATIC_LAST_MODIFIED, changeFrequency: "weekly", priority: 0.4 },
   ];
+
+  // 가이드 글의 lastmod 는 프론트매터의 date 다. 본문을 고치면 그 date 를 올린다.
+  const guideArticles = getGuideArticles();
+  if (guideArticles.length > 0) {
+    staticRoutes.push({
+      url: `${baseUrl}/guide`,
+      lastModified: guideArticles[0].date,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    });
+    for (const article of guideArticles) {
+      staticRoutes.push({
+        url: `${baseUrl}/guide/${article.slug}`,
+        lastModified: article.date,
+        changeFrequency: "monthly",
+        priority: 0.7,
+      });
+    }
+  }
   const discoverRoute = (lastModified: Date | string): MetadataRoute.Sitemap[number] => ({
     url: `${baseUrl}/discover`,
     lastModified,
@@ -76,12 +97,4 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.warn("[sitemap] Failed to load public project routes:", error);
     return [discoverRoute(STATIC_LAST_MODIFIED), ...staticRoutes];
   }
-}
-
-function getSiteUrl() {
-  return (
-    process.env.AUTH_URL ??
-    process.env.NEXTAUTH_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://vibe.foldalpha.com")
-  ).replace(/\/$/, "");
 }
