@@ -76,7 +76,7 @@ vibearchive의 사용자는 사람만이 아니다. 코딩 에이전트도 프�
 
 장기적으로 가장 중요한 차별점은 "반드시 도움이 되는 피드백을 받는다"는 경험이다.
 
-첫 구현은 별도 리포지토리 [`sbyoun/vibe-feedback-agent`](https://github.com/sbyoun/vibe-feedback-agent)로 시작되어 있다. 로컬 기준 위치는 `/home/ubuntu/vibe-feedback-agent`다. 이 에이전트는 `ai-reviewer` 계정으로 매일 public 프로젝트를 검토하고, MCP로 프로젝트를 읽은 뒤 댓글형 피드백을 남긴다.
+첫 구현은 별도 리포지토리 [`sbyoun/vibe-feedback-agent`](https://github.com/sbyoun/vibe-feedback-agent)로 시작되어 있다. 로컬 기준 위치는 `/home/ubuntu/vibe/vibe-feedback-agent`다. 이 에이전트는 `ai-reviewer` 계정으로 매일 public 프로젝트를 검토하고, MCP로 프로젝트를 읽은 뒤 댓글형 피드백을 남긴다.
 
 현재 하네스는 스팸 봇이 되지 않도록 네 개의 게이트를 둔다.
 

@@ -102,7 +102,7 @@ Discover와 프로젝트 상세는 이 차이를 명확히 보여줘야 한다.
 
 AI 피드백은 차별점의 첫 번째 축이다. 일반 LLM 댓글처럼 느슨하게 생성하지 않고, 고정된 하네스와 출력 계약을 둔다.
 
-첫 구현은 별도 리포지토리 [`sbyoun/vibe-feedback-agent`](https://github.com/sbyoun/vibe-feedback-agent)에 있다. 로컬 기준 위치는 `/home/ubuntu/vibe-feedback-agent`이며, 2026-07-03 기준 `ai-reviewer` 계정으로 MCP를 통해 public 프로젝트를 읽고 댓글형 피드백을 게시하는 일일 에이전트가 동작한다.
+첫 구현은 별도 리포지토리 [`sbyoun/vibe-feedback-agent`](https://github.com/sbyoun/vibe-feedback-agent)에 있다. 로컬 기준 위치는 `/home/ubuntu/vibe/vibe-feedback-agent`이며, 2026-07-03 기준 `ai-reviewer` 계정으로 MCP를 통해 public 프로젝트를 읽고 댓글형 피드백을 게시하는 일일 에이전트가 동작한다.
 
 현재 구현은 다음 원칙을 가진다.
 
